@@ -1,0 +1,25 @@
+{
+  "name": "safety-hub",
+  "version": "1.0.0",
+  "description": "- Node.js with Express.js - React - Radix UI - PostgreSQL - Prisma - Docker",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "concurrently \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BesherKitaz/Safety-hub.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/BesherKitaz/Safety-hub/issues"
+  },
+  "homepage": "https://github.com/BesherKitaz/Safety-hub#readme",
+  "devDependencies": {
+    "concurrently": "^10.0.3"
+  }
+}

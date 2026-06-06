@@ -3,7 +3,7 @@
 
 ## Tech Stack:
 - Node.js with Express.js
-- React
+- React.js with Vite
 - Radix UI
 - PostgreSQL
 - Prisma

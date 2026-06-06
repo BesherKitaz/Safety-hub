@@ -8,4 +8,8 @@ export default defineConfig({
     react(),
     babel({ presets: [reactCompilerPreset()] })
   ],
+  server: {
+    port: 3000, // Change this to your preferred port number
+    strictPort: true, // Optional: Prevents Vite from automatically trying the next available port if 3000 is occupied
+  }
 })
