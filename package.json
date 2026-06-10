@@ -5,7 +5,12 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "concurrently \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\""
+    "dev": "concurrently \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
+    "db-shell": "docker exec -it safetyhub-db psql -U safetyhub -d safetyhub",
+    "db-reset": "./scripts/database-reset.sh",
+    "db-studio": "cd backend && npx prisma studio --browser none --port 5555",
+    "db-migrate": "./scripts/database-migrate.sh",
+    "set-up": "bash ./scripts/set-up.sh"
   },
   "repository": {
     "type": "git",
@@ -21,5 +26,10 @@
   "homepage": "https://github.com/BesherKitaz/Safety-hub#readme",
   "devDependencies": {
     "concurrently": "^10.0.3"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "monorepo": "github:radix-ui/themes",
+    "radix": "^0.0.0"
   }
 }

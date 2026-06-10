@@ -1,0 +1,82 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// =====================
+// Models
+// =====================
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  role      UserRole @default(STUDENT)
+  firstName String
+  lastName  String
+
+  issuedCertifications   Certification[] @relation("IssuedCertifications")
+  receivedCertifications Certification[] @relation("ReceivedCertifications")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Category {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  description String?
+
+  certifications Certification[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Certification {
+  id String @id @default(cuid())
+
+  issuedToId String
+  issuedTo   User   @relation("ReceivedCertifications", fields: [issuedToId], references: [id])
+
+  issuedById String
+  issuedBy   User   @relation("IssuedCertifications", fields: [issuedById], references: [id])
+
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  level CertificationLevel
+  notes String?
+
+  issuedAt  DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([issuedToId, categoryId, level])
+  @@index([categoryId])
+  @@index([issuedToId, categoryId])
+}
+
+// =====================
+// Enums
+// =====================
+
+enum UserRole {
+  STAFF
+  MENTOR
+  STUDENT
+  ADMIN
+}
+
+enum CertificationLevel {
+  LEVEL_1
+  LEVEL_2
+  LEVEL_3
+  LEVEL_4
+}

@@ -1,0 +1,24 @@
+import express from 'express';
+import cors from 'cors';
+
+import userRoutes from './routes/user';
+
+const app = express();
+
+
+// Support CORS and JSON parsing
+app.use(cors())
+app.use(express.json());
+
+
+// Static apis and file serving
+app.use("/api", express.static('public'));
+app.use("/api", express.static('uploads'));
+
+
+//Serving different routes
+app.use("/api/user", userRoutes);
+
+
+
+export default app;
