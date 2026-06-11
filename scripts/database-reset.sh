@@ -1,4 +1,6 @@
 #!/bin/bash
+set -e
+
 
 echo "===================================="
 echo -e "\e[33mWARNING: This will DELETE ALL DATA\e[0m"
@@ -13,10 +15,11 @@ if [ "$confirm" != "y" ]; then
 fi
 
 docker compose down -v
-docker compose up -d db
+docker compose up -d db workspace
 
-cd backend
-npx prisma migrate dev
+docker compose exec workspace sh -lc "cd backend && npx prisma migrate dev"
+docker compose exec workspace sh -lc "cd backend && npx prisma generate"
+
 
 echo "Database reset complete."
 

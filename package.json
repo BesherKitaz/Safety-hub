@@ -5,12 +5,15 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "concurrently \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
-    "db-shell": "docker exec -it safetyhub-db psql -U safetyhub -d safetyhub",
+    "dev": "docker compose exec workspace sh -lc \"npm run dev:workspace\"",
+    "dev:workspace": "concurrently \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
     "db-reset": "./scripts/database-reset.sh",
-    "db-studio": "cd backend && npx prisma studio --browser none --port 5555",
     "db-migrate": "./scripts/database-migrate.sh",
-    "set-up": "bash ./scripts/set-up.sh"
+    "set-up": "bash ./scripts/set-up.sh",
+    "db-shell": "docker compose exec db psql -U safetyhub -d safetyhub",
+    "db-studio": "docker compose exec workspace sh -lc \"cd backend && npx prisma studio --browser none --port 5555\"",
+    "docker-shell": "docker compose exec workspace bash",
+    "hash-gen": "docker compose exec workspace sh -lc \"cd backend && npx ts-node src/util/hash-gen.ts\""
   },
   "repository": {
     "type": "git",

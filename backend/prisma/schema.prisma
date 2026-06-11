@@ -21,7 +21,7 @@ model User {
   role      UserRole @default(STUDENT)
   firstName String
   lastName  String
-
+  passwordHash String
   issuedCertifications   Certification[] @relation("IssuedCertifications")
   receivedCertifications Certification[] @relation("ReceivedCertifications")
 

@@ -21,8 +21,8 @@ services:
       - /workspace/frontend/node_modules
     working_dir: /workspace
     ports:
+      - "3000:3000"
       - "3001:3001"
-      - "5173:5173"
       - "5555:5555"
     env_file:
       - .env.docker

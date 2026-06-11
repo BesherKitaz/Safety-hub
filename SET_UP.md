@@ -26,9 +26,20 @@ Safety-hub/
 │   ├── Dockerfile
 │   └── prisma.config.ts
 ├── frontend/
-│   ├── src/
-│   └── Dockerfile
-└── README.md
+│   └── src/
+│   
+├── scripts/
+│    ├── database-migrate.sh
+│    ├── database-reset.sh
+│    ├──set-up.sh
+│    │
+│    └── ...
+│
+├──README.md
+├──.env
+├──.env.docker
+├──docker.compose.yaml
+└── Dockerfile
 ```
 
 ---
@@ -53,6 +64,8 @@ docker compose version
 # Environment Configuration
 
 Create a `.env` file in the project root.
+Create a `.env.docker` file in the project root.
+
 
 ```env
 POSTGRES_USER=safetyhub         // Development Database
@@ -63,10 +76,14 @@ POSTGRES_PORT=5432
 BACKEND_PORT=3001
 FRONTEND_PORT=3000
 
-DATABASE_URL=postgresql://safetyhub:safetyhub@db:5432/safetyhub
 ```
 
-## Why use `db:5432` instead of `localhost`?
+```env.docker
+DATABASE_URL="postgresql://safetyhub:safetyhub@db:5432/safetyhub"
+
+```
+
+## Why use `db:5432` instead of `localhost` in docker?
 
 Inside Docker:
 
@@ -96,8 +113,7 @@ docker compose up --build
 
 ### What this does
 
-- Builds frontend image
-- Builds backend image
+- Builds Workflow image
 - Pulls PostgreSQL image
 - Creates containers
 - Starts all services
@@ -128,11 +144,18 @@ Expected containers:
 
 ```text
 safetyhub-db
-safetyhub-backend
-safetyhub-frontend
+safetyhub-workflow
 ```
 
 ---
+# Setup development enviroment, run containers and install dependencies
+
+Run this regularly when you start development
+
+```bash
+./scripts/set-up.sh
+```
+
 
 # Stopping the Application
 
@@ -159,18 +182,12 @@ Sometimes PostgreSQL credentials or schema become corrupted during development.
 Reset everything:
 
 ```bash
-docker compose down -v
-```
-
-Then:
-
-```bash
-docker compose up --build
+./scripts/database-reset.sh
 ```
 
 ### Warning
 
-The `-v` flag removes volumes.
+This script removes volumes and therefore erases all data in the database. Do NOT run this in production.
 
 This permanently deletes:
 
@@ -184,41 +201,25 @@ Only use during development.
 
 # Prisma Workflow
 
-## Create a Migration
+## Create a Migration & generate a new client
 
 After modifying `schema.prisma`:
 
+
 ```bash
-docker compose exec backend npx prisma migrate dev
+./scripts/database-migrate.sh
 ```
 
 ### What this does
 
-1. Compares schema changes.
-2. Generates SQL migration files.
-3. Applies migrations.
-4. Regenerates Prisma Client.
-
----
-
-## Regenerate Prisma Client
-
-If types become outdated:
-
-```bash
-docker compose exec backend npx prisma generate
-```
-
-### What this does
-
-Regenerates TypeScript Prisma types.
+Reflects changes made to schema on the database and regenerates TypeScript Prisma types.
 
 ---
 
 ## Open Prisma Studio
 
 ```bash
-docker compose exec backend npx prisma studio --browser none --port 5555
+cd backend && npx prisma studio --browser none --port 5555
 ```
 
 Prisma Studio provides a GUI for viewing and editing database records.
@@ -281,10 +282,10 @@ to stop viewing logs.
 
 # Accessing Containers
 
-Open a shell inside the backend container:
+Open a shell inside the workflow container:
 
 ```bash
-docker compose exec backend sh
+docker compose exec workflow sh
 ```
 
 Open a shell inside PostgreSQL:
@@ -389,32 +390,40 @@ docker compose down
 
 # Daily Development Workflow
 
-Start project:
+### Start project:
 
 ```bash
-docker compose up -d
+./scripts/set-up.sh
 ```
 
-Check logs if needed:
+or 
 
 ```bash
-docker compose logs -f backend
+npm run set-up
 ```
 
-Modify code.
+### Run Development Server
 
-If Prisma schema changes:
+Run both backend and frontend server concurrently
+
+
+From project root:
 
 ```bash
-docker compose exec backend npx prisma migrate dev
+npm run dev
 ```
 
-When finished:
+### If Prisma schema changes:
 
 ```bash
-docker compose down
+./scripts/database-migrate.sh
 ```
 
+or 
+
+```bash
+npm run db-migrate
+```
 ---
 
 # Important Docker Networking Notes

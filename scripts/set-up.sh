@@ -2,29 +2,26 @@
 
 set -e
 
-echo "Starting SafetyHub daily development environment..."
-
-#!/usr/bin/env bash
-
 echo "Checking Docker..."
 docker --version || exit 1
 
-echo "Starting database..."
-docker compose up -d db
+echo "Starting database and workspace..."
+docker compose up -d db workspace
 
-echo "Installing backend dependencies..."
-cd backend
-npm install
+echo "Installing backend dependencies inside workspace..."
+docker compose exec workspace sh -lc "cd backend && npm install"
 
-echo "Installing frontend dependencies..."
-cd ../frontend
-npm install
+echo "Installing frontend dependencies inside workspace..."
+docker compose exec workspace sh -lc "cd frontend && npm install"
 
-npm install
+echo "Installing root dependencies inside workspace..."
+docker compose exec workspace sh -lc "npm install"
+
+echo "Generating Prisma client..."
+docker compose exec workspace sh -lc "cd backend && npx prisma generate"
+
 echo "Done."
-docker compose exec workspace bash
-
-
+echo ""
 echo "Database Container is running."
 echo "Useful commands:"
 echo "  docker compose logs -f backend"
