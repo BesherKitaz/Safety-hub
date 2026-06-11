@@ -4,8 +4,8 @@ import Home from './views/Home.tsx';
 import Profile from './views/Profile.tsx';
 
 import NavigationMenuComponent  from './components/ui/NavigationMenu.jsx';
-import Signup from './views/signup.tsx';
-import Login from './views/login.tsx';
+import Signup from './views/Signup.tsx';
+import Login from './views/Login.tsx';
 
 
 
