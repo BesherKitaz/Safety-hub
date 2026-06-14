@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 
 import userRoutes from './routes/user';
+import statsRoutes from './routes/stats';
+import CertiRoutes from './routes/certifications'
 
 const app = express();
 
@@ -18,7 +20,7 @@ app.use("/api", express.static('uploads'));
 
 //Serving different routes
 app.use("/api/user", userRoutes);
-
-
+app.use("/api/stats", statsRoutes);
+app.use("/api/certifications", CertiRoutes);
 
 export default app;

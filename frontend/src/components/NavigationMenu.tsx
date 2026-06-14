@@ -1,7 +1,16 @@
 import { AppBar, Toolbar, Typography } from "@mui/material";
-import NavButton from "./navButton";
+import { useNavigate } from 'react-router-dom'
+import NavButton from "./ui/navButton";
 
 const Navbar = () => {
+
+  const navigate = useNavigate();
+  const logout = () => {
+    // Logout logic here
+    localStorage.removeItem("token");
+    navigate("/login");
+  };
+
   return (
     <AppBar
       position="static"
@@ -25,7 +34,10 @@ const Navbar = () => {
           Safety Hub
         </Typography>
         <NavButton to="/" label="Home" />
+        <NavButton label="Manage members" color="" to="/manage-members" />
+        <NavButton label="Manage Categories" color="" to="/manage-categories" />
         <NavButton to="/profile" label="Profile" />
+        <NavButton label="Log out" color="" onClick={logout} />
       </Toolbar>
     </AppBar>
   );

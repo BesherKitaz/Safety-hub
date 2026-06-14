@@ -13,7 +13,8 @@
     "db-shell": "docker compose exec db psql -U safetyhub -d safetyhub",
     "db-studio": "docker compose exec workspace sh -lc \"cd backend && npx prisma studio --browser none --port 5555\"",
     "docker-shell": "docker compose exec workspace bash",
-    "hash-gen": "docker compose exec workspace sh -lc \"cd backend && npx ts-node src/util/hash-gen.ts\""
+    "hash-gen": "docker compose exec workspace sh -lc \"cd backend && npx ts-node src/util/hash-gen.ts\"",
+    "seed": "docker compose exec workspace sh -lc \"cd backend && npm run seed\""
   },
   "repository": {
     "type": "git",

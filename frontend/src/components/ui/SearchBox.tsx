@@ -17,7 +17,7 @@ type SearchBoxProps = {
 
 
 const SearchBox = ({
-  placeholder = "What are you looking for?",
+  placeholder = "Search for Certifications",
   buttonLabel = "Search",
   onSearch,
 }: SearchBoxProps) => {

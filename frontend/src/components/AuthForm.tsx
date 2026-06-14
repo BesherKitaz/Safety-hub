@@ -9,7 +9,7 @@ import {
   Stack,
 } from "@mui/material";
 
-type AuthFormData = {
+export type AuthFormData = {
   name?: string;
   email: string;
   password: string;

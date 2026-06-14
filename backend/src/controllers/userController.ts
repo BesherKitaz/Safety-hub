@@ -25,6 +25,13 @@ const getUserDataById = async (id: string) => {
         const userData = await prisma.user.findUnique({
         where: {
             id: id
+        },
+        select: {
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true,
+            id: true
         }
         });
         console.log("Fetched user data:", userData);
@@ -34,9 +41,30 @@ const getUserDataById = async (id: string) => {
     console.error("Error fetching user data:", error);
     throw error;
     }
-
 };
 
+const getUserNameDatabyId = async (id: string) => {
+    console.log("Fetched id:", id);
+    try {
+    // fetch from db
+        const userData = await prisma.user.findUnique({
+        where: {
+            id: id
+        },
+        select: {
+            firstName: true,
+            lastName: true
+        },
+
+        });
+        console.log("Fetched user data:", userData);
+
+    return userData;
+    } catch (error) {
+    console.error("Error fetching user data:", error);
+    throw error;
+    }
+};
 
 const createUser = async (userData: User) => {
 
@@ -76,11 +104,11 @@ const login = async (email: string, password: string, next: (error?: Error) => v
         }
     });
     if (!user) {
-        throw new Error("User not found");
+        throw new Error("INVALID_CREDENTIALS");
     }
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
-        throw new Error("Invalid password");
+        throw new Error("INVALID_CREDENTIALS");    
     }   
 
     const JWT_SECRET = process.env.JWT_SECRET;
@@ -97,7 +125,7 @@ const login = async (email: string, password: string, next: (error?: Error) => v
                     email: user.email
                 },
                 JWT_SECRET,
-                { expiresIn: "1h" }
+                { expiresIn: "7d" }
             );
         } catch (err) {
             console.log(err);
@@ -106,9 +134,8 @@ const login = async (email: string, password: string, next: (error?: Error) => v
             return next(error);
         }
 
-
     return token;
 };
-export { getUserDataById, createUser, login };
+export { getUserDataById, getUserNameDatabyId, createUser, login };
 
 
