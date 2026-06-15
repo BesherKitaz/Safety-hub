@@ -15,14 +15,14 @@ const Landing = () => {
         return Promise.resolve(null);
       }
       const userInfo = await api.get('/api/user/name', { headers: { Authorization: `Bearer ${token}` } });
-      setUserFirstName(userInfo.data.firstName);
+      setUserFirstName(userInfo.data.data.firstName);
     };
 
     getUserName()
 
   }, []);
   return (
-    <GradientBox
+    <Box
       sx={{
         minHeight: "calc(35vh - 72px)",
         display: "flex",
@@ -40,10 +40,10 @@ const Landing = () => {
           />
         </Box>
         <Typography variant="body1" sx={{ color: "text.secondary", lineHeight: 1.7 }}>
-            Quick Search for Certifications. Search by student email or Category
+            Quick Search for Certifications. Search by student email or Lab
         </Typography>
       </Box>
-    </GradientBox>
+    </Box>
   );
 };
 

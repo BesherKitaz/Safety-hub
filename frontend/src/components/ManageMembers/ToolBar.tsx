@@ -27,7 +27,7 @@ const ToolBar = () => {
           />
         </Box>
         <Typography variant="body1" sx={{ color: "text.secondary", lineHeight: 1.7 }}>
-            Quick Search for Certifications. Search by student email or Category
+            Quick Search for Certifications. Search by student email or Lab
         </Typography>
       </Box>
     </GradientBox>

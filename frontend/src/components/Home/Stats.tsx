@@ -63,7 +63,7 @@ export default function Stats() {
                         'Accept': 'application/json'
                     }
                 });
-                setStatsData(response.data);
+                setStatsData(response.data.data);
             } catch (error) {
                 console.error('Error fetching stats:', error);
             }

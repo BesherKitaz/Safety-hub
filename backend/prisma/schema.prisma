@@ -29,16 +29,29 @@ model User {
   updatedAt DateTime @updatedAt
 }
 
-model Category {
+model Lab {
   id          String  @id @default(cuid())
   name        String  @unique
   description String?
-
+  tools       Tool[]
   certifications Certification[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  
 }
+
+model Tool {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  description String?
+  labId       String
+  lab         Lab   @relation(fields: [labId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+
 
 model Certification {
   id String @id @default(cuid())
@@ -49,34 +62,30 @@ model Certification {
   issuedById String
   issuedBy   User   @relation("IssuedCertifications", fields: [issuedById], references: [id])
 
-  categoryId String
-  category   Category @relation(fields: [categoryId], references: [id])
+  labId String
+  lab   Lab @relation(fields: [labId], references: [id])
 
-  level CertificationLevel
   notes String?
 
   issuedAt  DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([issuedToId, categoryId, level])
-  @@index([categoryId])
-  @@index([issuedToId, categoryId])
+  @@unique([issuedToId, labId])
+  @@index([labId])
+  @@index([issuedToId, labId])
 }
+
+
 
 // =====================
 // Enums
 // =====================
 
 enum UserRole {
+  ADMIN
   STAFF
+  SUPERVISOR
   MENTOR
   STUDENT
-  ADMIN
 }
 
-enum CertificationLevel {
-  LEVEL_1
-  LEVEL_2
-  LEVEL_3
-  LEVEL_4
-}

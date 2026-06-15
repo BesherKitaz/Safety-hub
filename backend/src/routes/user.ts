@@ -1,7 +1,7 @@
 import { Router } from 'express';
 
 
-import { getUserDataById, getUserNameDatabyId,  createUser, login } from '../controllers/userController';
+import { getUserDataById, getUserNameDatabyId,  createUser, login, userSearch } from '../controllers/userController';
 import { authMiddleware } from "../middleware/auth";
 import type { AuthRequest } from "../middleware/auth"
 
@@ -21,12 +21,12 @@ router.get("/name", authMiddleware, async (req: AuthRequest, res) => {
 
       res.json({
         message: "User profile",
-        ...data
+        data
       });
 
     } catch (error) {
       res.status(500).json({
-        message: `Error fetching user profile: ${error}`
+        error: `Error fetching user profile: ${error}`
       });
     }
   res.json();
@@ -44,7 +44,7 @@ router.get("/name", authMiddleware, async (req: AuthRequest, res) => {
 
     } catch (error) {
       res.status(500).json({
-        message: `Error fetching user profile: ${error}`
+        error: `Error fetching user profile: ${error}`
       });
     }
   });
@@ -62,7 +62,7 @@ router.post("/create", async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({
-      message: `Error creating user: ${error}`
+      error: `Error creating user: ${error}`
     });
   }
 })
@@ -74,7 +74,7 @@ router.post("/login", async (req, res, next) => {
   const { email, password } = req.body;
   if (!email || !password) {
     return res.status(400).json({
-      message: "Email and password are required",
+      error: "Email and password are required",
     });
   }
   try {
@@ -88,14 +88,34 @@ router.post("/login", async (req, res, next) => {
     console.error("Error logging in user:", error);
     if (error instanceof Error && error.message === "INVALID_CREDENTIALS") {
       return res.status(401).json({
-        message: "Invalid email or password",
+        error: "Invalid email or password",
       });
     }
     res.status(500).json({
-      message: `Error logging in user: ${error}`
+      error: `Error logging in user: ${error}`
     });
   }
 })
+
+router.get("/search", authMiddleware, async (req, res) => {
+  const query = String(req.query.query ?? "").trim().toLocaleLowerCase();
+  if (query.length < 2) {
+    return res.json([]);
+  }
+
+  try {
+    const users = await userSearch(query);
+    res.json({
+      message: "Users found",
+      data: users,
+    });
+  } catch (error) {
+    console.error("Error searching users:", error);
+    res.status(500).json({
+      message: `Error searching users: ${error}`
+    });
+  }
+});
 
 export default router;
 

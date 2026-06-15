@@ -13,7 +13,10 @@ router.get('/', async (req: AuthRequest, res) => {
     // Your stats logic here
     try {
         const stats = await collectStats();
-        res.status(200).json(stats);
+        res.status(200).json({ 
+            message: "Stats collected successfully",
+            data: stats
+         });
     } catch (error) {
         res.status(500).json({ error: "Failed to collect stats" });
     }

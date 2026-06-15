@@ -66,6 +66,27 @@ const getUserNameDatabyId = async (id: string) => {
     }
 };
 
+const userSearch = async (query: string) => {
+    console.log("Search query:", query);
+    const users = await prisma.user.findMany({
+    where: {
+      role: { in: ["STUDENT", "MENTOR", "SUPERVISOR"] },
+      OR: [
+        { firstName: { contains: query, mode: "insensitive" } },
+      ],
+    },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+    },
+    take: 10,
+  });
+
+  return users;
+}
+
 const createUser = async (userData: User) => {
 
     const checkUserExists = await prisma.user.findUnique({
@@ -136,6 +157,6 @@ const login = async (email: string, password: string, next: (error?: Error) => v
 
     return token;
 };
-export { getUserDataById, getUserNameDatabyId, createUser, login };
+export { getUserDataById, getUserNameDatabyId, createUser, login, userSearch };
 
 

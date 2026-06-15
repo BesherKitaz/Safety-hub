@@ -6,7 +6,8 @@ import NavigationMenuComponent  from './components/NavigationMenu.js';
 import Signup from './views/Signup.tsx';
 import Login from './views/Login.tsx';
 import EditProfile from './views/ProfileForm.jsx'
-
+import AddCertification from './views/AddCertification'
+import Certifications from './views/Certifications'
 
 function App() {
 
@@ -20,6 +21,8 @@ function App() {
         <Route path="/profile" element={< Profile />} />
         <Route path="/profile/edit" element={< EditProfile mode="edit" />} />
         <Route path="/profile/create" element={< EditProfile mode="create" />} />
+        <Route path="/certifications/add" element={< AddCertification />} />
+        <Route path="/certifications" element={< Certifications />} />
       </Routes>
     </BrowserRouter>
   )

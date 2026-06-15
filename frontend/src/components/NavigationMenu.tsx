@@ -34,6 +34,7 @@ const Navbar = () => {
           Safety Hub
         </Typography>
         <NavButton to="/" label="Home" />
+        <NavButton to="/certifications" label="Certifications" />
         <NavButton label="Manage members" color="" to="/manage-members" />
         <NavButton label="Manage Categories" color="" to="/manage-categories" />
         <NavButton to="/profile" label="Profile" />

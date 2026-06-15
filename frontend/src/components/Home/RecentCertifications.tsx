@@ -2,6 +2,7 @@ import { Box, Typography, Paper } from "@mui/material"
 import AddIcon from "@mui/icons-material/Add";
 import { useState, useEffect } from 'react'
 import api from "../../lib/api.js";
+import { useNavigate, useLocation } from 'react-router-dom'
 
 type CertificationType = {
   id: string;
@@ -9,7 +10,7 @@ type CertificationType = {
   notes: string | null;
   issuedAt: string;
   updatedAt: string;
-  category: {
+  lab: {
     id: string;
     name: string;
     description: string | null;
@@ -28,6 +29,11 @@ type CertificationType = {
   };
 };
 
+type CertificationProps = {
+    certification: CertificationType;
+    viewCertification: (certification: CertificationType) => void;
+};
+
 const levels = {
     LEVEL_1: "Level 1",
     LEVEL_2: "Level 2",
@@ -36,23 +42,15 @@ const levels = {
     LEVEL_5: "Level 5",
 }
 
-type RecentCertificationsProps = {
-    onAddClick?: () => void;
-};
-
-function Certification({ certification }: { certification: CertificationType }) {
-
-    const viewCertification = () => {
-        // Implement the logic to view the certification
-    };
-
+/* A single certification item */
+function Certification({ certification, viewCertification }: CertificationProps) {
 
     return (
 
         <Paper
             key={certification.id}
             elevation={0}
-            onClick={viewCertification}
+            onClick={() => viewCertification(certification)}
             sx={{
             borderRadius: 3,
             border: "1px solid #e5e7eb",
@@ -74,7 +72,7 @@ function Certification({ certification }: { certification: CertificationType }) 
 
             }}
         >
-            <Typography variant="h5" sx={{ mb: 2, fontWeight: "bold" }}>{certification.category.name}</Typography>
+            <Typography variant="h5" sx={{ mb: 2, fontWeight: "bold" }}>{certification.lab.name}</Typography>
             <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}> To: {certification.issuedTo.firstName} {certification.issuedTo.lastName}</Typography>
             <Typography variant="body2" sx={{ mb: 1 }}> {levels[certification.level as keyof typeof levels]}</Typography>
             <Typography variant="body2" sx={{ mb: 1 }}> Issued at: {new Date(certification.issuedAt).toLocaleDateString()}</Typography>
@@ -84,16 +82,26 @@ function Certification({ certification }: { certification: CertificationType }) 
     )
 }
 
-
-export default function RecentCertifications({ onAddClick }: RecentCertificationsProps) {
+/* Most recent 5 certifications view (Part of Home page) */
+export default function RecentCertifications() {
     const [recentCertifications, setRecentCertifications] = useState<CertificationType[]>([]);
+    const navigate = useNavigate();
+    const location = useLocation();
 
+    const viewCertification = (certification: CertificationType) => {
+        navigate(`/certifications/${certification.id}`, {
+                state: { from: location.pathname } // Pass the current location as state so it can go back where it came from
+        });
+    };
 
     const addCertification = () => {
-        // Implement the logic to add a new certification
+        navigate('/certifications/add',
+            { state: {from: location.pathname} }
+        ); // Pass the current location as state so it can go back where it came from
     };
 
     useEffect(() => {
+        // Fetch recent certifications every 5 minutes
         const fetchRecentCertifications = async () => {
             try {
                 const response = await api.get('/api/certifications/recent', {
@@ -101,13 +109,19 @@ export default function RecentCertifications({ onAddClick }: RecentCertification
                         'Authorization': `Bearer ${localStorage.getItem('token')}`
                     }
                 });
-                setRecentCertifications(response.data);
+                setRecentCertifications(response.data.data);
             }
             catch (error) {
                 console.error("Error fetching recent certifications:", error);
             }
         };
         fetchRecentCertifications();
+            const interval = setInterval(() => {
+            fetchRecentCertifications();
+        }, 300000);
+        
+        window.addEventListener("focus", fetchRecentCertifications);
+        return () => clearInterval(interval);
     }, []);
 
     return (    
@@ -134,8 +148,9 @@ export default function RecentCertifications({ onAddClick }: RecentCertification
                 }}
             >
                 {recentCertifications.map((certification) => (
-                <Certification key={certification.id} certification={certification} />
+                <Certification key={certification.id} certification={certification} viewCertification={viewCertification} />
                 ))}
+                {/* Add certification box */}
             <Paper
                 component="button"
                 type="button"

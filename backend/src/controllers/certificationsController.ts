@@ -8,7 +8,7 @@ const getRecentCertifications = async () => {
         },
         take: 4,
         include: {
-            category: true,
+            lab: true,
             issuedTo: true,
             issuedBy: true,
         },
