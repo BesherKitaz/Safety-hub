@@ -8,7 +8,6 @@ import {
   Stack,
   TextField,
   Typography,
-  Autocomplete,
 } from "@mui/material";
 import GradientBox from "../components/ui/GradientBox";
 import DropDownSearch from '../util/DropDownSearch'
@@ -16,17 +15,26 @@ import DropDownSearch from '../util/DropDownSearch'
 import api from '../lib/api'
 
 type CertificationData = {
-  lab: string;
+  selectedStudentId: string;
+  labId: string;
+  toolId: string;
   notes: string;
 };
 
 const initialCertificationData: CertificationData = {
-  lab: "",
+  selectedStudentId: "",
+  labId: "",
+  toolId: "",
   notes: "",
 };
 
 type LocationState = {
   from?: string;
+};
+
+type Tool = {
+  id: string;
+  name: string;
 };
 
 type Lab = {
@@ -41,19 +49,27 @@ type Student = {
   email: string;
 };
 
+
+// Component for adding a new certification
 const AddCertification = () => {
+
+  // Main form data states (except for the selected users/students)
   const [formData, setFormData] = useState<CertificationData>(
     initialCertificationData
   );
+  // State for the list of available labs and tools (fetched from the backend)
   const [labs, setLabs] = useState<Lab[]>([]);
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [tools, setTools] = useState<Tool[]>([]);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Helper to get the navigation source or to /certifications if no souce is found
   const from = (location.state as LocationState | null)?.from ?? "/certifications";
 
 
+  // Generic handler for form input changes (takes an input field name and event and returns the function for the specific field)
   const handleChange =
     (field: keyof CertificationData) =>
     (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -62,43 +78,79 @@ const AddCertification = () => {
         [field]: event.target.value,
       }));
     };
-
+  
+  // Chrystal clear
   const goBack = () => {
     navigate(from);
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  // Handle form submission
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!selectedStudent) return;
+    if (!formData.selectedStudentId) return;
+    if (!formData.labId) return;
+    if (!formData.toolId) return;
+
+    // Send the certification data to the backend
     const sendData = async () => {
+      // Get the users data into the rest of the form data together
+      const submitData = {
+        issuedToId: formData.selectedStudentId,
+        labId: formData.labId,
+        toolId: formData.toolId,
+        notes: formData.notes,
+      }
+
       try {
-        const response = await api.post("/api/certifications/add", formData);
-        console.log("Certification added successfully:", response.data.data);
+        await api.post("/api/certifications/add", submitData);
+        goBack();
       } catch (error) {
         console.error("Error adding certification:", error);
+        if (error.response?.status === 409) {
+          setErrorMessage(error.response.data.message);          }
+          else {
+            setErrorMessage("Something went wrong. Please try again.");
+          }
       }
     }
-    sendData();
-    goBack();
+    await sendData();
+    
   };
 
+  // Fetch us the labs
   const fetchLabs = async () => {
     try {
       const response = await api.get("/api/labs");
-      setLabs(response.data.data);
-      console.log("Labs fetched successfully:", response.data.data);
+      setLabs(Array.isArray(response.data.data) ? response.data.data : []);
     } catch (error) {
       console.error("Error fetching labs:", error);
     }
   };
 
+  // Fetch us the tools
+  const fetchTools = async () => {
+    if (!formData.labId) {
+      setTools([]);
+      return;
+    }
+    
+    try {
+      const response = await api.get("/api/tools", { params: { labId: formData.labId } });
+      console.log("tools response:", response.data.data);
+      setTools(Array.isArray(response.data.data) ? response.data.data : []);
+    } catch (error) {
+      console.error("Error fetching tools:", error);
+    }
+  };
 
+
+
+  // Fetch users based on search query
   const fetchUsers = async (query: string): Promise<Student[]> => {
     try {
       const response = await api.get("/api/user/search", {
         params: { query }
       });
-      console.log("Users fetched successfully:", response.data.data);
       return Array.isArray(response.data.data) ? response.data.data : response.data.users ?? [];;
     } catch (error) {
       console.error("Error fetching users:", error);
@@ -106,10 +158,27 @@ const AddCertification = () => {
     }
   };
 
+  
 
+  // We only have a few labs, so we can fetch them once on component mount
   useEffect(() => {
     fetchLabs();
   }, [])
+
+  useEffect(() => {
+    if (formData.labId) {
+      fetchTools();
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        toolId: "",
+      }));
+      setTools([]);
+    }
+
+  }, [formData.labId])
+
+
   return (
     <GradientBox sx={{ minHeight: "calc(100vh - 72px)", px: 0, py: 0 }}>
       <Box
@@ -176,34 +245,58 @@ const AddCertification = () => {
 
           <Box sx={{ p: { xs: 2, md: 3 } }}>
             <Stack spacing={2}>
-              <DropDownSearch<Student>
-                label="Search student"
-                fetchOptions={fetchUsers}
-                getOptionLabel={(student) =>
-                  `${student.firstName} ${student.lastName} (${student.email})`
-                }
-                onChange={setSelectedStudent}
-              />
 
               <TextField
                 select
                 label="lab"
-                value={formData.lab}
-                onChange={handleChange("lab")}
+                value={formData.labId}
+                onChange={handleChange("labId")}
                 fullWidth
                 required
               >
-              {labs.length > 0 && <MenuItem value="">Select a lab</MenuItem>}
-               {labs.length === 0 && <MenuItem value="">No labs found</MenuItem>}
+              {labs && labs.length > 0 && <MenuItem value="">Select a lab</MenuItem>}
+               {labs && labs.length === 0 && <MenuItem value="">No labs found</MenuItem>}
                 {labs.map((lab) => (
-                  <MenuItem key={lab.id} value={lab.name}>
+                  <MenuItem key={lab.id} value={lab.id}>
                     {lab.name}
                   </MenuItem>
                 ))}
 
               </TextField>
 
+              <TextField
+                select 
+                label="Tool"
+                value={formData.toolId}
+                onChange={handleChange("toolId")}
+                fullWidth
+                required
+              >
+              {tools.length > 0 && <MenuItem value="">Select a tool</MenuItem>}
+              {tools.length === 0 && !formData.labId && <MenuItem value="">No lab selected</MenuItem>}
+              {tools.length === 0 && formData.labId && <MenuItem value="">No tools found</MenuItem>}
 
+                {tools.map((tool) => (
+                  <MenuItem key={tool.id} value={tool.id}>
+                    {tool.name}
+                  </MenuItem>
+                ))}
+
+              </TextField>
+
+              <DropDownSearch<Student>
+                label="Search student"
+                fetchOptions={fetchUsers}
+                getOptionLabel={(student) =>
+                  `${student.firstName} ${student.lastName} (${student.email})`
+                }
+                onChange={(student) => {
+                  setFormData((current) => ({
+                    ...current,
+                    selectedStudentId: student?.id ?? "",
+                  }));
+                }}
+              />
 
               <TextField
                 label="Notes"
@@ -214,7 +307,11 @@ const AddCertification = () => {
                 minRows={4}
               />
             </Stack>
-
+              {errorMessage && (
+                <Typography variant="body2" color="error">
+                  {errorMessage}
+                </Typography>
+              )}
             <Stack
               direction={{ xs: "column", sm: "row" }}
               spacing={2}

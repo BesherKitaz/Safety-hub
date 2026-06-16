@@ -9,7 +9,7 @@
     "dev:workspace": "concurrently \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
     "db-reset": "./scripts/database-reset.sh",
     "db-migrate": "./scripts/database-migrate.sh",
-    "set-up": "bash ./scripts/set-up.sh",
+    "setup": "bash ./scripts/set-up.sh",
     "db-shell": "docker compose exec db psql -U safetyhub -d safetyhub",
     "db-studio": "docker compose exec workspace sh -lc \"cd backend && npx prisma studio --browser none --port 5555\"",
     "docker-shell": "docker compose exec workspace bash",

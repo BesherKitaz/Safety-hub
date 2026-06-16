@@ -36,7 +36,7 @@ const Navbar = () => {
         <NavButton to="/" label="Home" />
         <NavButton to="/certifications" label="Certifications" />
         <NavButton label="Manage members" color="" to="/manage-members" />
-        <NavButton label="Manage Categories" color="" to="/manage-categories" />
+        <NavButton label="Manage Lab" color="" to="/manage-categories" />
         <NavButton to="/profile" label="Profile" />
         <NavButton label="Log out" color="" onClick={logout} />
       </Toolbar>

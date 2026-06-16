@@ -29,7 +29,6 @@ router.get("/name", authMiddleware, async (req: AuthRequest, res) => {
         error: `Error fetching user profile: ${error}`
       });
     }
-  res.json();
 });
 
 

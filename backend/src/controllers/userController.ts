@@ -19,7 +19,6 @@ dotenv.config({
 
 
 const getUserDataById = async (id: string) => {
-    console.log("Fetched id:", id);
     try {
     // fetch from db
         const userData = await prisma.user.findUnique({
@@ -34,7 +33,6 @@ const getUserDataById = async (id: string) => {
             id: true
         }
         });
-        console.log("Fetched user data:", userData);
 
     return userData;
     } catch (error) {
@@ -57,7 +55,6 @@ const getUserNameDatabyId = async (id: string) => {
         },
 
         });
-        console.log("Fetched user data:", userData);
 
     return userData;
     } catch (error) {

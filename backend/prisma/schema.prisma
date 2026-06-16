@@ -33,6 +33,7 @@ model Lab {
   id          String  @id @default(cuid())
   name        String  @unique
   description String?
+
   tools       Tool[]
   certifications Certification[]
 
@@ -47,6 +48,9 @@ model Tool {
   description String?
   labId       String
   lab         Lab   @relation(fields: [labId], references: [id])
+  
+  certifications Certification[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -64,13 +68,16 @@ model Certification {
 
   labId String
   lab   Lab @relation(fields: [labId], references: [id])
+  
+  toolId String?
+  tool   Tool? @relation(fields: [toolId], references: [id])
 
   notes String?
 
   issuedAt  DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([issuedToId, labId])
+  @@unique([issuedToId, labId, toolId])
   @@index([labId])
   @@index([issuedToId, labId])
 }

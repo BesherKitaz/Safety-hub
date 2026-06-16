@@ -20,7 +20,7 @@ const Home = () => {
         const getUserName = async () => {
         const token = localStorage.getItem('token');
         const userInfo = await api.get('/api/user/name', { headers: { Authorization: `Bearer ${token}` } });
-        setUserFirstName(userInfo.data.firstName);
+        setUserFirstName(userInfo.data.data.firstName);
         }
         getUserName()
     }, []);
