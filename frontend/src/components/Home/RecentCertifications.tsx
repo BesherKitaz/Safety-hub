@@ -10,11 +10,14 @@ type CertificationType = {
   notes: string | null;
   issuedAt: string;
   updatedAt: string;
-  lab: {
+  trainingNode: {
     id: string;
     name: string;
-    description: string | null;
-  };
+    lab: {
+      id: string;
+      name: string;
+    };
+  };        
   issuedTo: {
     id: string;
     firstName: string;
@@ -72,7 +75,7 @@ function Certification({ certification, viewCertification }: CertificationProps)
 
             }}
         >
-            <Typography variant="h5" sx={{ mb: 2, fontWeight: "bold" }}>{certification.lab.name}</Typography>
+            <Typography variant="h5" sx={{ mb: 2, fontWeight: "bold" }}>{certification.trainingNode.lab.name}</Typography>
             <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}> To: {certification.issuedTo.firstName} {certification.issuedTo.lastName}</Typography>
             <Typography variant="body2" sx={{ mb: 1 }}> {levels[certification.level as keyof typeof levels]}</Typography>
             <Typography variant="body2" sx={{ mb: 1 }}> Issued at: {new Date(certification.issuedAt).toLocaleDateString()}</Typography>

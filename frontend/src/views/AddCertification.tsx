@@ -11,20 +11,23 @@ import {
 } from "@mui/material";
 import GradientBox from "../components/ui/GradientBox";
 import DropDownSearch from '../util/DropDownSearch'
+import axios from "axios";
 
 import api from '../lib/api'
 
 type CertificationData = {
   selectedStudentId: string;
   labId: string;
-  toolId: string;
+  trainingId: string;
   notes: string;
+  level: string;
 };
 
 const initialCertificationData: CertificationData = {
   selectedStudentId: "",
   labId: "",
-  toolId: "",
+  trainingId: "",
+  level: "",
   notes: "",
 };
 
@@ -32,11 +35,10 @@ type LocationState = {
   from?: string;
 };
 
-type Tool = {
+type Training = {
   id: string;
   name: string;
-};
-
+}
 type Lab = {
   id: string;
   name: string;
@@ -50,6 +52,12 @@ type Student = {
 };
 
 
+const levels = {
+  1: "Basic",
+  2: "Trusted",
+  3: "Authorized"
+}
+
 // Component for adding a new certification
 const AddCertification = () => {
 
@@ -57,9 +65,9 @@ const AddCertification = () => {
   const [formData, setFormData] = useState<CertificationData>(
     initialCertificationData
   );
-  // State for the list of available labs and tools (fetched from the backend)
+  // State for the list of available labs and trainings (fetched from the backend)
   const [labs, setLabs] = useState<Lab[]>([]);
-  const [tools, setTools] = useState<Tool[]>([]);
+  const [trainings, setTrainings] = useState<Training[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const navigate = useNavigate();
@@ -89,28 +97,34 @@ const AddCertification = () => {
     event.preventDefault();
     if (!formData.selectedStudentId) return;
     if (!formData.labId) return;
-    if (!formData.toolId) return;
+    if (!formData.trainingId) return;
 
     // Send the certification data to the backend
     const sendData = async () => {
       // Get the users data into the rest of the form data together
       const submitData = {
         issuedToId: formData.selectedStudentId,
-        labId: formData.labId,
-        toolId: formData.toolId,
+        trainingNodeId: formData.trainingId,
         notes: formData.notes,
+        level: formData.level,
       }
-
       try {
         await api.post("/api/certifications/add", submitData);
         goBack();
       } catch (error) {
         console.error("Error adding certification:", error);
-        if (error.response?.status === 409) {
-          setErrorMessage(error.response.data.message);          }
-          else {
-            setErrorMessage("Something went wrong. Please try again.");
+
+        if (axios.isAxiosError(error)) {
+          if (error.response?.status === 409) {
+            setErrorMessage(error.response.data?.message ?? "Conflict error.");
+          } else {
+            setErrorMessage(
+              error.response?.data?.message ?? "Something went wrong. Please try again."
+            );
           }
+        } else {
+          setErrorMessage("Something went wrong. Please try again.");
+        }
       }
     }
     await sendData();
@@ -127,19 +141,19 @@ const AddCertification = () => {
     }
   };
 
-  // Fetch us the tools
-  const fetchTools = async () => {
+  // Fetch us the trainings
+  const fetchTrainings = async () => {
     if (!formData.labId) {
-      setTools([]);
+      setTrainings([]);
       return;
     }
     
     try {
-      const response = await api.get("/api/tools", { params: { labId: formData.labId } });
-      console.log("tools response:", response.data.data);
-      setTools(Array.isArray(response.data.data) ? response.data.data : []);
+      const response = await api.get("/api/trainings", { params: { labId: formData.labId } });
+      console.log("training response:", response.data.data);
+      setTrainings(Array.isArray(response.data.data) ? response.data.data : []);
     } catch (error) {
-      console.error("Error fetching tools:", error);
+      console.error("Error fetching trainings:", error);
     }
   };
 
@@ -167,13 +181,13 @@ const AddCertification = () => {
 
   useEffect(() => {
     if (formData.labId) {
-      fetchTools();
+      fetchTrainings();
     } else {
       setFormData((prev) => ({
         ...prev,
-        toolId: "",
+        trainingId: "",
       }));
-      setTools([]);
+      setTrainings([]);
     }
 
   }, [formData.labId])
@@ -266,21 +280,43 @@ const AddCertification = () => {
 
               <TextField
                 select 
-                label="Tool"
-                value={formData.toolId}
-                onChange={handleChange("toolId")}
+                label="Training"
+                value={formData.trainingId}
+                onChange={handleChange("trainingId")}
                 fullWidth
                 required
               >
-              {tools.length > 0 && <MenuItem value="">Select a tool</MenuItem>}
-              {tools.length === 0 && !formData.labId && <MenuItem value="">No lab selected</MenuItem>}
-              {tools.length === 0 && formData.labId && <MenuItem value="">No tools found</MenuItem>}
+              {trainings.length > 0 && <MenuItem value="">Select a training</MenuItem>}
+              {trainings.length === 0 && !formData.labId && <MenuItem value="">No lab selected</MenuItem>}
+              {trainings.length === 0 && formData.labId && <MenuItem value="">No traings found for this lab</MenuItem>}
 
-                {tools.map((tool) => (
-                  <MenuItem key={tool.id} value={tool.id}>
-                    {tool.name}
+                {trainings.map((training) => (
+                  <MenuItem key={training.id} value={training.id}>
+                    {training.name}
                   </MenuItem>
                 ))}
+
+              </TextField>
+              <TextField
+                select 
+                label="Level"
+                value={formData.level}
+                onChange={handleChange("level")}
+                fullWidth
+                required
+              >
+
+                {(() => {
+                  const items = [];
+                  for (let i = 1; i <= 3; i++) {
+                    items.push(
+                      <MenuItem key={i} value={i}>
+                        {levels[i]}
+                      </MenuItem>
+                    );
+                  }
+                  return items;
+                })()}
 
               </TextField>
 

@@ -1,121 +1,127 @@
 import React, {useState, useEffect} from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
-import { Typography, Box, Paper, DataGrid } from '@mui/material'
-
+import { Typography, Box, Paper, Button } from '@mui/material'
+import { DataGrid  } from '@mui/x-data-grid'
+import type { GridColDef } from '@mui/x-data-grid'
 import GradientBox from '../components/ui/GradientBox';
 import SearchBox from '../components/ui/SearchBox';
 
-function descendingComparator<T>(a: T, b: T, orderBy: keyof T) {
-  if (b[orderBy] < a[orderBy]) {
-    return -1;
-  }
-  if (b[orderBy] > a[orderBy]) {
-    return 1;
-  }
-  return 0;
-}
-
-type Order = 'asc' | 'desc';
-
-function getComparator<Key extends keyof any>(
-  order: Order,
-  orderBy: Key,
-): (
-  a: { [key in Key]: number | string },
-  b: { [key in Key]: number | string },
-) => number {
-  return order === 'desc'
-    ? (a, b) => descendingComparator(a, b, orderBy)
-    : (a, b) => -descendingComparator(a, b, orderBy);
-}
+import api from '../lib/api'
 
 
-interface Data {
-  id: number;
-  calories: number;
-  carbs: number;
-  fat: number;
-  name: string;
-  protein: number;
-}
-interface HeadCell {
-  disablePadding: boolean;
-  id: keyof Data;
-  label: string;
-  numeric: boolean;
-}
 
-const headCells: readonly HeadCell[] = [
+const columns: GridColDef[] = [
+  { field: 'holder', headerName: 'Holder\'s Name', width: 130 },
+  { field: 'issuedBy', headerName: 'Issuer\'s Name', width: 130 },
   {
-    id: 'name',
-    numeric: false,
-    disablePadding: true,
-    label: 'Dessert (100g serving)',
+    field: 'issuedAt',
+    headerName: 'Issue Date',
+    type: 'dateTime',
+    minWidth: 150,
+    flex: 1,
   },
   {
-    id: 'calories',
-    numeric: true,
-    disablePadding: false,
-    label: 'Calories',
+    field: 'lastUpdated',
+    headerName: 'Last Modified',
+    type: 'dateTime',
+    minWidth: 150,
+    flex: 1,
   },
   {
-    id: 'fat',
-    numeric: true,
-    disablePadding: false,
-    label: 'Fat (g)',
+    field: 'expiryDate',
+    headerName: 'Expiry Date',
+    type: 'dateTime',
+    minWidth: 150,
+    flex: 1,
   },
   {
-    id: 'carbs',
-    numeric: true,
-    disablePadding: false,
-    label: 'Carbs (g)',
+    field: 'status',
+    headerName: 'Status',
+    minWidth: 150,
+    flex: 1,
   },
   {
-    id: 'protein',
-    numeric: true,
-    disablePadding: false,
-    label: 'Protein (g)',
+    field: 'action',
+    headerName: 'Action',
+    minWidth: 150,
+    flex: 1,
+    renderCell: (params: any) => (
+      <Button variant="contained" color="primary">
+        View
+      </Button>
+    ),
   },
+ 
 ];
 
-interface EnhancedTableProps {
-  numSelected: number;
-  onRequestSort: (event: React.MouseEvent<unknown>, property: keyof Data) => void;
-  onSelectAllClick: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  order: Order;
-  orderBy: string;
-  rowCount: number;
-}
 
-function EnhancedTableHead(props: EnhancedTableProps) {
-  const { onSelectAllClick, order, orderBy, numSelected, rowCount, onRequestSort } =
-    props;
-  const createSortHandler =
-    (property: keyof Data) => (event: React.MouseEvent<unknown>) => {
-      onRequestSort(event, property);
-    };
+const Certifications = () => {
+    const [rows, setRows] = useState([]);
+    const [totalRows, setTotalRows] = useState(0);
+    const [paginationModel, setPaginationModel] = useState({
+      page: 0,
+      pageSize: 25,
+    });
 
 
+    useEffect(() => {
+    const getTotalRows = async () => {
+      try {
+          const response = await api.get('/api/certifications/tabular/total-rows');
+          console.log("Total rows:", response.data.data);
+          setTotalRows(response.data.data);
+        } catch (error) {
+          console.error("Error fetching total rows:", error);
+        }
+      }
 
 
-  return (
-   <GradientBox>
+    const fetchData = async () => {
+      const response = await api.get('/api/certifications/tabular', {
+        params: {
+          page: paginationModel.page + 1, // backend often uses 1-based pages
+          pageSize: paginationModel.pageSize,
+          }
+        });
 
-        <Box sx={{ maxWidth: 720, px: { xs: 2, sm: 4, }, mx: "auto", textAlign: "center" }}>
-                <Typography variant="h3" component="h1" sx={{ fontWeight: 700, mb: 3, mt:2 } }>
-                Certifications
-                </Typography>
-        </Box>
-        <Box
-        sx={{
-            minHeight: "calc(35vh - 72px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            textAlign: "center",
-        }}
-        >
+        const rowData = response.data.data.map((cert: any) => {
+          return {
+            ...cert,
+            holder: `${cert.issuedTo.firstName} ${cert.issuedTo.lastName}`,
+            issuedBy: `${cert.issuedBy.firstName} ${cert.issuedBy.lastName}`,
+            issuedAt: new Date(cert.issuedAt),
+            lastUpdated: new Date(cert.updatedAt),
+            expiryDate: new Date(cert.expiryDate),
+          };
+        });
+      setRows(rowData);
+      }
+
+      fetchData();
+      getTotalRows();
+
+      }, [paginationModel])
+
+
+
+    return (
+    <GradientBox>
+
+      <Box sx={{ maxWidth: 720, px: { xs: 2, sm: 4, }, mx: "auto", textAlign: "center" }}>
+              <Typography variant="h3" component="h1" sx={{ fontWeight: 700, mb: 1, mt:1 } }>
+              Certifications
+              </Typography>
+      </Box>
+      <Box
+      sx={{
+          minHeight: "calc(35vh - 72px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          textAlign: "center",
+      }}
+      >
         <Box sx={{ maxWidth: 720, px: { xs: 2, sm: 4 } }}>
             <Box sx={{ mb: 2 }}>
             <SearchBox
@@ -127,13 +133,22 @@ function EnhancedTableHead(props: EnhancedTableProps) {
             <Typography variant="body1" sx={{ color: "text.secondary", lineHeight: 1.7 }}>
                 Quick Search for Certifications. Search by student email or Lab
             </Typography>
+          </Box>
         </Box>
-        </Box>
-        <Paper  sx={{ height: 400, width: '100%' }}>
-            <DataGrid />
-
+        <Paper  sx={{ height: 600, width: '100%' }}>
+          <DataGrid
+            rows={rows}
+            columns={columns}
+            rowCount={totalRows}
+            paginationMode="server"
+            paginationModel={paginationModel}
+            pageSizeOptions={[10, 25, 50]}
+            checkboxSelection
+            sx={{ border: 0 }}
+            onPaginationModelChange={(model: { page: number; pageSize: number }) => {setPaginationModel(model)}}
+          />  
         </Paper>
-        </GradientBox>
+      </GradientBox>
   );
 };
 

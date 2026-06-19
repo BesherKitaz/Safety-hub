@@ -6,7 +6,7 @@ import statsRoutes from './routes/stats';
 import CertiRoutes from './routes/certifications'
 import labsRoutes from './routes/labs'
 import toolsRoutes from './routes/tools'
-
+import trainingsRoutes from './routes/trainings'
 const app = express();
 
 
@@ -26,5 +26,7 @@ app.use("/api/stats", statsRoutes);
 app.use("/api/certifications", CertiRoutes);
 app.use("/api/labs", labsRoutes);
 app.use("/api/tools", toolsRoutes);
+app.use("/api/trainings", trainingsRoutes);
+
 
 export default app;

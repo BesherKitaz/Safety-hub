@@ -16,7 +16,6 @@ const router = Router();
 router.get("/name", authMiddleware, async (req: AuthRequest, res) => {
   const userId = req.user!.userId;
    try {
-    
       const data = await getUserNameDatabyId(userId);
 
       res.json({

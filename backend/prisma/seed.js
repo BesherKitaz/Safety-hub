@@ -1,7 +1,7 @@
 const path = require("path");
 const dotenv = require("dotenv");
 const bcrypt = require("bcrypt");
-const { PrismaClient, UserRole } = require("@prisma/client");
+const { PrismaClient } = require("@prisma/client");
 const { PrismaPg } = require("@prisma/adapter-pg");
 const { Pool } = require("pg");
 
@@ -23,13 +23,36 @@ const prisma = new PrismaClient({
   adapter: new PrismaPg(pool),
 });
 
+const UserRole = {
+  ADMIN: "ADMIN",
+  STAFF: "STAFF",
+  SUPERVISOR: "SUPERVISOR",
+  MENTOR: "MENTOR",
+  STUDENT: "STUDENT",
+};
+
+const TrainingNodeType = {
+  GENERAL: "GENERAL",
+  LAB: "LAB",
+  TOOL: "TOOL",
+};
+
+const CertificationStatus = {
+  ACTIVE: "ACTIVE",
+};
+
 const seedPassword = "password123";
+const DAY_MS = 24 * 60 * 60 * 1000;
+const baseIssuedAt = new Date(Date.UTC(2026, 5, 17, 15, 0, 0));
+
+const addDays = (date, days) => new Date(date.getTime() + days * DAY_MS);
+const makeIssuedAt = (index) => new Date(baseIssuedAt.getTime() - index * 2 * DAY_MS);
 
 const users = [
   {
     email: "admin@purdue.edu",
-    firstName: "Avery",
-    lastName: "Purdue",
+    firstName: "Besher",
+    lastName: "Kitaz",
     role: UserRole.ADMIN,
   },
   {
@@ -80,13 +103,18 @@ const users = [
     lastName: "Lee",
     role: UserRole.STUDENT,
   },
+  {
+    email: "student.sophia@purdue.edu",
+    firstName: "Sophia",
+    lastName: "Martinez",
+    role: UserRole.STUDENT,
+  },
 ];
 
 const labs = [
   {
     name: "Chemistry Lab",
-    description:
-      "Wet chemistry benches, reagent storage, and fume hood procedures.",
+    description: "Wet chemistry benches, reagent storage, and fume hood procedures.",
     tools: [
       {
         name: "Fume Hood",
@@ -104,8 +132,7 @@ const labs = [
   },
   {
     name: "Biology Lab",
-    description:
-      "Microscopy, sample preparation, and routine biological handling.",
+    description: "Microscopy, sample preparation, and routine biological handling.",
     tools: [
       {
         name: "Microscope",
@@ -123,8 +150,7 @@ const labs = [
   },
   {
     name: "Electronics Lab",
-    description:
-      "Low-voltage prototyping, soldering, and circuit testing workflows.",
+    description: "Low-voltage prototyping, soldering, and circuit testing workflows.",
     tools: [
       {
         name: "Soldering Station",
@@ -142,8 +168,7 @@ const labs = [
   },
   {
     name: "Machine Shop",
-    description:
-      "Metalworking, cutting, drilling, and general fabrication safety.",
+    description: "Metalworking, cutting, drilling, and general fabrication safety.",
     tools: [
       {
         name: "Drill Press",
@@ -161,169 +186,194 @@ const labs = [
   },
 ];
 
-const now = new Date();
-const currentMonth = now.getMonth();
-const currentYear = now.getFullYear();
-const makeDate = (monthOffset, day, hour, minute) =>
-  new Date(currentYear, currentMonth + monthOffset, day, hour, minute, 0, 0);
-
-const certifications = [
-  {
-    issuedToEmail: "student.noah@purdue.edu",
-    issuedByEmail: "mentor.priya@purdue.edu",
-    labName: "Chemistry Lab",
-    issuedAt: makeDate(0, 3, 9, 0),
-    notes: "Completed wet chemistry onboarding and PPE review.",
-  },
-  {
-    issuedToEmail: "student.ava@purdue.edu",
-    issuedByEmail: "mentor.liam@purdue.edu",
-    labName: "Biology Lab",
-    issuedAt: makeDate(0, 6, 10, 30),
-    notes: "Reviewed sterile handling and microscopy procedures.",
-  },
-  {
-    issuedToEmail: "student.ellie@purdue.edu",
-    issuedByEmail: "admin@purdue.edu",
-    labName: "Electronics Lab",
-    issuedAt: makeDate(0, 10, 13, 15),
-    notes: "Passed the circuit bench safety check.",
-  },
-  {
-    issuedToEmail: "student.marcus@purdue.edu",
-    issuedByEmail: "supervisor.owen@purdue.edu",
-    labName: "Machine Shop",
-    issuedAt: makeDate(-1, 12, 11, 45),
-    notes: "Completed supervised machining orientation.",
-  },
-  {
-    issuedToEmail: "student.noah@purdue.edu",
-    issuedByEmail: "mentor.liam@purdue.edu",
-    labName: "Biology Lab",
-    issuedAt: makeDate(-1, 18, 9, 20),
-    notes: "Demonstrated safe sample handling and disposal.",
-  },
-  {
-    issuedToEmail: "student.ava@purdue.edu",
-    issuedByEmail: "mentor.priya@purdue.edu",
-    labName: "Machine Shop",
-    issuedAt: makeDate(0, 20, 14, 5),
-    notes: "Completed machine shop tool identification review.",
-  },
-];
-
 async function main() {
   const passwordHash = await bcrypt.hash(seedPassword, 12);
 
-  const seededUsers = await Promise.all(
-    users.map((user) =>
-      prisma.user.upsert({
-        where: { email: user.email },
-        update: {
-          firstName: user.firstName,
-          lastName: user.lastName,
-          role: user.role,
-          passwordHash,
-        },
-        create: {
-          ...user,
-          passwordHash,
-        },
-      }),
-    ),
-  );
+  await prisma.trainingEdge.deleteMany();
+  await prisma.certification.deleteMany();
+  await prisma.trainingNode.deleteMany();
+  await prisma.tool.deleteMany();
+  await prisma.lab.deleteMany();
+  await prisma.user.deleteMany();
 
-  const seededLabs = await Promise.all(
-    labs.map((lab) =>
-      prisma.lab.upsert({
-        where: { name: lab.name },
-        update: {
-          description: lab.description,
-        },
-        create: {
-          name: lab.name,
-          description: lab.description,
-        },
-      }),
-    ),
-  );
+  await prisma.user.createMany({
+    data: users.map((user) => ({
+      ...user,
+      passwordHash,
+    })),
+  });
+
+  await prisma.lab.createMany({
+    data: labs.map((lab) => ({
+      name: lab.name,
+      description: lab.description,
+    })),
+  });
+
+  const seededUsers = await prisma.user.findMany();
+  const seededLabs = await prisma.lab.findMany();
 
   const userByEmail = new Map(seededUsers.map((user) => [user.email, user]));
   const labByName = new Map(seededLabs.map((lab) => [lab.name, lab]));
 
-  const tools = labs.flatMap((lab) =>
+  const toolBlueprints = labs.flatMap((lab) =>
     lab.tools.map((tool) => ({
       ...tool,
       labName: lab.name,
     })),
   );
 
-  await Promise.all(
-    tools.map((tool) => {
-      const lab = labByName.get(tool.labName);
+  await prisma.tool.createMany({
+    data: toolBlueprints.map((tool) => {
+      const labRecord = labByName.get(tool.labName);
 
-      if (!lab) {
-        throw new Error(`Missing seed reference for ${tool.labName}`);
+      if (!labRecord) {
+        throw new Error(`Missing seed reference for lab ${tool.labName}`);
       }
 
-      return prisma.tool.upsert({
-        where: { name: tool.name },
-        update: {
-          description: tool.description,
-          labId: lab.id,
-        },
-        create: {
+      return {
+        name: tool.name,
+        description: tool.description,
+        labId: labRecord.id,
+      };
+    }),
+  });
+
+  const seededTools = await prisma.tool.findMany();
+  const toolByName = new Map(seededTools.map((tool) => [tool.name, tool]));
+
+  const generalNodes = [];
+  const labNodes = [];
+
+  for (const lab of labs) {
+    const labRecord = labByName.get(lab.name);
+
+    if (!labRecord) {
+      throw new Error(`Missing seed reference for lab ${lab.name}`);
+    }
+
+    const generalNode = await prisma.trainingNode.create({
+      data: {
+        name: `${lab.name} General Safety Training`,
+        type: TrainingNodeType.GENERAL,
+        labId: labRecord.id,
+      },
+    });
+
+    generalNodes.push(generalNode);
+
+    const labNode = await prisma.trainingNode.create({
+      data: {
+        name: lab.name,
+        type: TrainingNodeType.LAB,
+        labId: labRecord.id,
+      },
+    });
+
+    labNodes.push(labNode);
+
+    await prisma.trainingEdge.create({
+      data: {
+        parentId: generalNode.id,
+        childId: labNode.id,
+      },
+    });
+  }
+
+  const labNodeByName = new Map(labNodes.map((node) => [node.name, node]));
+  const toolNodes = [];
+
+  for (const lab of labs) {
+    const labNode = labNodeByName.get(lab.name);
+
+    if (!labNode) {
+      throw new Error(`Missing seed reference for lab node ${lab.name}`);
+    }
+
+    for (const tool of lab.tools) {
+      const toolRecord = toolByName.get(tool.name);
+
+      if (!toolRecord) {
+        throw new Error(`Missing seed reference for tool ${tool.name}`);
+      }
+
+      const toolNode = await prisma.trainingNode.create({
+        data: {
           name: tool.name,
-          description: tool.description,
-          labId: lab.id,
+          type: TrainingNodeType.TOOL,
+          labId: labNode.labId,
+          toolId: toolRecord.id,
         },
       });
-    }),
-  );
 
-  await Promise.all(
-    certifications.map((certification) => {
-      const issuedTo = userByEmail.get(certification.issuedToEmail);
-      const issuedBy = userByEmail.get(certification.issuedByEmail);
-      const lab = labByName.get(certification.labName);
+      toolNodes.push({
+        ...toolNode,
+        labName: lab.name,
+        toolName: tool.name,
+      });
 
-      if (!issuedTo || !issuedBy || !lab) {
-        throw new Error(`Missing seed reference for ${certification.labName}`);
+      await prisma.trainingEdge.create({
+        data: {
+          parentId: labNode.id,
+          childId: toolNode.id,
+        },
+      });
+    }
+  }
+
+  const studentUsers = users.filter((user) => user.role === UserRole.STUDENT);
+  const issuerEmails = users
+    .filter((user) => user.role !== UserRole.STUDENT)
+    .map((user) => user.email);
+
+  const certificationData = [];
+  let certificationIndex = 0;
+
+  for (const [studentIndex, student] of studentUsers.entries()) {
+    const studentRecord = userByEmail.get(student.email);
+
+    if (!studentRecord) {
+      throw new Error(`Missing seed reference for student ${student.email}`);
+    }
+
+    for (const [nodeIndex, node] of toolNodes.entries()) {
+      const issuerEmail = issuerEmails[(studentIndex + nodeIndex) % issuerEmails.length];
+      const issuerRecord = userByEmail.get(issuerEmail);
+
+      if (!issuerRecord) {
+        throw new Error(`Missing seed reference for issuer ${issuerEmail}`);
       }
 
-      return prisma.certification.upsert({
-        where: {
-          issuedToId_labId: {
-            issuedToId: issuedTo.id,
-            labId: lab.id,
-          },
-        },
-        update: {
-          issuedById: issuedBy.id,
-          issuedAt: certification.issuedAt,
-          notes: certification.notes,
-        },
-        create: {
-          issuedToId: issuedTo.id,
-          issuedById: issuedBy.id,
-          labId: lab.id,
-          issuedAt: certification.issuedAt,
-          notes: certification.notes,
-        },
+      const issuedAt = makeIssuedAt(certificationIndex);
+
+      certificationData.push({
+        issuedToId: studentRecord.id,
+        issuedById: issuerRecord.id,
+        trainingNodeId: node.id,
+        level: 1,
+        notes: `${student.firstName} completed ${node.labName.toLowerCase()} training for ${node.toolName}.`,
+        status: CertificationStatus.ACTIVE,
+        issuedAt,
+        expiryDate: addDays(issuedAt, 365),
       });
-    }),
-  );
+
+      certificationIndex += 1;
+    }
+  }
+
+  await prisma.certification.createMany({
+    data: certificationData,
+  });
 
   console.log("Seed complete.");
   console.log("Admin login: admin@purdue.edu / password123");
-  console.log("Seeded users:");
-  users.forEach((user) => {
-    console.log(`- ${user.email} (${user.role})`);
-  });
-  console.log("Seeded labs:");
-  labs.forEach((lab) => {
-    console.log(`- ${lab.name}`);
-  });
+  console.log(
+    `Seeded ${users.length} users, ${labs.length} labs, ${toolBlueprints.length} tools, ${
+      generalNodes.length + labNodes.length + toolNodes.length
+    } training nodes, ${generalNodes.length + labNodes.length} training edges, and ${
+      certificationData.length
+    } certifications.`,
+  );
 }
 
 main()

@@ -24,6 +24,7 @@ model User {
   passwordHash String
   issuedCertifications   Certification[] @relation("IssuedCertifications")
   receivedCertifications Certification[] @relation("ReceivedCertifications")
+  CertificationsRevoked Certification[] @relation("CertificationsRevoked")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -35,8 +36,8 @@ model Lab {
   description String?
 
   tools       Tool[]
-  certifications Certification[]
-
+  trainingNodes TrainingNode[]
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
@@ -49,8 +50,7 @@ model Tool {
   labId       String
   lab         Lab   @relation(fields: [labId], references: [id])
   
-  certifications Certification[]
-
+  trainingNode TrainingNode?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -66,20 +66,60 @@ model Certification {
   issuedById String
   issuedBy   User   @relation("IssuedCertifications", fields: [issuedById], references: [id])
 
-  labId String
-  lab   Lab @relation(fields: [labId], references: [id])
   
-  toolId String?
-  tool   Tool? @relation(fields: [toolId], references: [id])
+  trainingNodeId String
+  trainingNode   TrainingNode @relation(fields: [trainingNodeId], references: [id])
 
   notes String?
+  
+  status CertificationStatus @default(ACTIVE)
+  level Int @default(1)
+
+  revokedAt DateTime?
+  revokedById String?
+  revokedBy User? @relation("CertificationsRevoked", fields: [revokedById], references: [id])
+  revokeReason String?
 
   issuedAt  DateTime @default(now())
   updatedAt DateTime @updatedAt
+  expiryDate DateTime? 
 
-  @@unique([issuedToId, labId, toolId])
-  @@index([labId])
-  @@index([issuedToId, labId])
+
+  @@unique([issuedToId, trainingNodeId, level])
+  @@index([issuedToId])
+  @@index([trainingNodeId])
+}
+
+
+model TrainingNode {
+  id   String @id @default(cuid())
+  name String
+  type TrainingNodeType
+
+  labId String
+  lab   Lab   @relation(fields: [labId], references: [id])
+
+  toolId String? @unique
+  tool   Tool?   @relation(fields: [toolId], references: [id])
+
+
+  parentEdges TrainingEdge[] @relation("ChildEdges")
+  childEdges  TrainingEdge[] @relation("ParentEdges")
+
+  certifications Certification[]
+}
+
+
+model TrainingEdge {
+  id   String @id @default(cuid())
+
+  parentId String
+  parent   TrainingNode @relation("ParentEdges", fields: [parentId], references: [id])
+
+  childId String
+  child   TrainingNode @relation("ChildEdges", fields: [childId], references: [id])
+
+  @@unique([parentId, childId])
 }
 
 
@@ -87,6 +127,12 @@ model Certification {
 // =====================
 // Enums
 // =====================
+
+enum TrainingNodeType {
+  GENERAL
+  LAB
+  TOOL
+}
 
 enum UserRole {
   ADMIN
@@ -96,3 +142,9 @@ enum UserRole {
   STUDENT
 }
 
+enum CertificationStatus {
+  ACTIVE
+  DEACTIVATED
+  EXPIRED
+  REVOKED
+}

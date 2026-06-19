@@ -42,10 +42,9 @@ const getUserDataById = async (id: string) => {
 };
 
 const getUserNameDatabyId = async (id: string) => {
-    console.log("Fetched id:", id);
     try {
     // fetch from db
-        const userData = await prisma.user.findUnique({
+    const userData = await prisma.user.findUnique({
         where: {
             id: id
         },
@@ -53,9 +52,7 @@ const getUserNameDatabyId = async (id: string) => {
             firstName: true,
             lastName: true
         },
-
-        });
-
+    });
     return userData;
     } catch (error) {
     console.error("Error fetching user data:", error);
