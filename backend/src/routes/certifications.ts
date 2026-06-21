@@ -31,13 +31,16 @@ router.get('/tabular', authMiddleware, async (req, res) => {
     }
 })
 
-router.get('/tabular/total-rows', authMiddleware, async (req, res) => {
+router.get('/tabular/total-rows', authMiddleware, async (req: AuthRequest, res) => {
+    if ((req.user?.role !== "ADMIN") && (req.user?.role !== "STAFF")) {
+        return res.status(403).json({ error: 'Access denied. Admin privileges required.' });
+    }
     try {
         const totalRows = await prisma.certification.count({
             where: {
                 status: "ACTIVE",
             },
-        });
+        })
         res.json({
             message: "Total rows fetched successfully",
             data: totalRows
@@ -49,7 +52,7 @@ router.get('/tabular/total-rows', authMiddleware, async (req, res) => {
 });
 
 
-router.get('/recent', async (req, res) => {
+router.get('/recent', authMiddleware, async (req, res) => {
     try {
         const certifications = await getRecentCertifications();
         res.json({
@@ -122,8 +125,11 @@ router.post('/add', authMiddleware, async (req: AuthRequest, res) => {
                 message: "Eligibility validation failed. Training node not found.",
             });
         }
-        else if ( error instanceof Error && error.message === "DUPLICATE_CERTIFICATION" ) {
-            return res.status(409).json({
+        else if (  
+                error instanceof Prisma.PrismaClientKnownRequestError &&
+                 error.code === "P2002"
+                ) {
+                return res.status(409).json({
                 message: "This student already has this certification for this lab/tool.",
             });
         }
@@ -131,6 +137,7 @@ router.post('/add', authMiddleware, async (req: AuthRequest, res) => {
 
         return res.status(500).json({
             message: "Failed to add certification",
+            error: error,
         });
     }
 });

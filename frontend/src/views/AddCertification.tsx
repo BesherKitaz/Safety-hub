@@ -109,7 +109,9 @@ const AddCertification = () => {
         level: formData.level,
       }
       try {
-        await api.post("/api/certifications/add", submitData);
+        const response =await api.post("/api/certifications/add", submitData);
+        console.log(response.data.error);
+        console.log(response.data.message);
         goBack();
       } catch (error) {
         console.error("Error adding certification:", error);
@@ -119,12 +121,10 @@ const AddCertification = () => {
             setErrorMessage(error.response.data?.message ?? "Conflict error.");
           } else {
             setErrorMessage(
-              error.response?.data?.message ?? "Something went wrong. Please try again."
+              error.response?.data?.message ?? error.message
             );
           }
-        } else {
-          setErrorMessage("Something went wrong. Please try again.");
-        }
+        } 
       }
     }
     await sendData();
@@ -344,7 +344,7 @@ const AddCertification = () => {
               />
             </Stack>
               {errorMessage && (
-                <Typography variant="body2" color="error">
+                <Typography variant="body1" color="error" sx= {{ fontWeight: "bold" }}>
                   {errorMessage}
                 </Typography>
               )}
@@ -391,7 +391,7 @@ const AddCertification = () => {
                   },
                 }}
               >
-                Add Certification
+                Certify
               </Button>
             </Stack>
           </Box>

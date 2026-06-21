@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 type AuthTokenPayload = {
   userId: string;
   email: string;
+  role: string;
 };
 
 export type AuthRequest = Request & {

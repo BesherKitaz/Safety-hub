@@ -124,11 +124,15 @@ const getTabularCertifications = async (skip: number, pageSize: number) => {
 };
 
 const addCertification = async (certification: Certification) => {
+  try {
     const { issuerRole, receiver_certifications, requestedLevel, trainingNodeSummary } = await getEligibiltyValidationData(certification);
     if (!issuerRole || !receiver_certifications || !requestedLevel || !trainingNodeSummary) {
         throw new Error("VALIDATION_DATA_NOT_FOUND");
     }
      const isValid = validateEligibility(issuerRole, receiver_certifications, true, requestedLevel, trainingNodeSummary);
+     if (!isValid) {
+        throw new Error("ELIGIBILITY_VALIDATION_FAILED");
+     }
      await prisma.certification.create({
         data: {
             ...certification,
@@ -137,6 +141,17 @@ const addCertification = async (certification: Certification) => {
      });
      console.log("Eligibility validation result:", isValid);
      return "Certification added successfully";
+     
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        throw new Error("DUPLICATE_CERTIFICATION");
+      }
+
+      throw error;
+    }
 };
 
 const getEligibiltyValidationData = async (certification: Certification) => {
@@ -266,7 +281,7 @@ const validateEligibility = (issuerRole: UserRole, receiver_certifications: Cert
   if (requestedLevel > 1 && requestedLevel <= 2 && (issuerRole !== "ADMIN" && issuerRole !== "SUPERVISOR")) {
     throw new Error("INSUFFICIENT_PRIVILEGES");
   }
-  if (requestedLevel > 0 && requestedLevel <= 1 && (issuerRole !== "ADMIN" && issuerRole !== "SUPERVISOR" && issuerRole !== "MENTOR")) {
+  if (requestedLevel === 1 && (issuerRole !== "ADMIN" && issuerRole !== "STAFF" && issuerRole !== "SUPERVISOR" && issuerRole !== "MENTOR")) {
     throw new Error("INSUFFICIENT_PRIVILEGES");
   }
 

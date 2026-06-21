@@ -21,10 +21,15 @@ model User {
   role      UserRole @default(STUDENT)
   firstName String
   lastName  String
+  isUserAgreementComplete Boolean @default(false)
+  userAgreementSource String?
   passwordHash String
+
+
   issuedCertifications   Certification[] @relation("IssuedCertifications")
   receivedCertifications Certification[] @relation("ReceivedCertifications")
   CertificationsRevoked Certification[] @relation("CertificationsRevoked")
+
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -72,6 +77,7 @@ model Certification {
 
   notes String?
   
+
   status CertificationStatus @default(ACTIVE)
   level Int @default(1)
 
@@ -148,3 +154,4 @@ enum CertificationStatus {
   EXPIRED
   REVOKED
 }
+
