@@ -8,6 +8,9 @@ import Login from './views/Login.tsx';
 import EditProfile from './views/ProfileForm.jsx'
 import AddCertification from './views/AddCertification'
 import Certifications from './views/Certifications'
+import AddLab from './views/AddLab'
+import AddTraing from './views/AddTraining'
+
 
 function App() {
 
@@ -23,6 +26,8 @@ function App() {
         <Route path="/profile/create" element={< EditProfile mode="create" />} />
         <Route path="/certifications/add" element={< AddCertification />} />
         <Route path="/certifications" element={< Certifications />} />
+        <Route path="/labs-management/add" element={< AddLab />} />
+        <Route path="/labs-management/training/add" element={< AddTraing />} />
       </Routes>
     </BrowserRouter>
   )

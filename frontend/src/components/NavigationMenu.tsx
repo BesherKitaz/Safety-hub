@@ -4,7 +4,13 @@ import NavButton from "./ui/navButton";
 
 const Navbar = () => {
 
+  
   const navigate = useNavigate();
+
+  if (!localStorage.getItem("token")) {
+    return (<></>)
+  }
+
   const logout = () => {
     // Logout logic here
     localStorage.removeItem("token");

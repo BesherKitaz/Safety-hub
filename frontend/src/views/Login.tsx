@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router'
 import AuthForm from '../components/AuthForm.tsx';
 
@@ -12,9 +12,20 @@ type LoginResponse = {
 };
 
 const Login = () => {
-
   const navigate = useNavigate();
 
+  if (localStorage.getItem('token')) {
+    navigate('/')
+  }
+
+
+  useEffect(() => {
+    if (localStorage.getItem("token")) {
+      navigate("/", { replace: true });
+    }
+  }, [navigate]);
+
+  
   const handleLogin = async (data: AuthFormData) => {
   
     try{ 
@@ -22,7 +33,7 @@ const Login = () => {
       console.log("Login response:", response.data);
       const token = response.data.token;
       localStorage.setItem("token", token);
-      navigate('/');
+      window.location.reload();
     } catch (error) {
       console.error("Error logging in:", error);
     }

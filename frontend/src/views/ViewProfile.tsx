@@ -848,8 +848,10 @@ const Profile = () => {
                 title="Certification History & User Agreement"
                 accent="#2563EB"
               />
-              <Typography variant="h6" sx={{ mb: 2, lineHeight: 1.7, color: "green"}}>
-                This user has completed the user agreement
+              <Typography variant="h6" sx={{ mb: 2, lineHeight: 1.7, color: userData.isUserAgreementComplete ? "green" : "red",}}>
+                {userData.isUserAgreementComplete
+                ? "This user has completed the user agreement"
+                : "This user has not completed the user agreement"}
               </Typography>
             <SectionHeader
               eyebrow="Certifications"
