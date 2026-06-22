@@ -15,6 +15,7 @@ datasource db {
 // Models
 // =====================
 
+
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
@@ -35,6 +36,7 @@ model User {
   updatedAt DateTime @updatedAt
 }
 
+
 model Lab {
   id          String  @id @default(cuid())
   name        String  @unique
@@ -47,6 +49,7 @@ model Lab {
   updatedAt DateTime @updatedAt
   
 }
+
 
 model Tool {
   id          String  @id @default(cuid())

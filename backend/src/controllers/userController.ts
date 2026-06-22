@@ -13,6 +13,13 @@ type User = {
     password: string;
 }
 
+type CertificationsByLab = {
+    labId: string;
+    labName: string;
+    certifications: {}[];
+};
+
+
 dotenv.config({
     path: '../.env'
 });
@@ -28,6 +35,8 @@ const getUserDataById = async (id: string) => {
         select: {
             firstName: true,
             lastName: true,
+            userAgreementSource: true,
+            isUserAgreementComplete: true,
             email: true,
             role: true,
             id: true
@@ -41,6 +50,91 @@ const getUserDataById = async (id: string) => {
     }
 };
 
+    const getUserProfileById = async (id: string) => {
+        try {
+            const userData = await prisma.user.findUnique({
+                where: {
+                    id: id
+                },
+                select: {
+                    firstName: true,
+                    lastName: true,
+                    email: true,
+                    role: true,
+                    id: true,
+                    createdAt: true,
+                    userAgreementSource: true,
+                    isUserAgreementComplete: true
+                }
+            });
+
+            const certifications = await prisma.certification.findMany({
+                where: {
+                    issuedToId: id
+                },
+                include: {
+                    issuedBy: {
+                        select:{
+                            id: true,
+                            firstName: true,
+                            lastName: true
+                        } 
+                    },
+                    trainingNode: {
+                    include: {
+                        lab: {
+                            select: {
+                                id: true,
+                                name: true,
+                            }
+                        },
+                    },
+                    },
+                },
+                orderBy: {
+                    issuedAt: "desc",
+                },
+            });
+            console.log("CERTS",certifications)
+
+
+            const certsGroupedByLab = certifications.reduce<CertificationsByLab[]>(
+                (acc, cert) => {
+                    const lab = cert.trainingNode.lab;
+
+                    let existingLabGroup = acc.find(
+                        (group) => group.labId === lab.id
+                    );
+
+                    if (!existingLabGroup) {
+                        existingLabGroup = {
+                            labId: lab.id,
+                            labName: lab.name,
+                            certifications: [],
+                        };
+
+                        acc.push(existingLabGroup);
+                    }
+
+                    existingLabGroup.certifications.push(cert);
+
+                    return acc;
+                },
+                []
+            );
+            
+            
+            const userProfileData = {
+                ...userData,
+                certsGroupedByLab
+            }
+            return userProfileData
+        
+    } catch (error) {
+        console.error("Error fetching user profile data:", error);
+        throw error;
+    }
+}
 const getUserNameDatabyId = async (id: string) => {
     try {
     // fetch from db
@@ -151,6 +245,6 @@ const login = async (email: string, password: string, next: (error?: Error) => v
 
     return token;
 };
-export { getUserDataById, getUserNameDatabyId, createUser, login, userSearch };
+export { getUserDataById, getUserProfileById, getUserNameDatabyId, createUser, login, userSearch };
 
 

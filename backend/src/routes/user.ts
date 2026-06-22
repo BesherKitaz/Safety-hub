@@ -1,10 +1,9 @@
 import { Router } from 'express';
 
 
-import { getUserDataById, getUserNameDatabyId,  createUser, login, userSearch } from '../controllers/userController';
+import { getUserDataById, getUserProfileById, getUserNameDatabyId,  createUser, login, userSearch } from '../controllers/userController';
 import { authMiddleware } from "../middleware/auth";
 import type { AuthRequest } from "../middleware/auth"
-
 
 const router = Router();
 
@@ -17,7 +16,6 @@ router.get("/name", authMiddleware, async (req: AuthRequest, res) => {
   const userId = req.user!.userId;
    try {
       const data = await getUserNameDatabyId(userId);
-
       res.json({
         message: "User profile",
         data
@@ -34,7 +32,7 @@ router.get("/name", authMiddleware, async (req: AuthRequest, res) => {
   router.get("/profile/", authMiddleware, async (req: AuthRequest, res) => {
     const userId = req.user!.userId;
     try {
-      const data = await getUserDataById(userId);
+      const data = await getUserProfileById(userId)
       res.json({
         message: "User profile",
         data

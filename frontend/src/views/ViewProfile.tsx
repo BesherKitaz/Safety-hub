@@ -1,45 +1,65 @@
-﻿import type { ReactNode } from "react";
+﻿import { useState, useEffect, type ReactNode } from "react";
 import { alpha } from "@mui/material/styles";
 import {
   Avatar,
   Box,
   Button,
+  ButtonBase,
   Chip,
+  Collapse,
   Divider,
   Paper,
   Stack,
   Typography,
 } from "@mui/material";
 import {
-  BadgeOutlined,
   CalendarMonthOutlined,
   CheckCircleRounded,
+  CancelRounded,
   EmailOutlined,
+  ExpandMoreRounded,
   LayersOutlined,
-  LocationOnOutlined,
   SchoolOutlined,
   ScienceOutlined,
   VerifiedRounded,
   WorkspacePremiumOutlined,
 } from "@mui/icons-material";
 
+
+import api from "../lib/api";
+
 import GradientBox from "../components/ui/GradientBox";
 
+
+
+type TrainingNode = {
+  id: string;
+  lab: {name: string; id: string};
+  labId: string
+  name: string
+  toolid: string
+  type: string
+}
+
+
 type Certification = {
-  training: string;
+  trainingNode: TrainingNode;
   level: number;
-  issuedOn: string;
+  issuedAt: string;
   instructor: string;
   credentialId: string;
   status: string;
 };
 
-type LabCertificationGroup = {
+
+type CertsGroupedByLab = {
+  labId: string
   labName: string;
-  description: string;
-  accent: string;
+  description?: string;
+  accent?: string;
   certifications: Certification[];
-};
+}
+
 
 type ProfileField = {
   label: string;
@@ -48,9 +68,9 @@ type ProfileField = {
 };
 
 type SectionHeaderProps = {
-  eyebrow: string;
-  title: string;
-  description: string;
+  eyebrow?: string;
+  title?: string;
+  description?: string;
   accent?: string;
 };
 
@@ -73,171 +93,25 @@ type CertificationCardProps = {
   accent: string;
 };
 
-const profile = {
-  firstName: "Sarah",
-  lastName: "Nguyen",
-  email: "staff.sarah@purdue.edu",
-  role: "Lab Safety Coordinator",
-  department: "Engineering Safety Office",
-  location: "MSEE 112",
-  badgeId: "LAB-4216",
-  memberSince: "2025-09-15T12:00:00Z",
-  supervisor: "Dr. Elena Torres",
-  accessStatus: "Active",
-  agreementStatus: "Signed",
-  lastLogin: "Today, 08:14 AM",
-  userId: "cmccw8g240000l9046e9z8abc",
-};
 
-const certificationGroups: LabCertificationGroup[] = [
-  {
-    labName: "Electronics Lab",
-    description: "Soldering, instrumentation, and circuit build safety.",
-    accent: "#2563EB",
-    certifications: [
-      {
-        training: "Soldering Fundamentals",
-        level: 2,
-        issuedOn: "2026-06-01T12:00:00Z",
-        instructor: "Maria Carter",
-        credentialId: "EL-2048",
-        status: "Verified",
-      },
-      {
-        training: "Oscilloscope Operation",
-        level: 1,
-        issuedOn: "2026-04-18T12:00:00Z",
-        instructor: "Maria Carter",
-        credentialId: "EL-1982",
-        status: "Verified",
-      },
-      {
-        training: "PCB Rework Safety",
-        level: 1,
-        issuedOn: "2026-02-10T12:00:00Z",
-        instructor: "Kiran Patel",
-        credentialId: "EL-1904",
-        status: "Verified",
-      },
-    ],
-  },
-  {
-    labName: "Woodshop",
-    description: "Cutting tools, extraction, and PPE discipline.",
-    accent: "#D97706",
-    certifications: [
-      {
-        training: "Bandsaw Operation",
-        level: 1,
-        issuedOn: "2026-05-11T12:00:00Z",
-        instructor: "Ryan Hayes",
-        credentialId: "WS-1120",
-        status: "Verified",
-      },
-      {
-        training: "Table Saw Precision",
-        level: 2,
-        issuedOn: "2026-03-09T12:00:00Z",
-        instructor: "Ryan Hayes",
-        credentialId: "WS-1088",
-        status: "Verified",
-      },
-      {
-        training: "Dust Collection and PPE",
-        level: 1,
-        issuedOn: "2025-12-08T12:00:00Z",
-        instructor: "Jenna Kim",
-        credentialId: "WS-1002",
-        status: "Verified",
-      },
-    ],
-  },
-  {
-    labName: "Metal Shop",
-    description: "Rotary equipment, milling, and finishing safety.",
-    accent: "#0F766E",
-    certifications: [
-      {
-        training: "Lathe Basics",
-        level: 1,
-        issuedOn: "2026-01-22T12:00:00Z",
-        instructor: "Aiden Brooks",
-        credentialId: "MS-9011",
-        status: "Verified",
-      },
-      {
-        training: "Milling Machine Setup",
-        level: 2,
-        issuedOn: "2026-04-29T12:00:00Z",
-        instructor: "Aiden Brooks",
-        credentialId: "MS-9124",
-        status: "Verified",
-      },
-      {
-        training: "Grinding and Deburr Safety",
-        level: 1,
-        issuedOn: "2026-05-20T12:00:00Z",
-        instructor: "Nora Ortiz",
-        credentialId: "MS-9205",
-        status: "Verified",
-      },
-    ],
-  },
-  {
-    labName: "Chemical Lab",
-    description: "Ventilation, handling, and controlled chemical workflows.",
-    accent: "#059669",
-    certifications: [
-      {
-        training: "Fume Hood Operations",
-        level: 2,
-        issuedOn: "2026-05-27T12:00:00Z",
-        instructor: "Dr. Dana Wong",
-        credentialId: "CL-3304",
-        status: "Verified",
-      },
-      {
-        training: "Chemical Handling",
-        level: 1,
-        issuedOn: "2026-02-14T12:00:00Z",
-        instructor: "Dr. Dana Wong",
-        credentialId: "CL-3210",
-        status: "Verified",
-      },
-    ],
-  },
-];
+type UserData  = {
+  id: string,
+  role: string,
+  email: string,
+  firstName: string,
+  lastName: string,
+  isUserAgreementComplete: boolean
+  userAgreementSource: string,
+  createdAt: string,
+  certsGroupedByLab: CertsGroupedByLab[]
+}
 
-const allCertifications = certificationGroups.flatMap((group) => group.certifications);
-const totalCertifications = allCertifications.length;
-const labsCertifiedIn = certificationGroups.length;
-const highestLevel = allCertifications.reduce(
-  (maxLevel, certification) => Math.max(maxLevel, certification.level),
-  0,
-);
-const latestCertification = allCertifications.reduce<Certification | null>(
-  (latest, certification) => {
-    if (!latest) {
-      return certification;
-    }
 
-    return new Date(certification.issuedOn).getTime() > new Date(latest.issuedOn).getTime()
-      ? certification
-      : latest;
-  },
-  null,
-);
 
 const formatDate = (value: string) =>
   new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
-    year: "numeric",
-  }).format(new Date(value));
-
-const formatMonthYear = (value: string) =>
-  new Intl.DateTimeFormat("en-US", {
-    month: "long",
     year: "numeric",
   }).format(new Date(value));
 
@@ -343,10 +217,7 @@ const StatCard = ({ icon, value, label, caption, accent }: StatCardProps) => (
       borderRadius: 4,
       border: "1px solid",
       borderColor: alpha(accent, 0.16),
-      background: `linear-gradient(180deg, ${alpha("#FFFFFF", 0.96)} 0%, ${alpha(
-        accent,
-        0.05,
-      )} 100%)`,
+      background: `linear-gradient(180deg, ${alpha("#FFFFFF", 0.96)} 0%, ${alpha(accent, 0.05)} 100%)`,
       boxShadow: "0 14px 28px rgba(15, 23, 42, 0.07)",
     }}
   >
@@ -406,8 +277,7 @@ const CertificationCard = ({ certification, accent }: CertificationCardProps) =>
       borderRadius: 3,
       border: "1px solid",
       borderColor: alpha(accent, 0.16),
-      background:
-        "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.92) 100%)",
+      background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.92) 100%)",
       boxShadow: "0 10px 22px rgba(15, 23, 42, 0.05)",
     }}
   >
@@ -423,7 +293,7 @@ const CertificationCard = ({ certification, accent }: CertificationCardProps) =>
       <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, alignItems: "flex-start" }}>
         <Box>
           <Typography variant="subtitle1" sx={{ fontWeight: 800, lineHeight: 1.25 }}>
-            {certification.training}
+            {certification.trainingNode.name}
           </Typography>
           <Typography variant="body2" color="text.secondary">
             Credential {certification.credentialId}
@@ -444,7 +314,7 @@ const CertificationCard = ({ certification, accent }: CertificationCardProps) =>
           size="small"
           variant="outlined"
           icon={<CalendarMonthOutlined fontSize="small" />}
-          label={formatDate(certification.issuedOn)}
+          label={formatDate(certification.issuedAt)}
         />
         <Chip
           size="small"
@@ -469,16 +339,20 @@ const CertificationCard = ({ certification, accent }: CertificationCardProps) =>
   </Box>
 );
 
-const LabSection = ({ group }: { group: LabCertificationGroup }) => {
+const LabSection = ({ group }: { group: CertsGroupedByLab }) => {
+  console.log("group: ",group)
+  const [expanded, setExpanded] = useState(true);
+  const accent = "#059669"
   const latestCertification = group.certifications.reduce<Certification | null>((latest, certification) => {
+    console.log(latest)
     if (!latest) {
       return certification;
     }
-
-    return new Date(certification.issuedOn).getTime() > new Date(latest.issuedOn).getTime()
+    return new Date(certification.issuedAt).getTime() > new Date(latest.issuedAt).getTime()
       ? certification
       : latest;
   }, null);
+  const panelId = group.labName.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
   return (
     <Box
@@ -486,11 +360,27 @@ const LabSection = ({ group }: { group: LabCertificationGroup }) => {
         p: 2.25,
         borderRadius: 4,
         border: "1px solid",
-        borderColor: alpha(group.accent, 0.16),
-        background: `linear-gradient(180deg, ${alpha(group.accent, 0.06)} 0%, rgba(255,255,255,0.82) 100%)`,
+        borderColor: alpha(accent, 0.16),
+        background: `linear-gradient(180deg, ${alpha(accent, 0.06)} 0%, rgba(255,255,255,0.82) 100%)`,
       }}
     >
-      <Stack spacing={2}>
+      <ButtonBase
+        onClick={() => setExpanded((value) => !value)}
+        aria-expanded={expanded}
+        aria-controls={`${panelId}-content`}
+        aria-label={`Toggle ${group.labName} certifications`}
+        sx={{
+          width: "100%",
+          display: "block",
+          borderRadius: 3,
+          textAlign: "left",
+          "&:focus-visible": {
+            outline: "2px solid",
+            outlineColor: alpha(accent, 0.55),
+            outlineOffset: 2,
+          },
+        }}
+      >
         <Stack
           direction={{ xs: "column", sm: "row" }}
           spacing={2}
@@ -504,7 +394,7 @@ const LabSection = ({ group }: { group: LabCertificationGroup }) => {
                 borderRadius: 3,
                 display: "grid",
                 placeItems: "center",
-                backgroundColor: alpha(group.accent, 0.12),
+                backgroundColor: alpha(accent, 0.12),
                 color: group.accent,
                 flexShrink: 0,
               }}
@@ -520,12 +410,12 @@ const LabSection = ({ group }: { group: LabCertificationGroup }) => {
               </Typography>
             </Box>
           </Stack>
-          <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
+          <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center" }}>
             <Chip
               size="small"
               label={`${group.certifications.length} certs`}
               sx={{
-                bgcolor: alpha(group.accent, 0.1),
+                bgcolor: alpha(accent, 0.1),
                 color: group.accent,
                 fontWeight: 700,
               }}
@@ -533,68 +423,157 @@ const LabSection = ({ group }: { group: LabCertificationGroup }) => {
             <Chip
               size="small"
               variant="outlined"
-              label={`Latest ${latestCertification ? formatDate(latestCertification.issuedOn) : "N/A"}`}
+              label={`Latest ${latestCertification ? formatDate(latestCertification.issuedAt) : "N/A"}`}
               sx={{
-                borderColor: alpha(group.accent, 0.24),
+                borderColor: alpha(accent, 0.24),
                 bgcolor: alpha("#FFFFFF", 0.9),
               }}
             />
+            <Box
+              sx={{
+                width: 40,
+                height: 40,
+                borderRadius: 2.5,
+                display: "grid",
+                placeItems: "center",
+                color: group.accent,
+                backgroundColor: alpha(accent, 0.08),
+                transition: "transform 180ms ease, background-color 180ms ease",
+                transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
+              }}
+            >
+              <ExpandMoreRounded />
+            </Box>
           </Stack>
         </Stack>
-        <Box
-          sx={{
-            display: "grid",
-            gap: 1.5,
-            gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" },
-          }}
-        >
-          {group.certifications.map((certification) => (
-            <CertificationCard
-              key={certification.credentialId}
-              certification={certification}
-              accent={group.accent}
-            />
-          ))}
+      </ButtonBase>
+      <Collapse in={expanded} timeout="auto" unmountOnExit>
+        <Box id={`${panelId}-content`} sx={{ pt: 2 }}>
+          <Box
+            sx={{
+              display: "grid",
+              gap: 1.5,
+              gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" },
+            }}
+          >
+            {group.certifications.map((certification) => (
+              <CertificationCard
+                key={certification.credentialId}
+                certification={certification}
+                accent={accent}
+              />
+            ))}
+          </Box>
         </Box>
-      </Stack>
+      </Collapse>
     </Box>
   );
 };
 
-const accountFields: ProfileField[] = [
+
+
+
+
+const Profile = () => {
+  const [userData, setUserData] = useState<UserData| null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false)
+
+
+   useEffect( () => {
+    const fetchUserProfile = async () => {
+      try {
+        const reponse = await api.get("/api/user/profile");
+        const data = await reponse.data.data;
+        setUserData(data);
+      } catch (error) {
+          console.error("Error fetching user profile:", error);
+          setError(true)
+      } finally {
+      setLoading(false);
+    }
+    }
+    fetchUserProfile();
+  }, [] )
+
+
+  if (loading) {
+    return (
+      <Box sx={{display: "flex", justifyContent: "Center", alignItems: "Center" }}>
+        <Typography> Loading...</Typography>
+      </Box>
+    )
+  }
+
+  if (error) {
+    return  (   
+      <Box sx={{display: "flex", justifyContent: "Center", alignItems: "Center" }}>
+          <Typography> Loading...</Typography>
+      </Box>
+    )
+  }
+
+  if (!userData) {
+    return (
+      <Box sx={{display: "flex", justifyContent: "Center", alignItems: "Center" }}>
+          <Typography> This user was not found! </Typography>
+      </Box>
+    )
+  }
+  console.log("User Data", userData)
+  console.log(
+    JSON.stringify(userData.certsGroupedByLab, null, 2)
+  );
+  const allCertifications: Certification[] = []
+  userData.certsGroupedByLab.flatMap(lab => lab.certifications)
+  const totalCertifications = allCertifications.length;
+  const labsCertifiedIn = userData.certsGroupedByLab.length;
+  const highestLevel = allCertifications.reduce(
+    (maxLevel, certification) => Math.max(maxLevel, certification.level),
+    0,
+  );
+  const latestCertification = allCertifications.reduce<Certification | null>(
+    (latest, certification) => {
+      if (!latest) {
+        return certification;
+      }
+
+      return new Date(certification.issuedAt).getTime() > new Date(issuedAt).getTime()
+        ? certification
+        : latest;
+    },
+    null,
+  );
+
+
+  const accountFields: ProfileField[] = [
   {
     label: "User ID",
-    value: profile.userId,
-    helper: "Internal identity used for profile sync and audit trails.",
+    value: userData.id,
+    helper: "Unique identifier stored on the user record.",
   },
   {
-    label: "Department",
-    value: profile.department,
-    helper: "Primary team and operational home for this account.",
+    label: "First Name",
+    value: userData.firstName,
+    helper: "Given name stored in the user table.",
   },
   {
-    label: "Badge ID",
-    value: profile.badgeId,
-    helper: "Physical access badge identifier for lab entry.",
+    label: "Last Name",
+    value: userData.lastName,
+    helper: "Family name stored in the user table.",
   },
   {
-    label: "Member Since",
-    value: formatMonthYear(profile.memberSince),
-    helper: "Joined the safety program and certification roster.",
+    label: "Agreement Source",
+    value: userData.userAgreementSource ?? "Not provided",
+    helper: "Source recorded when the agreement was completed.",
   },
   {
-    label: "Supervisor",
-    value: profile.supervisor,
-    helper: "Current reporting line for approvals and review.",
-  },
-  {
-    label: "Access Status",
-    value: profile.accessStatus,
-    helper: `Agreement ${profile.agreementStatus.toLowerCase()} and last login ${profile.lastLogin}.`,
+    label: "Member since",
+    value: formatDate(userData.createdAt),
+    helper: "Creation timestamp from the user model.",
   },
 ];
 
-const Profile = () => {
   return (
     <GradientBox sx={{ minHeight: "calc(100vh - 72px)", position: "relative", overflow: "hidden" }}>
       <Box sx={{ maxWidth: 1440, mx: "auto", display: "flex", flexDirection: "column", gap: 3 }}>
@@ -607,8 +586,7 @@ const Profile = () => {
               width: 260,
               height: 260,
               borderRadius: "50%",
-              background:
-                "radial-gradient(circle, rgba(37,99,235,0.18) 0%, rgba(37,99,235,0) 70%)",
+              background: "radial-gradient(circle, rgba(37,99,235,0.18) 0%, rgba(37,99,235,0) 70%)",
             }}
           />
           <Box
@@ -619,8 +597,7 @@ const Profile = () => {
               width: 280,
               height: 280,
               borderRadius: "50%",
-              background:
-                "radial-gradient(circle, rgba(15,118,110,0.16) 0%, rgba(15,118,110,0) 68%)",
+              background: "radial-gradient(circle, rgba(15,118,110,0.16) 0%, rgba(15,118,110,0) 68%)",
             }}
           />
           <Box
@@ -646,7 +623,8 @@ const Profile = () => {
                       boxShadow: "0 18px 35px rgba(37, 99, 235, 0.24)",
                     }}
                   >
-                    SN
+                    {userData.firstName}
+                    {userData.lastName }
                   </Avatar>
                   <Box
                     sx={{
@@ -692,7 +670,7 @@ const Profile = () => {
                       wordBreak: "break-word",
                     }}
                   >
-                    {profile.firstName} {profile.lastName}
+                    {userData.firstName} {userData.lastName}
                   </Typography>
                   <Typography
                     variant="body1"
@@ -703,8 +681,8 @@ const Profile = () => {
                       maxWidth: 720,
                     }}
                   >
-                    {profile.role} for the {profile.department}. This layout is optimized to make
-                    the account summary, access context, and certification history easy to scan at a glance.
+                    This profile is limited to the fields exposed by the user schema, with related
+                    certification history shown separately below.
                   </Typography>
                 </Box>
               </Stack>
@@ -712,7 +690,7 @@ const Profile = () => {
               <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
                 <Chip
                   icon={<EmailOutlined fontSize="small" />}
-                  label={profile.email}
+                  label={userData.email}
                   variant="outlined"
                   sx={{
                     borderColor: alpha("#2563EB", 0.2),
@@ -720,17 +698,19 @@ const Profile = () => {
                   }}
                 />
                 <Chip
-                  icon={<LocationOnOutlined fontSize="small" />}
-                  label={profile.location}
+                  label={userData.role}
                   variant="outlined"
                   sx={{
                     borderColor: alpha("#0F766E", 0.2),
                     bgcolor: alpha("#FFFFFF", 0.7),
                   }}
                 />
-                <Chip
-                  icon={<BadgeOutlined fontSize="small" />}
-                  label={`Badge ${profile.badgeId}`}
+                <Chip icon={
+                  userData.isUserAgreementComplete
+                    ? <CheckCircleRounded fontSize="small" />
+                    : <CancelRounded fontSize="small" />
+                }  
+                  label={userData.isUserAgreementComplete ? "Agreement complete" : "Agreement pending"}
                   variant="outlined"
                   sx={{
                     borderColor: alpha("#D97706", 0.2),
@@ -744,7 +724,7 @@ const Profile = () => {
                   Edit profile
                 </Button>
                 <Button variant="outlined" size="large" sx={{ px: 3 }}>
-                  View badge
+                  View certifications
                 </Button>
               </Stack>
             </Stack>
@@ -779,7 +759,7 @@ const Profile = () => {
               />
               <StatCard
                 icon={<CalendarMonthOutlined fontSize="small" />}
-                value={latestCertification ? formatDate(latestCertification.issuedOn) : "N/A"}
+                value={latestCertification ? formatDate(latestCertification.issuedAt) : "N/A"}
                 label="latest completion"
                 caption="Most recent certification completion date."
                 accent="#059669"
@@ -801,38 +781,33 @@ const Profile = () => {
               <SectionHeader
                 eyebrow="Account snapshot"
                 title="Profile details"
-                description="A polished summary of the user record and access context."
+                description="Only fields from the User schema are shown here."
               />
               <Divider sx={{ my: 2.25 }} />
               <Stack spacing={1.5}>
                 {accountFields.map((field) => (
-                  <InfoField
-                    key={field.label}
-                    label={field.label}
-                    value={field.value}
-                    helper={field.helper}
-                  />
+                  <InfoField key={field.label} label={field.label} value={field.value} helper={field.helper} />
                 ))}
               </Stack>
             </Paper>
 
             <Paper sx={panelSx} elevation={0}>
               <SectionHeader
-                eyebrow="Readiness"
-                title="Safety posture"
-                description="A small visual break between identity details and the certification history."
+                eyebrow="Agreement"
+                title="Compliance status"
+                description="Agreement metadata lives directly on the user record."
                 accent="#0F766E"
               />
               <Divider sx={{ my: 2.25 }} />
               <Stack spacing={1.5}>
                 <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.7 }}>
-                  This sample content keeps the layout feeling complete while leaving room for your
-                  live data to drop in later without changing the structure.
+                  The profile stores a boolean agreement flag, the source used to capture it, and the
+                  record creation date.
                 </Typography>
                 <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
                   <Chip
                     icon={<CheckCircleRounded fontSize="small" />}
-                    label="PPE training current"
+                    label={userData.isUserAgreementComplete ? "Agreement complete" : "Agreement pending"}
                     variant="outlined"
                     sx={{
                       borderColor: alpha("#059669", 0.24),
@@ -843,7 +818,7 @@ const Profile = () => {
                   />
                   <Chip
                     icon={<VerifiedRounded fontSize="small" />}
-                    label="Agreement on file"
+                    label={userData.userAgreementSource ?? "No agreement source"}
                     variant="outlined"
                     sx={{
                       borderColor: alpha("#2563EB", 0.24),
@@ -853,8 +828,8 @@ const Profile = () => {
                     }}
                   />
                   <Chip
-                    icon={<WorkspacePremiumOutlined fontSize="small" />}
-                    label="Access active"
+                    icon={<CalendarMonthOutlined fontSize="small" />}
+                    label={formatDate(userData.createdAt)}
                     variant="outlined"
                     sx={{
                       borderColor: alpha("#D97706", 0.24),
@@ -868,11 +843,17 @@ const Profile = () => {
             </Paper>
           </Stack>
 
-          <Paper sx={panelSx} elevation={0}>
+          <Paper sx={{...panelSx}} elevation={0}>
+              <SectionHeader
+                title="Certification History & User Agreement"
+                accent="#2563EB"
+              />
+              <Typography variant="h6" sx={{ mb: 2, lineHeight: 1.7, color: "green"}}>
+                This user has completed the user agreement
+              </Typography>
             <SectionHeader
               eyebrow="Certifications"
-              title="Grouped by lab"
-              description="All obtained certifications are organized by lab category so users can scan the full record without searching through a long list."
+              description="Grouped by lab, with key stats surfaced for quick scanning."
               accent="#2563EB"
             />
 
@@ -883,8 +864,8 @@ const Profile = () => {
             </Stack>
 
             <Stack spacing={2}>
-              {certificationGroups.map((group) => (
-                <LabSection key={group.labName} group={group} />
+              {userData.certsGroupedByLab.map((group: CertsGroupedByLab) => (
+                <LabSection key={group.labId} group={group} />
               ))}
             </Stack>
           </Paper>
@@ -895,5 +876,3 @@ const Profile = () => {
 };
 
 export default Profile;
-
-
