@@ -29,8 +29,7 @@ model User {
 
   issuedCertifications   Certification[] @relation("IssuedCertifications")
   receivedCertifications Certification[] @relation("ReceivedCertifications")
-  CertificationsRevoked Certification[] @relation("CertificationsRevoked")
-
+  certificationsUpdated CertificationHistory[] @relation("CertificationHistoryChangedBy")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -64,39 +63,57 @@ model Tool {
 }
 
 
-
 model Certification {
-  id String @id @default(cuid())
+  id             String @id @default(cuid())
 
-  issuedToId String
-  issuedTo   User   @relation("ReceivedCertifications", fields: [issuedToId], references: [id])
-
-  issuedById String
-  issuedBy   User   @relation("IssuedCertifications", fields: [issuedById], references: [id])
-
-  
   trainingNodeId String
   trainingNode   TrainingNode @relation(fields: [trainingNodeId], references: [id])
 
-  notes String?
-  
+  notes          String?
+  status         CertificationStatus @default(ACTIVE)
+  level          Int @default(1)
+  expiryDate     DateTime?
 
-  status CertificationStatus @default(ACTIVE)
-  level Int @default(1)
+  issuedToId     String
+  issuedTo       User @relation("ReceivedCertifications", fields: [issuedToId], references: [id])
 
-  revokedAt DateTime?
-  revokedById String?
-  revokedBy User? @relation("CertificationsRevoked", fields: [revokedById], references: [id])
-  revokeReason String?
+  issuedById     String
+  issuedBy       User @relation("IssuedCertifications", fields: [issuedById], references: [id])
 
-  issuedAt  DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  expiryDate DateTime? 
+  issuedAt       DateTime @default(now())
 
+  history        CertificationHistory[] @relation("CertificationHistory")
 
   @@unique([issuedToId, trainingNodeId, level])
   @@index([issuedToId])
   @@index([trainingNodeId])
+}
+
+model CertificationHistory {
+  id              String @id @default(cuid())
+
+  certificationId String
+  certification   Certification @relation("CertificationHistory", fields: [certificationId], references: [id])
+
+  // snapshot BEFORE action
+  levelBefore     Int
+  statusBefore    CertificationStatus
+  expiryDateBefore DateTime?
+  notesBefore     String?
+
+  trainingNodeIdBefore String
+  trainingNodeBefore   TrainingNode @relation("TrainingNodeCertificationHistory", fields: [trainingNodeIdBefore], references: [id])
+
+  action          CertificationHistoryAction
+
+  changedById     String
+  changedBy       User @relation("CertificationHistoryChangedBy", fields: [changedById], references: [id])
+
+  changedAt       DateTime @default(now())
+  reason          String?
+
+  @@index([certificationId])
+  @@index([changedById])
 }
 
 
@@ -116,6 +133,7 @@ model TrainingNode {
   childEdges  TrainingEdge[] @relation("ParentEdges")
 
   certifications Certification[]
+  certificationHistory CertificationHistory[] @relation("TrainingNodeCertificationHistory")
 }
 
 
@@ -158,3 +176,11 @@ enum CertificationStatus {
   REVOKED
 }
 
+enum CertificationHistoryAction {
+  CREATED
+  UPDATED
+  REVOKED
+  REACTIVATED
+  EXPIRED
+  DEACTIVATED
+}

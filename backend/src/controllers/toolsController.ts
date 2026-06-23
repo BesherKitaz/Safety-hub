@@ -4,7 +4,7 @@ import prisma from '../lib/prisma'
 
 
 
-async function getToolsofLab(labId: string) {
+const getToolsofLab = async (labId: string) => {
     const tools = await prisma.tool.findMany({
         where: {
             labId: labId
@@ -13,5 +13,17 @@ async function getToolsofLab(labId: string) {
     return tools;
 }
 
+const getToolNamesAndIdsByLabs = async (labId: string) => {
+    const tools = await prisma.tool.findMany({
+        where: {
+            labId: labId
+        },
+        select: {
+            name: true,
+            id: true
+        }
+    });
+    return tools;
+};
 
-export { getToolsofLab } 
+export { getToolsofLab, getToolNamesAndIdsByLabs };

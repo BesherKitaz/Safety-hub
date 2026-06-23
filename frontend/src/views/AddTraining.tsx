@@ -1,6 +1,6 @@
-import { Typography, TextField, Paper, Box, MenuItem, Button, Stack } from '@mui/material'
+import { Typography, TextField, Paper, Box, MenuItem, Button, Stack, Collapse } from '@mui/material'
 import GradientBox from '../components/ui/GradientBox'
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import api from '../lib/api';
 
 
@@ -13,13 +13,15 @@ enum TrainingNodeType {
 type Lab = {
     id: string;
     name: string;
-    description: string | null;
-    createdAt: Date;
-    updatedAt: Date;
 }
 
+type Tool = {
+  id: string;
+  name: string;
+
+}
 type TrainingNodeData = {
-    selectedLab: Lab | null
+    selectedLabId: string
     type: TrainingNodeType
     toolId?: string
     parentTrainingNodeIds: string[]
@@ -28,7 +30,7 @@ type TrainingNodeData = {
 
 
 const initialFormData = {
-    selectedLab: null,
+    selectedLabId: '',
     type: TrainingNodeType.GENERAL,
     toolId: '',
     parentTrainingNodeIds: [],
@@ -39,15 +41,16 @@ const initialFormData = {
 const AddTraining = () => {
 
     const [labs, setLabs] = useState<Lab[]|null>(null)
+    const [tools, setTools] = useState<Tool[]|null>(null)
     const [errorMessage, setErrorMessage] = useState('')
     const [formData, setFormData] = useState<TrainingNodeData>(
         initialFormData
     )
 
-    const handleFormDataChange = (field: string) => (value: string) => {
+    const handleFormDataChange = (field: string) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> ) => {
         setFormData((prev) => ({
             ...prev,
-            [field]: value,
+            [field]: event.target.value,
         }))
     }
 
@@ -55,8 +58,7 @@ const AddTraining = () => {
     useEffect(() => {
         const getLabs = async () => {
             try {
-                const response = await api.get('api/labs/')
-                console.log("labs", response)
+                const response = await api.get('api/labs/listings')
                 const data = response.data.data
                 setLabs(data)
             } catch (error) {
@@ -66,6 +68,28 @@ const AddTraining = () => {
         }
         getLabs()
     }, [])
+
+    useEffect(() => {
+      const getTools = async () => {
+        try {
+              const response = await api.get('api/tools/listings', {
+                params: {
+                  labId: formData.selectedLabId,
+                }
+              })
+              const data = response.data.data
+              setTools(data)
+        } catch (error) {
+            console.error("An Error Happened while fetching existing labs: ", error)
+            setErrorMessage(`Something went wrong. Please try again: ${error}`)
+        }
+      } 
+      if (formData.type === "TOOL" as TrainingNodeType) {
+        getTools()          
+      }
+    }, [formData.selectedLabId, formData.type])
+
+
     return (
     <GradientBox sx={{ minHeight: "calc(100vh - 72px)", px: 0, py: 0 }}>
       <Box
@@ -136,33 +160,59 @@ const AddTraining = () => {
                 <TextField
                     select
                     label="lab"
-                    value={formData.selectedLab}
-                    onChange={(handleFormDataChange('lab'))}
+                    value={formData.selectedLabId}
+                    onChange={(handleFormDataChange('selectedLabId'))}
                     fullWidth
                     required
                 >
                     {labs && labs.length > 0 && <MenuItem value="">Select a lab</MenuItem>}
                     {labs && labs.length === 0 && <MenuItem value="">No labs found</MenuItem>}
-                    {labs?.map( (lab) => (<>
-                        <MenuItem value={lab.name} key={lab.id}> {lab.name} </MenuItem>
-                    </>
+                    {labs?.map( (lab) => (
+                        <MenuItem value={lab.id} key={lab.id}> {lab.name} </MenuItem>
                     ))}        
                 </TextField>
                 <TextField
                     select
-                    label="prerequisites"
-                    value={"Tosho Mosh"}
-                    onChange={() => {}}
+                    label="Training Type"
+                    value={formData.type}
+                    onChange={(handleFormDataChange('type'))}
                     fullWidth
                     required
                 >
-                    {labs && labs.length > 0 && <MenuItem value="">Select a lab</MenuItem>}
-                    {labs && labs.length === 0 && <MenuItem value="">No labs found</MenuItem>}
-                    {labs?.map( (lab) => (<>
-                        <MenuItem value={lab.name} key={lab.id}> {lab.name} </MenuItem>
-                    </>
+                    {Object.entries(TrainingNodeType).map(([key, value]) => (
+                        <MenuItem value={key} key={key}> {value} </MenuItem>
                     ))}        
                 </TextField>
+                <Collapse in={formData.type === "TOOL" as TrainingNodeType} timeout={300} unmountOnExit>
+                  <TextField
+                      select
+                      label="Associated Tool"
+                      value={formData.toolId}
+                      onChange={(handleFormDataChange('toolId'))}
+                      fullWidth
+                      required
+                  >
+                      {tools && tools.length > 0 && <MenuItem value="">Select a tool</MenuItem>}
+                      {tools && tools.length === 0 && <MenuItem value="">No tools found</MenuItem>}
+                      {tools?.map((tool) => (
+                          <MenuItem value={tool.id} key={tool.id}> {tool.name} </MenuItem>
+                      ))}        
+                    </TextField>
+                  </Collapse>
+                  <TextField
+                      select
+                      label="Parent Trainings/Tools (prerequisites)"
+                      value={formData.parentTrainingNodeIds}
+                      onChange={(handleFormDataChange('parentTrainingNodeIds'))}
+                      fullWidth
+                      slotProps={{ select: { multiple: true } }}
+                      required
+                  >
+                      {tools && tools.length === 0 && <MenuItem value="">No tools found</MenuItem>}
+                      {tools?.map((tool) => (
+                          <MenuItem value={tool.id} key={tool.id}> {tool.name} </MenuItem>
+                      ))}        
+                    </TextField>
             </Stack>
               {errorMessage && (
                 <Typography variant="body1" color="error" sx= {{ fontWeight: "bold" }}>

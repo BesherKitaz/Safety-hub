@@ -134,7 +134,7 @@ const AddCertification = () => {
   // Fetch us the labs
   const fetchLabs = async () => {
     try {
-      const response = await api.get("/api/labs");
+      const response = await api.get("/api/labs/listings");
       setLabs(Array.isArray(response.data.data) ? response.data.data : []);
     } catch (error) {
       console.error("Error fetching labs:", error);

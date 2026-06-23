@@ -26,8 +26,8 @@ function App() {
         <Route path="/profile/create" element={< EditProfile mode="create" />} />
         <Route path="/certifications/add" element={< AddCertification />} />
         <Route path="/certifications" element={< Certifications />} />
-        <Route path="/labs-management/add" element={< AddLab />} />
-        <Route path="/labs-management/training/add" element={< AddTraing />} />
+        <Route path="/lab-management/lab/add" element={< AddLab />} />
+        <Route path="/lab-management/training/add" element={< AddTraing />} />
       </Routes>
     </BrowserRouter>
   )
