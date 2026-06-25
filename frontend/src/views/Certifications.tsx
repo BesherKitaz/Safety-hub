@@ -38,18 +38,28 @@ const columns: GridColDef[] = [
   {
     field: 'status',
     headerName: 'Status',
-    minWidth: 150,
-    flex: 1,
+    minWidth: 100,
+    flex: 0.5,
   },
   {
     field: 'action',
     headerName: 'Action',
-    minWidth: 150,
-    flex: 1,
+    minWidth: 200,
+    flex: 1.5,
+
     renderCell: (params: any) => (
-      <Button variant="contained" color="primary">
-        View
-      </Button>
+      <Box sx={{ display: 'flex', flexDirection: 'row', justifyContent: 'left', alignItems: 'center', gap: 2, height: '100%', }}>
+        <Button variant="contained" color="primary">
+          View
+        </Button>
+        <Button variant="contained" color="primary">
+          Edit
+        </Button>
+        <Button variant="contained" sx={{ backgroundColor: 'red', '&:hover': { backgroundColor: 'darkred' } }}>
+          Revoke
+        </Button>
+      </Box>
+
     ),
   },
  
@@ -91,7 +101,7 @@ const Certifications = () => {
             holder: `${cert.issuedTo.firstName} ${cert.issuedTo.lastName}`,
             issuedBy: `${cert.issuedBy.firstName} ${cert.issuedBy.lastName}`,
             issuedAt: new Date(cert.issuedAt),
-            lastUpdated: new Date(cert.updatedAt),
+            lastUpdated: new Date(cert.lastUpdated),
             expiryDate: new Date(cert.expiryDate),
           };
         });

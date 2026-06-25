@@ -10,7 +10,6 @@ const router = Router();
 
 router.use(authMiddleware);
 
-
 router.get('/tabular', authMiddleware, async (req, res) => {
     try{
         const page = Number(req.query.page) || 1;

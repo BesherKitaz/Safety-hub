@@ -1,6 +1,7 @@
 import { Prisma, UserRole  } from "@prisma/client";
 import prisma from "../lib/prisma";
 
+
 type Certification = {
   trainingNodeId: string;
   notes?: string;
@@ -111,17 +112,51 @@ const getTabularCertifications = async (skip: number, pageSize: number) => {
           }
         },
         issuedAt: true,
-        updatedAt: true,
         expiryDate: true,
         status: true,
       },
     });
-    console.log("Fetched certifications:", certifications);
-    return certifications;
+
+    // Get most recent modification date for each certification from the certificationHistory table
+    const certificationIds = certifications.map((cert) => cert.id);
+
+    const latestHistoryRows = await prisma.certificationHistory.findMany({
+      where: {
+        certificationId: {
+          in: certificationIds,
+        },
+      },
+      orderBy: {
+        changedAt: "desc",
+      },
+      distinct: ["certificationId"],
+      select: {
+        certificationId: true,
+        changedAt: true,
+      },
+    });
+
+    const latestHistoryByCertId = new Map(
+      latestHistoryRows.map((history: { certificationId: string; changedAt: Date }) => [
+        history.certificationId,
+        history.changedAt,
+      ])
+    );
+
+    const tabularCertifications = certifications.map((cert) => ({
+      ...cert,
+      lastUpdated:
+        latestHistoryByCertId.get(cert.id) ?? cert.issuedAt,
+    }));
+    
+    console.log("Tabular certifications fetched successfully:", tabularCertifications);
+    return tabularCertifications;
+
   } catch (error) {
     throw error;
   }
-};
+    };
+
 
 const addCertification = async (certification: Certification) => {
   try {

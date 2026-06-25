@@ -340,11 +340,9 @@ const CertificationCard = ({ certification, accent }: CertificationCardProps) =>
 );
 
 const LabSection = ({ group }: { group: CertsGroupedByLab }) => {
-  console.log("group: ",group)
   const [expanded, setExpanded] = useState(true);
   const accent = "#059669"
   const latestCertification = group.certifications.reduce<Certification | null>((latest, certification) => {
-    console.log(latest)
     if (!latest) {
       return certification;
     }

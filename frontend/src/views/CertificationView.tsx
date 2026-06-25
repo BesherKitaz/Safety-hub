@@ -3,7 +3,7 @@ import { Typography, Box, Paper } from '@mui/material'
 
 
 
-const CertificateView = () => {
+const CertificationView = () => {
     
     useEffect(()=>{
         
@@ -16,3 +16,4 @@ const CertificateView = () => {
     )
 }
 
+export default CertificationView

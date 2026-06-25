@@ -1,7 +1,12 @@
-import { Typography, TextField, Paper, Box, MenuItem, Button, Stack, Collapse } from '@mui/material'
+import { Typography, TextField, Paper, Box, MenuItem, Button, Stack, Collapse, Autocomplete } from '@mui/material'
 import GradientBox from '../components/ui/GradientBox'
 import React, { useState, useEffect } from 'react'
+
+import { useNavigate, useLocation } from 'react-router-dom';
+
 import api from '../lib/api';
+import axios from 'axios';
+
 
 
 enum TrainingNodeType {
@@ -26,6 +31,8 @@ type TrainingNodeData = {
     toolId?: string
     parentTrainingNodeIds: string[]
     childTrainingNodeIds: string[]
+    name: string
+    description?: string
 }
 
 
@@ -35,17 +42,37 @@ const initialFormData = {
     toolId: '',
     parentTrainingNodeIds: [],
     childTrainingNodeIds: [],
-
+    name: '',
+    description: ''
 }
+
+type TrainingNodeOption = {
+  id: string;
+  name: string;
+  type: TrainingNodeType;
+  labId: string;
+};
+
+type LocationState = {
+  from?: string;
+};
+
 
 const AddTraining = () => {
 
     const [labs, setLabs] = useState<Lab[]|null>(null)
     const [tools, setTools] = useState<Tool[]|null>(null)
+    const [trainingNodes, setTrainingNodes] = useState<TrainingNodeOption[]>([]);
     const [errorMessage, setErrorMessage] = useState('')
     const [formData, setFormData] = useState<TrainingNodeData>(
         initialFormData
     )
+
+      const navigate = useNavigate();
+      const location = useLocation();
+
+
+      const from = (location.state as LocationState | null)?.from ?? "/certifications";
 
     const handleFormDataChange = (field: string) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> ) => {
         setFormData((prev) => ({
@@ -80,14 +107,86 @@ const AddTraining = () => {
               const data = response.data.data
               setTools(data)
         } catch (error) {
-            console.error("An Error Happened while fetching existing labs: ", error)
+            console.error("An Error Happened while fetching existing tools: ", error)
             setErrorMessage(`Something went wrong. Please try again: ${error}`)
         }
       } 
       if (formData.type === "TOOL" as TrainingNodeType) {
         getTools()          
       }
+      
     }, [formData.selectedLabId, formData.type])
+
+    useEffect(() => {
+      const getTrainingNodes = async () => {
+        try {
+              const response = await api.get('api/trainings/listings', {
+                params: {
+                  labId: formData.selectedLabId,
+                }
+              })
+              const data = response.data.data
+              setTrainingNodes(data)
+        } catch (error) {
+            console.error("An Error Happened while fetching existing training nodes: ", error)
+            setErrorMessage(`Something went wrong. Please try again: ${error}`)
+        }
+      } 
+      if (formData.selectedLabId) {
+        getTrainingNodes();
+      }
+    }, [formData.selectedLabId])
+
+    const goBack = () => {
+      navigate(from);
+    };
+
+    const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!formData.selectedLabId) return;
+    if (!formData.type) return;
+    if (!formData.name) return;
+
+    // Send the certification data to the backend
+    const sendData = async () => {
+      // Get the users data into the rest of the form data together
+      const submitData = {
+        labId: formData.selectedLabId,
+        type: formData.type,
+        toolId: formData.toolId,
+        name: formData.name,
+        description: formData.description,
+        parentTrainingNodeIds: formData.parentTrainingNodeIds,
+        childTrainingNodeIds: formData.childTrainingNodeIds,
+      }
+      console.log("submitData:", submitData);
+      try {
+        const response =await api.post("/api/trainings/add", submitData);
+        console.log(response.data.error);
+        console.log(response.data.message);
+      } catch (error) {
+        console.error("Error adding certification:", error);
+        if (axios.isAxiosError(error)) {
+          if (error.response?.status === 409) {
+            setErrorMessage(error.response.data?.message ?? "Conflict error.");
+          } else {
+            setErrorMessage(
+              error.response?.data?.message ?? error.message
+            );
+          }
+        } 
+      }
+    }
+    await sendData();
+  }
+
+    const parentOptions = trainingNodes.filter(
+      (node) => !formData.childTrainingNodeIds.includes(node.id)
+    );
+
+    const childOptions = trainingNodes.filter(
+      (node) => !formData.parentTrainingNodeIds.includes(node.id)
+    );
 
 
     return (
@@ -120,13 +219,13 @@ const AddTraining = () => {
           </Typography>
 
           <Typography variant="body1" sx={{ color: "text.secondary", mt: 1 }}>
-            Add a new certification to a user profile.
+            Add a new training to a user profile.
           </Typography>
         </Box>
 
         <Paper
           component="form"
-          onSubmit={()=> {}}
+          onSubmit={handleSubmit}
           elevation={3}
           sx={{
             width: "100%",
@@ -146,11 +245,11 @@ const AddTraining = () => {
             }}
           >
             <Typography variant="h6" sx={{ fontWeight: 700, color: "#111827" }}>
-              Certification details
+              Training details
             </Typography>
 
             <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5 }}>
-              Select the lab, level, and optional notes.
+              Select the lab, training type, and associated tool (if applicable) for the new training.
             </Typography>
           </Box>
 
@@ -200,19 +299,53 @@ const AddTraining = () => {
                     </TextField>
                   </Collapse>
                   <TextField
-                      select
-                      label="Parent Trainings/Tools (prerequisites)"
-                      value={formData.parentTrainingNodeIds}
-                      onChange={(handleFormDataChange('parentTrainingNodeIds'))}
+                      label="Training Name"
+                      value={formData.name}
+                      onChange={(handleFormDataChange('name'))}
                       fullWidth
-                      slotProps={{ select: { multiple: true } }}
                       required
                   >
-                      {tools && tools.length === 0 && <MenuItem value="">No tools found</MenuItem>}
-                      {tools?.map((tool) => (
-                          <MenuItem value={tool.id} key={tool.id}> {tool.name} </MenuItem>
-                      ))}        
-                    </TextField>
+                  </TextField>
+                  <TextField
+                    label="Training Description"
+                    value={formData.description}
+                    onChange={(handleFormDataChange('description'))}
+                    fullWidth
+                  ></TextField>
+                  <Autocomplete<TrainingNodeOption, true>
+                    multiple
+                    options={parentOptions}
+                    getOptionLabel={(option) => option.name}
+                    value={trainingNodes.filter(node =>
+                      formData.parentTrainingNodeIds.includes(node.id)
+                    )}
+                    onChange={(_, value) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        parentTrainingNodeIds: value.map(node => node.id),
+                      }));
+                    }}
+                    renderInput={(params) => (
+                    <TextField {...params} label="Parent Training Nodes/Tools (What is this training part of?)" />
+                    )}
+                  />
+                  <Autocomplete<TrainingNodeOption, true>
+                    multiple
+                    options={childOptions}
+                    getOptionLabel={(option) => option.name}
+                    value={trainingNodes.filter(node =>
+                      formData.childTrainingNodeIds.includes(node.id)
+                    )}
+                    onChange={(_, value) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        childTrainingNodeIds: value.map(node => node.id),
+                      }));
+                    }}
+                    renderInput={(params) => (
+                    <TextField {...params} label="Child Training Nodes/Tools (What is part of this training?)" />
+                    )}
+                  />
             </Stack>
               {errorMessage && (
                 <Typography variant="body1" color="error" sx= {{ fontWeight: "bold" }}>
@@ -262,7 +395,7 @@ const AddTraining = () => {
                   },
                 }}
               >
-                Certify
+                Create Training
               </Button>
             </Stack>
           </Box>
