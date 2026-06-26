@@ -46,7 +46,7 @@ const AuthForm = ({ mode, onSubmit }: AuthFormProps) => {
   return (
     <Box
       sx={{
-        minHeight: "calc(100vh - 72px)",
+        minHeight: "calc(100dvh / var(--app-scale, 1))",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -102,3 +102,4 @@ const AuthForm = ({ mode, onSubmit }: AuthFormProps) => {
 };
 
 export default AuthForm;
+

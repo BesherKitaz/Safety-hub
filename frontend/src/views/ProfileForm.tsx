@@ -56,7 +56,7 @@ const EditProfile = ({ mode }: EditProfileProps) => {
   };
 
   return (
-    <GradientBox sx={{ minHeight: "calc(100vh - 72px)", px: 0, py: 0 }}>
+    <GradientBox sx={{ minHeight: "calc((100dvh / var(--app-scale, 1)) - var(--app-header-height, 64px))", px: 0, py: 0 }}>
       <Box sx={{ maxWidth: 1120, mx: "auto", px: { xs: 2, md: 4 }, py: { xs: 3, md: 5 } }}>
         <Box sx={{ mb: 3 }}>
           <Typography
@@ -236,3 +236,4 @@ const EditProfile = ({ mode }: EditProfileProps) => {
 };
 
 export default EditProfile;
+

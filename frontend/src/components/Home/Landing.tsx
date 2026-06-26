@@ -24,7 +24,7 @@ const Landing = () => {
   return (
     <Box
       sx={{
-        minHeight: "calc(35vh - 72px)",
+        minHeight: "calc(40vh - 64px)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",

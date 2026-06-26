@@ -190,7 +190,7 @@ const AddTraining = () => {
 
 
     return (
-    <GradientBox sx={{ minHeight: "calc(100vh - 72px)", px: 0, py: 0 }}>
+    <GradientBox sx={{ minHeight: "calc((100dvh / var(--app-scale, 1)) - var(--app-header-height, 64px))", px: 0, py: 0 }}>
       <Box
         sx={{
           maxWidth: 900,

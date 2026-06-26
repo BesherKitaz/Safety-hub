@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { alpha } from "@mui/material/styles";
 import {
   Avatar,
@@ -573,7 +573,7 @@ const Profile = () => {
 ];
 
   return (
-    <GradientBox sx={{ minHeight: "calc(100vh - 72px)", position: "relative", overflow: "hidden" }}>
+    <GradientBox sx={{ minHeight: "calc((100dvh / var(--app-scale, 1)) - var(--app-header-height, 64px))", position: "relative", overflow: "hidden" }}>
       <Box sx={{ maxWidth: 1440, mx: "auto", display: "flex", flexDirection: "column", gap: 3 }}>
         <Paper sx={heroSx} elevation={0}>
           <Box
@@ -876,3 +876,4 @@ const Profile = () => {
 };
 
 export default Profile;
+
