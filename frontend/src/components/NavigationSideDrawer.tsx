@@ -18,9 +18,9 @@ import DrawerContext from "../contexts/DrawerContext";
 const navItems = [
   { label: 'Home', to: '/', icon: <HomeIcon /> },
   { label: 'Certifications', to: '/certifications', icon: <WorkspacePremiumIcon /> },
-  { label: 'Manage Members', to: '/manage-members', icon: <GroupIcon /> },
+  { label: 'Manage Members', to: '/users', icon: <GroupIcon /> },
   { label: 'Manage Labs', to: '/manage-labs', icon: <ScienceIcon /> },
-  { label: 'Profile', to: '/profile', icon: <PersonIcon /> },
+  { label: 'Profile', to: '/user', icon: <PersonIcon /> },
   { label: 'Log Out', to: '/login', icon: <LogoutIcon /> },
 ];
 

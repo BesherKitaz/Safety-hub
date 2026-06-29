@@ -8,7 +8,7 @@ type AuthTokenPayload = {
   role: string;
 };
 
-export type AuthRequest = Request & {
+export type AuthRequest<P = Record<string, string>> = Request<P> & {
   user?: AuthTokenPayload;
 };
 

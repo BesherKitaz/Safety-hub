@@ -1,7 +1,6 @@
-import Router from 'express'
-import type { AuthRequest } from '../middleware/auth'
-import { authMiddleware } from '../middleware/auth';
-import {  getRecentCertifications, addCertification, getTabularCertifications } from '../controllers/certificationsController';
+import { Router } from 'express'
+import { authMiddleware, type AuthRequest } from '../middleware/auth';
+import {  getRecentCertifications, addCertification, getTabularCertifications, getCertificationById } from '../controllers/certificationsController';
 import { Prisma } from '@prisma/client/index-browser';
 import prisma from "../lib/prisma";
 
@@ -9,26 +8,6 @@ import prisma from "../lib/prisma";
 const router = Router();
 
 router.use(authMiddleware);
-
-router.get('/tabular', authMiddleware, async (req, res) => {
-    try{
-        const page = Number(req.query.page) || 1;
-        const pageSize = Number(req.query.pageSize) || 10;
-
-        const skip = (page - 1) * pageSize;
-        const certifications = await getTabularCertifications(skip, pageSize);
-            console.log("Fetching tabular certifications", certifications);
-
-        res.json({
-            message: "Recent certifications fetched successfully",
-            data: certifications
-        });
-    }
-    catch (error) {
-        console.error("Error fetching recent certifications:", error);
-        res.status(500).json({ error: 'Failed to fetch recent certifications' });   
-    }
-})
 
 router.get('/tabular/total-rows', authMiddleware, async (req: AuthRequest, res) => {
     if ((req.user?.role !== "ADMIN") && (req.user?.role !== "STAFF")) {
@@ -51,6 +30,26 @@ router.get('/tabular/total-rows', authMiddleware, async (req: AuthRequest, res) 
 });
 
 
+router.get('/tabular', authMiddleware, async (req, res) => {
+    try{
+        const page = Number(req.query.page) || 1;
+        const pageSize = Number(req.query.pageSize) || 10;
+
+        const skip = (page - 1) * pageSize;
+        const certifications = await getTabularCertifications(skip, pageSize);
+        res.json({
+            message: "Recent certifications fetched successfully",
+            data: certifications
+        });
+    }
+    catch (error) {
+        console.error("Error fetching recent certifications:", error);
+        res.status(500).json({ error: 'Failed to fetch recent certifications' });   
+    }
+})
+
+
+
 router.get('/recent', authMiddleware, async (req, res) => {
     try {
         const certifications = await getRecentCertifications();
@@ -62,6 +61,28 @@ router.get('/recent', authMiddleware, async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch recent certifications' });
     }
 });
+
+
+router.get('/:id', authMiddleware, async (req: AuthRequest<{id: string}>, res) => {
+    try {
+        const certificationId = req.params.id;
+        if (!certificationId) {
+            return res.status(400).json({ message: "Certification ID is required" });
+        }
+        const certificaiton = await getCertificationById(certificationId);
+        if (!certificaiton) {
+            return res.status(404).json({ message: "Certification not found" });
+        }
+        res.json({
+            message: "Certification fetched successfully",
+            data: certificaiton
+        });
+    } catch (error) {
+        console.error("Error fetching certification:", error);
+        res.status(500).json({ error: 'Failed to fetch certification' });
+    }
+});
+
 
 
 router.post('/add', authMiddleware, async (req: AuthRequest, res) => {

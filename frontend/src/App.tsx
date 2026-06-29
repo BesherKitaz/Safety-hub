@@ -11,9 +11,11 @@ import Certifications from './views/Certifications'
 import AddLab from './views/AddLab'
 import AddTraing from './views/AddTraining'
 import CertificationView from './views/CertificationView'
-
+import Users from './views/Users.tsx'
 import HeaderContext from './contexts/HeaderContext.tsx';
 import Layout from './Layout';
+
+
 import { useState } from 'react';
 import DrawerContext from './contexts/DrawerContext.ts';
 
@@ -39,8 +41,10 @@ function App() {
           <Routes>
             <Route element={<Layout />}>
               <Route path="/" element={<Home />} />
-              <Route path="/profile" element={<Profile />} />
+              <Route path="/user" element={<Profile />} />
+              <Route path="/user/:id" element={<Profile />} />
               <Route path="/certifications" element={<Certifications />} />
+              <Route path="/users" element={<Users />} />
 
               <Route path="/profile/edit" element={<EditProfile mode="edit" />} />
               <Route path="/profile/create" element={<EditProfile mode="create" />} />
@@ -60,5 +64,6 @@ function App() {
 }
 
 export default App
+
 
 

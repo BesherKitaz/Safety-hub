@@ -1,5 +1,5 @@
 import React, {useState, useEffect} from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link as RouterLink } from 'react-router-dom'
 
 import { Typography, Box, Paper, Button } from '@mui/material'
 import { DataGrid  } from '@mui/x-data-grid'
@@ -49,7 +49,7 @@ const columns: GridColDef[] = [
 
     renderCell: (params: any) => (
       <Box sx={{ display: 'flex', flexDirection: 'row', justifyContent: 'left', alignItems: 'center', gap: 2, height: '100%', }}>
-        <Button variant="contained" color="primary">
+        <Button variant="contained" color="primary" component={RouterLink} to={`/certifications/${params.row.id}`}>
           View
         </Button>
         <Button variant="contained" color="primary">
@@ -163,3 +163,4 @@ const Certifications = () => {
 };
 
 export default Certifications;
+

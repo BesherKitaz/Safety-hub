@@ -1,9 +1,19 @@
 import { Router } from 'express';
 
 
-import { getUserDataById, getUserProfileById, getUserNameDatabyId,  createUser, login, userSearch } from '../controllers/userController';
+import { 
+  getUserDataById, 
+  getUserProfileById, 
+  getUserNameDatabyId,  
+  createUser, 
+  login, 
+  userSearch, 
+  getTabularUsers,
+} from '../controllers/userController';
+
 import { authMiddleware } from "../middleware/auth";
 import type { AuthRequest } from "../middleware/auth"
+import prisma from '../lib/prisma';
 
 const router = Router();
 
@@ -45,7 +55,59 @@ router.get("/name", authMiddleware, async (req: AuthRequest, res) => {
     }
   });
 
+  router.get("/profile/:id", authMiddleware, async (req: AuthRequest<{ id: string }>, res) => {
+    const userId = req.params.id;
+    try {
+      const data = await getUserProfileById(userId)
+      res.json({
+        message: "User profile",
+        data
+      });
 
+    } catch (error) {
+      res.status(500).json({
+        error: `Error fetching user profile: ${error}`
+      });
+    }
+  });
+
+  router.get("/tabular/total-rows", authMiddleware, async (req: AuthRequest, res) => {
+    try { 
+      const totalRows = await prisma.user.count()
+        res.json({
+            message: "Total rows fetched successfully",
+            data: totalRows
+        });
+    } catch (error) {
+      console.error("Error fetching total rows:", error);
+      res.status(500).json({
+        error: `Error fetching total rows: ${error}`
+      });
+    }
+  })
+
+    
+
+  router.get("/tabular", authMiddleware, async (req: AuthRequest, res) => {
+    try {
+        const page = Number(req.query.page) || 1;
+        const pageSize = Number(req.query.pageSize) || 10;
+
+        const users = await getTabularUsers(page, pageSize);
+        res.json({
+            message: "Recent users fetched successfully",
+            data: users
+        });
+
+    } catch (error) {
+      console.error("Error fetching tabular users data:", error);
+      res.status(500).json({
+        error: `Error fetching tabular users data: ${error}`
+      });
+    }
+  });
+
+  
 // Create User Route
 router.post("/create", async (req, res) => {
   const userData = req.body;
@@ -114,4 +176,6 @@ router.get("/search", authMiddleware, async (req, res) => {
 });
 
 export default router;
+
+
 

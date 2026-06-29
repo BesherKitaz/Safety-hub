@@ -328,4 +328,55 @@ const validateEligibility = (issuerRole: UserRole, receiver_certifications: Cert
   return true;
 }
 
-export { getRecentCertifications, addCertification, getTabularCertifications };
+const getCertificationById = async (certificationId: string) => {
+  try {
+    const certification = await prisma.certification.findUnique({
+      where: {
+        id: certificationId,
+      },
+      include: {
+        trainingNode: {
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            lab: {
+              select: {
+                id: true,
+                name: true,
+              }
+            },
+            tool: {
+              select: {
+                id: true,
+                name: true,
+              }
+            }
+          }
+        },
+        issuedTo: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          }
+        },
+        issuedBy: {
+          select: {
+            id: true,
+            firstName: true, 
+            lastName: true,
+            email: true,
+          },
+        }
+      }
+    });
+    return certification;
+  } catch (error) {
+    console.error("Error fetching certification:", error);
+    throw new Error("Failed to fetch certification");
+  }
+}
+
+export { getRecentCertifications, addCertification, getTabularCertifications, getCertificationById };

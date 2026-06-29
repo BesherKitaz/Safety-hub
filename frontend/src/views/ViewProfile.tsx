@@ -1,4 +1,5 @@
 import { useState, useEffect, type ReactNode } from "react";
+import { useParams } from "react-router-dom";
 import { alpha } from "@mui/material/styles";
 import {
   Avatar,
@@ -476,12 +477,15 @@ const Profile = () => {
   const [userData, setUserData] = useState<UserData| null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false)
+  const { id } = useParams<{ id?: string }>();
+  const profileId = id?.trim();
 
 
    useEffect( () => {
     const fetchUserProfile = async () => {
       try {
-        const reponse = await api.get("/api/user/profile");
+        const endpoint = profileId ? `/api/user/profile/${profileId}` : "/api/user/profile";
+        const reponse = await api.get(endpoint);
         const data = await reponse.data.data;
         setUserData(data);
       } catch (error) {
@@ -492,7 +496,7 @@ const Profile = () => {
     }
     }
     fetchUserProfile();
-  }, [] )
+  }, [profileId] )
 
 
   if (loading) {
@@ -876,4 +880,5 @@ const Profile = () => {
 };
 
 export default Profile;
+
 
