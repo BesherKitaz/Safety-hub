@@ -12,6 +12,7 @@ router.use(authMiddleware);
 router.get("/", async (req: AuthRequest, res) => {
   try {
     const labs = await getLabs();
+    console.log("Labs fetched successfully:", labs);
     res.json({
         message: "Labs fetched successfully",
         data: labs

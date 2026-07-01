@@ -50,9 +50,6 @@ const columns: GridColDef[] = [
         <Button variant="contained" color="primary">
           Edit
         </Button>
-        <Button variant="contained" sx={{ backgroundColor: 'red', '&:hover': { backgroundColor: 'darkred' } }}>
-          Revoke
-        </Button>
       </Box>
 
     ),
@@ -112,7 +109,14 @@ const Users = () => {
 
     return (
     <GradientBox>
-
+      <Box sx={{ display: "flex", justifyContent: "flex-end", maxWidth: 1640, gap: 4, px: { xs: 2, sm: 4 }, mx: "auto", mt: 2, mb: 2 }}>
+        <Button variant="contained" color="primary" component={RouterLink} to="/user/create"> 
+          Create New User
+        </Button>
+        <Button variant="contained" color="primary" component={RouterLink} to="/user/create"> 
+          Send User Agreement
+        </Button>
+      </Box>
       <Box sx={{ maxWidth: 720, px: { xs: 2, sm: 4, }, mx: "auto", textAlign: "center" }}>
               <Typography variant="h3" component="h1" sx={{ fontWeight: 700, mb: 1, mt:1 } }>
               Manage Users

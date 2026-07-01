@@ -19,7 +19,7 @@ const navItems = [
   { label: 'Home', to: '/', icon: <HomeIcon /> },
   { label: 'Certifications', to: '/certifications', icon: <WorkspacePremiumIcon /> },
   { label: 'Manage Members', to: '/users', icon: <GroupIcon /> },
-  { label: 'Manage Labs', to: '/manage-labs', icon: <ScienceIcon /> },
+  { label: 'Manage Labs', to: '/lab-management', icon: <ScienceIcon /> },
   { label: 'Profile', to: '/user', icon: <PersonIcon /> },
   { label: 'Log Out', to: '/login', icon: <LogoutIcon /> },
 ];
