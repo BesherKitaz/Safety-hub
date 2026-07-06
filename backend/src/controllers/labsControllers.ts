@@ -26,5 +26,47 @@ const getLabsNamesAndIds = async () => {
     }
 }
 
+const getLabById = async (labId: string) => {
+    try {
+        const lab = await prisma.lab.findUnique({
+            where: {
+                id: labId
+            },
+            select: {
+                name: true,
+                id: true,
+                description: true,
+                createdAt: true,
+                updatedAt: true,
+                trainingNodes: {
+                    select: {
+                        id: true,
+                        name: true,
+                        tool: {
+                            select: {
+                                id: true,
+                                name: true,
+                            }
+                        }
+                    },
+                },
+                tools: {
+                    select: {
+                        id: true,
+                        name: true,
+                        description: true,
+                        createdAt: true,
+                        updatedAt: true,
+                    },
+                },
+            }
+        });
+        return lab;
+    }
+    catch (error) {
+        throw new Error(`Something went wrong!, ${error}`)
+    }
+}
 
-export { getLabs, getLabsNamesAndIds }
+
+export { getLabs, getLabsNamesAndIds, getLabById }

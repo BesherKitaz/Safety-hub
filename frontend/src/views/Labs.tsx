@@ -190,8 +190,8 @@ const Labs = () => {
         >
           <Stack
               direction="row"
-              justifyContent="space-between"
-              alignItems="flex-start"
+              justifycontent="space-between"
+              alignitems="flex-start"
               spacing={3}
           >
               <Box sx={{ flex: 1 }}>

@@ -13,7 +13,7 @@ import AddTraing from './views/AddTraining'
 import CertificationView from './views/CertificationView'
 import Users from './views/Users.tsx'
 import Lab from  './views/Labs.tsx';
-
+import LabManagement from './views/LabManagement.tsx'
 
 import HeaderContext from './contexts/HeaderContext.tsx';
 import Layout from './Layout';
@@ -53,8 +53,10 @@ function App() {
               <Route path="/profile/create" element={<EditProfile mode="create" />} />
               <Route path="/certifications/add" element={<AddCertification />} />
               <Route path="/certifications/:id" element={<CertificationView />} />
+              <Route path="/lab-management/lab/:labId" element={<LabManagement />} />
               <Route path="/lab-management/lab/add" element={<AddLab />} />
               <Route path="/lab-management/training/add" element={<AddTraing />} />
+
             </Route>
 
             <Route path="/login" element={<Login />} />
