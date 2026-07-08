@@ -58,7 +58,31 @@ type SectionHeaderProps = {
   accent: string;
 };
 
+type TrainingsTabProps = {
+  lab: LabDetail;
+  trainingNodes: TrainingNodeSummary[];
+};
 
+type TrainingCardProps = {
+  trainingNode: TrainingNodeSummary;
+  currentLab: LabDetail;
+};
 
+type LabInfoTabProps = {
+  lab: LabDetail;
+  tools: LabTool[];
+  trainingNodes: TrainingNodeSummary[];
+};
 
-export {  type LabTool, type LabSummary, type LabDetail, type SectionHeaderProps, type ToolSummary, type TrainingNodeSummary }; 
+export type { 
+  LabTool,  
+  LabSummary, 
+  LabDetail, 
+  SectionHeaderProps, 
+  ToolSummary, 
+  TrainingNodeSummary, 
+  TrainingsTabProps,
+  TrainingCardProps,
+  LabInfoTabProps,
+}; 
+

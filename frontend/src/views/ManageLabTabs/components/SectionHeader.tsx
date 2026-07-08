@@ -1,5 +1,5 @@
 import { Stack, Typography } from '@mui/material';
-import { type SectionHeaderProps } from './commons/types';
+import { type SectionHeaderProps } from '../commons/types';
 
 const SectionHeader = ({ eyebrow, title, description, accent }: SectionHeaderProps) => (
   <Stack spacing={0.75}>

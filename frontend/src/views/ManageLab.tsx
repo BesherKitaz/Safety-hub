@@ -1,8 +1,12 @@
+
+// Main React and React Router imports
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link as RouterLink, useParams } from 'react-router-dom';
 
+// main imports (not components or React)
 import axios from 'axios';
 
+// Main MUI imports
 import { alpha } from '@mui/material/styles';
 import {
   Alert,
@@ -16,37 +20,24 @@ import {
   Tabs,
   Typography,
 } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import BlockOutlined from '@mui/icons-material/BlockOutlined';
-import EditOutlined from '@mui/icons-material/EditOutlined';
+
 import ScienceOutlined from '@mui/icons-material/ScienceOutlined';
 
+// Costum components and imports
 import api from '../lib/api';
 import GradientBox from '../components/ui/GradientBox';
 
-import type { LabTool, LabDetail, TrainingNodeSummary } from './ManageLabTabs/commons/types';
+// Types and helpers and commons
+import type { LabDetail } from './ManageLabTabs/commons/types';
 import { formatDateTime, safeText } from './ManageLabTabs/commons/helperFunctions';
 
-import SectionHeader from './ManageLabTabs/SectionHeader';
-import DetailField from './ManageLabTabs/commons/DetailField';
-
+// Tabs
 import ToolsTab from './ManageLabTabs/LabTools';
-import TrainingCard from './ManageLabTabs/LabTrainingNodes';
+import TrainingsTab from './ManageLabTabs/LabTrainingNodes';
+import LabInfoTab from './ManageLabTabs/LabDetails';
 
-
-
-const noop = () => undefined;
-
-const pageSurfaceSx = {
-  p: { xs: 2.25, md: 3 },
-  borderRadius: 4,
-  border: '1px solid',
-  borderColor: alpha('#0F172A', 0.08),
-  background:
-    'linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.92) 100%)',
-  boxShadow: '0 18px 40px rgba(15, 23, 42, 0.08)',
-  backdropFilter: 'blur(10px)',
-};
+// Styles from the LabDetails Tab
+import { pageSurfaceSx } from './ManageLabTabs/LabDetails';
 
 const heroSurfaceSx = {
   position: 'relative',
@@ -83,211 +74,6 @@ const TabPanel = ({ children, value, index, idPrefix }: TabPanelProps) => (
 );
 
 
-
-const LabActions = () => (
-  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25} useFlexGap sx={{ flexWrap: 'wrap' }}>
-    <Button
-      variant="contained"
-      startIcon={<EditOutlined />}
-      onClick={noop}
-      sx={{
-        borderRadius: 999,
-        textTransform: 'none',
-        fontWeight: 800,
-        px: 2.25,
-        boxShadow: 'none',
-      }}
-    >
-      Edit Lab
-    </Button>
-    <Button
-      variant="outlined"
-      color="error"
-      startIcon={<BlockOutlined />}
-      onClick={noop}
-      sx={{
-        borderRadius: 999,
-        textTransform: 'none',
-        fontWeight: 800,
-        px: 2.25,
-      }}
-    >
-      Deactivate Lab
-    </Button>
-  </Stack>
-);
-
-
-type LabInfoTabProps = {
-  lab: LabDetail;
-  tools: LabTool[];
-  trainingNodes: TrainingNodeSummary[];
-};
-
-const LabInfoTab = ({ lab, tools, trainingNodes }: LabInfoTabProps) => {
-  return (
-    <Stack spacing={3}>
-      <Paper elevation={0} sx={pageSurfaceSx}>
-        <Stack spacing={2.5}>
-          <Stack
-            direction={{ xs: 'column', md: 'row' }}
-            spacing={2}
-            sx={{ justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' } }}
-          >
-            <SectionHeader
-              eyebrow="Lab Info"
-              title="Current lab record"
-              description="Review the lab details that are already returned by the API, with a few UI-only management actions layered on top."
-              accent="#7C3AED"
-            />
-
-            <LabActions />
-          </Stack>
-
-          <Typography variant="body1" sx={{ color: 'text.secondary', lineHeight: 1.8 }}>
-            {safeText(lab.description, 'No description provided for this lab.')}
-          </Typography>
-
-          <Box
-            sx={{
-              display: 'grid',
-              gap: 1.5,
-              gridTemplateColumns: {
-                xs: '1fr',
-                md: 'repeat(2, minmax(0, 1fr))',
-                xl: 'repeat(3, minmax(0, 1fr))',
-              },
-            }}
-          >
-            <DetailField
-              label="Lab ID"
-              value={<Typography sx={{ fontWeight: 700, wordBreak: 'break-word' }}>{lab.id}</Typography>}
-              helper="Unique identifier from the existing lab detail response."
-            />
-            <DetailField
-              label="Lab name"
-              value={<Typography sx={{ fontWeight: 700, wordBreak: 'break-word' }}>{safeText(lab.name, lab.id)}</Typography>}
-              helper="Name value returned by the existing API call."
-            />
-            <DetailField
-              label="Description"
-              value={
-                <Typography variant="body2" sx={{ color: 'text.primary', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
-                  {safeText(lab.description, 'No description provided.')}
-                </Typography>
-              }
-              helper="Displayed directly from the current API payload."
-            />
-            <DetailField
-              label="Created at"
-              value={<Typography sx={{ fontWeight: 700 }}>{formatDateTime(lab.createdAt)}</Typography>}
-              helper="Creation timestamp from the response."
-            />
-            <DetailField
-              label="Updated at"
-              value={<Typography sx={{ fontWeight: 700 }}>{formatDateTime(lab.updatedAt)}</Typography>}
-              helper="Most recent update timestamp from the response."
-            />
-            <DetailField
-              label="Tools"
-              value={<Typography sx={{ fontWeight: 800, fontSize: 28 }}>{tools.length}</Typography>}
-              helper="Tools already attached to this lab in the current response."
-            />
-            <DetailField
-              label="Training nodes"
-              value={<Typography sx={{ fontWeight: 800, fontSize: 28 }}>{trainingNodes.length}</Typography>}
-              helper="Training nodes already attached to this lab in the current response."
-            />
-          </Box>
-        </Stack>
-      </Paper>
-    </Stack>
-  );
-};
-
-
-
-type TrainingsTabProps = {
-  lab: LabDetail;
-  trainingNodes: TrainingNodeSummary[];
-};
-
-const TrainingsTab = ({ lab, trainingNodes }: TrainingsTabProps) => {
-  return (
-    <Stack spacing={3}>
-      <Stack
-        direction={{ xs: 'column', sm: 'row' }}
-        spacing={2}
-        sx={{ justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' } }}
-      >
-        <SectionHeader
-          eyebrow="Trainings"
-          title="Lab training nodes"
-          description="Training cards are adapted to the node shape already returned by the current endpoint, with optional fields rendered only when present."
-          accent="#0F766E"
-        />
-
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={noop}
-          sx={{
-            flexShrink: 0,
-            borderRadius: 999,
-            textTransform: 'none',
-            fontWeight: 800,
-            px: 2.25,
-            boxShadow: 'none',
-          }}
-        >
-          Add Training
-        </Button>
-      </Stack>
-
-      <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
-        <Chip label={`${trainingNodes.length} training node${trainingNodes.length === 1 ? '' : 's'}`} />
-        <Chip label={`Lab: ${safeText(lab.name, lab.id)}`} variant="outlined" />
-      </Stack>
-
-      {trainingNodes.length === 0 ? (
-        <Paper
-          elevation={0}
-          sx={{
-            p: 5,
-            borderRadius: 4,
-            border: '1px dashed',
-            borderColor: alpha('#0F172A', 0.18),
-            textAlign: 'center',
-            backgroundColor: 'rgba(255,255,255,0.96)',
-          }}
-        >
-          <Typography variant="h6" sx={{ fontWeight: 800 }}>
-            No training nodes found
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1, lineHeight: 1.7 }}>
-            The current lab detail response does not contain any training nodes yet.
-          </Typography>
-        </Paper>
-      ) : (
-        <Box
-          sx={{
-            display: 'grid',
-            gap: 2.5,
-            gridTemplateColumns: {
-              xs: '1fr',
-              lg: 'repeat(2, minmax(0, 1fr))',
-              xl: 'repeat(3, minmax(0, 1fr))',
-            },
-          }}
-        >
-          {trainingNodes.map((trainingNode) => (
-            <TrainingCard key={trainingNode.id} trainingNode={trainingNode} currentLab={lab} />
-          ))}
-        </Box>
-      )}
-    </Stack>
-  );
-};
 
 const LabManagement = () => {
   const { labId } = useParams<{ labId: string }>();

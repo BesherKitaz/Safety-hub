@@ -8,8 +8,8 @@ import api from '../../lib/api';
 
 import type { LabTool, LabDetail, ToolSummary } from './commons/types';
 import { safeText, resolveLabReference, formatDateTime } from './commons/helperFunctions';
-import DetailField from './commons/DetailField';
-import SectionHeader from '../ManageLabTabs/SectionHeader';
+import DetailField from './components/DetailField';
+import SectionHeader from './components/SectionHeader';
 
 type ToolCardProps = {
   tool: LabTool;
