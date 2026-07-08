@@ -62,10 +62,12 @@ const Navbar = ({ sx }: { sx?: React.CSSProperties }) => {
         >
           Safety Hub
         </Typography>
+        <NavButton label="Certify a Student" color="" to="/certifications/add" /> 
         <NavButton label="Log out" color="" onClick={logout} />
       </Toolbar>
     </AppBar>
   );
 };
+
 
 export default Navbar;

@@ -26,4 +26,21 @@ const getToolNamesAndIdsByLabs = async (labId: string) => {
     return tools;
 };
 
-export { getToolsofLab, getToolNamesAndIdsByLabs };
+const updateTool = async (toolId: string, updateData: { name: string; description?: string }) => {
+    try {
+        const updatedTool = await prisma.tool.update({
+            where: {
+                id: toolId
+            },
+            data: updateData
+            
+        });
+        return updatedTool;
+    } catch (error) {
+        console.error("Error updating tool:", error);
+        throw new Error('Failed to update tool');
+    }
+
+};
+
+export { getToolsofLab, getToolNamesAndIdsByLabs, updateTool };
