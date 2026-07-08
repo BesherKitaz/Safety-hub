@@ -306,5 +306,64 @@ const addTraining = async (trainingData: TrainingNodeData) => {
 
 /* END ADDING TRAINING LOGIC */
 
+const getTrainingById = async (trainingId: string) => {
+  try {
+    const training = await prisma.trainingNode.findUnique({
+        where: {
+          id: trainingId
+        },
+        include: {
+          tool: {
+            select: {
+              id: true,
+              name: true,
+            }
+          },
+          parentEdges: {
+            select: {
+              parent: {
+                select: {
+                  id: true,
+                  name: true,
+                  type: true,
+                  childEdges: {
+                    select: {
+                      child: {
+                        select: {
+                          id: true,
+                          name: true,
+                          type: true,
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+          },
+          childEdges: {
+            select: {
+              child: {
+                select: {
+                  id: true,
+                  name: true,
+                  type: true,
+                }
+              }
+            },
+          },
+        },
+    });
 
-export { getTrainingsofLab, getTrainingNamesAndIdsByLab, addTraining, AppError };
+    return training;
+    
+  } catch (error) {
+    throw new AppError(
+      500,
+      "TRAINING_FETCH_FAILED",
+      "Something went wrong while fetching the training node."
+    );
+  }
+};
+
+export { getTrainingsofLab, getTrainingNamesAndIdsByLab, addTraining, getTrainingById, AppError };

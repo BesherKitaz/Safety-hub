@@ -14,6 +14,7 @@ import CertificationView from './views/CertificationView'
 import Users from './views/Users.tsx'
 import Lab from  './views/Labs.tsx';
 import LabManagement from './views/LabManagement.tsx'
+import ViewTraining from './views/ManageLabTabs/ViewTraining.tsx'
 
 import HeaderContext from './contexts/HeaderContext.tsx';
 import Layout from './Layout';
@@ -56,7 +57,7 @@ function App() {
               <Route path="/lab-management/lab/:labId" element={<LabManagement />} />
               <Route path="/lab-management/lab/add" element={<AddLab />} />
               <Route path="/lab-management/training/add" element={<AddTraing />} />
-
+              <Route path="/lab-management/lab/:labId/training/:trainingId" element={<ViewTraining />} />
             </Route>
 
             <Route path="/login" element={<Login />} />

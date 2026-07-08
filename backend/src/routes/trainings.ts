@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { authMiddleware } from "../middleware/auth";
 import type { AuthRequest } from "../middleware/auth"
-import { getTrainingsofLab, getTrainingNamesAndIdsByLab, addTraining, AppError } from '../controllers/trainingsControllers';
+import { getTrainingsofLab, getTrainingNamesAndIdsByLab, addTraining, AppError, getTrainingById } from '../controllers/trainingsControllers';
 import { isUserAdmin, isUserStaff } from '../util/checkRoles';
 
 
@@ -75,4 +75,21 @@ router.post('/add', authMiddleware, async (req: AuthRequest, res) => {
 })
 
 
+router.get('/:trainingId', authMiddleware, async (req: AuthRequest, res) => {
+    const { trainingId } = req.params;
+    try {
+        if (!trainingId) {
+            return res.status(400).json({ error: 'Missing trainingId parameter' });
+        }
+        const training = await getTrainingById(trainingId);
+        res.json({
+            data: training,
+            message: "Training fetched successfully"
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch training' });
+    }
+})
+
 export default router;
+

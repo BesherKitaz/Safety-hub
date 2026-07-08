@@ -1,11 +1,15 @@
 import { Box, Button, Chip, Divider, Paper, Stack, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
+import BlockOutlined from '@mui/icons-material/BlockOutlined';
+import EditOutlined from '@mui/icons-material/EditOutlined';
 import { alpha } from '@mui/material/styles';
+
 import type { TrainingNodeSummary, ToolSummary, TrainingsTabProps, TrainingCardProps } from './commons/types';
 import { resolveLabReference, safeText } from './commons/helperFunctions';
 import DetailField from './components/DetailField';
 
 import SectionHeader from './components/SectionHeader';
+import { useNavigate } from 'react-router-dom';
 
 
 const noop = () => {};
@@ -92,10 +96,7 @@ const RelatedNodeList = ({ nodes }: { nodes: TrainingNodeSummary[] }) => {
 
 const TrainingCard = ({ trainingNode, currentLab }: TrainingCardProps) => {
   const labReference = resolveLabReference(currentLab, trainingNode.lab, trainingNode.labId);
-  const relatedTool = resolveRelatedTool(trainingNode);
-  const parentNodes = resolveRelatedTrainingNodes(trainingNode, 'parents');
-  const childNodes = resolveRelatedTrainingNodes(trainingNode, 'children');
-  
+  const navigate = useNavigate();
 
   return (
     <Paper elevation={0} sx={trainingCardShellSx}>
@@ -134,71 +135,62 @@ const TrainingCard = ({ trainingNode, currentLab }: TrainingCardProps) => {
                 {safeText(trainingNode.description, 'No description provided.')}
               </Typography>
             }
-            helper="Description value from the current response, if available."
-          />
-
-          <DetailField
-            label="Lab"
-            value={
-              <Stack spacing={0.35}>
-                <Typography sx={{ fontWeight: 700, color: 'text.primary', wordBreak: 'break-word' }}>
-                  {safeText(labReference.name, labReference.id)}
-                </Typography>
-                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                  Lab ID: {labReference.id}
-                </Typography>
-              </Stack>
-            }
-            helper="This uses the nested lab info when present and falls back to the current lab context."
-          />
-
-          <DetailField
-            label="Related tool"
-            value={
-              relatedTool ? (
-                <Stack spacing={0.35}>
-                  <Typography sx={{ fontWeight: 700, color: 'text.primary', wordBreak: 'break-word' }}>
-                    {relatedTool.name}
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                    Tool ID: {relatedTool.id}
-                  </Typography>
-                </Stack>
-              ) : (
-                <Typography variant="body2" color="text.secondary">
-                  No related tool is included in this response.
-                </Typography>
-              )
-            }
-            helper="Training nodes can still appear even if they are not linked to a tool."
-          />
-
-          <DetailField
-            label="Parent nodes"
-            value={<RelatedNodeList nodes={parentNodes} />}
-            helper="Any related parent nodes returned by the current endpoint."
-          />
-
-          <DetailField
-            label="Child nodes"
-            value={<RelatedNodeList nodes={childNodes} />}
-            helper="Any related child nodes returned by the current endpoint."
           />
         </Stack>
       </Stack>
 
       <Divider />
 
-      <Box sx={{ p: 2 }}>
-        <Button > Edit Lab </Button>
-        <Button > Deactivate Lab </Button>
-      </Box>
+        <Box sx={{ p: 2 }}>
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={1.25}
+            useFlexGap
+            sx={{ flexWrap: 'wrap', justifyContent: 'space-between', alignItems: { sm: 'center' } }}
+          >
+            <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}> 
+              <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<EditOutlined fontSize="small" />}
+                  onClick={() => navigate(`training/${trainingNode.id}`)}
+                  sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 700 }}
+                >
+                  View
+                </Button>
+              </Stack>
+              <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<EditOutlined fontSize="small" />}
+                  onClick={() => navigate(`training/${trainingNode.id}/edit`)}
+                  sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 700 }}
+                >
+                  Edit
+                </Button>
+              </Stack>
+            </Stack>
+            <Button
+              size="small"
+              variant="outlined"
+              color="error"
+              startIcon={<BlockOutlined fontSize="small" />}
+              onClick={() => navigate(`training/${trainingNode.id}/deactivate`)}
+              sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 700 }}
+            >
+              Deactivate
+            </Button>
+          </Stack>
+        </Box>
     </Paper>
   );
 };
 
 
 const TrainingsTab = ({ lab, trainingNodes }: TrainingsTabProps) => {
+  const navigate = useNavigate();
   return (
     <Stack spacing={3}>
       <Stack
@@ -216,7 +208,7 @@ const TrainingsTab = ({ lab, trainingNodes }: TrainingsTabProps) => {
         <Button
           variant="contained"
           startIcon={<AddIcon />}
-          onClick={noop}
+          onClick={() => navigate("/lab-management/training/add")}
           sx={{
             flexShrink: 0,
             borderRadius: 999,
