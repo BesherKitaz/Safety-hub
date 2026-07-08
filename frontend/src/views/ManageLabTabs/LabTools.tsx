@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import { Box, Button, Chip, Divider, Link, Paper, Stack, Typography, TextField, Modal } from '@mui/material';
+import { Alert, Box, Button, Chip, Divider, Link, Paper, Stack, Typography, TextField, Modal } from '@mui/material';
 import { EditOutlined, BlockOutlined } from '@mui/icons-material';
 import AddIcon from '@mui/icons-material/Add';
 import { alpha } from '@mui/material/styles';
@@ -42,37 +42,72 @@ const toolCardShellSx = {
 
 const noop = () => {};
 
-const ToolEditModal = ({
+const ToolModalForm = ({
   open,
   onClose,
   onUpdate,
   toolId,
   popData,
+  mode,
+  labId,
 }: {
   open: boolean;
   onClose: () => void;
   onUpdate: () => void | Promise<void>;
-  toolId: string;
-  popData?: { description: string; name: string };
+  toolId?: string | null;
+  popData?: { description?: string; name: string } | null;
+  labId?: string | null;
+  mode: "create" | "edit";
 }) => {
-  const [toolName, setToolName] = useState(popData?.name || "");
-  const [toolDescription, setToolDescription] = useState(
-    popData?.description || ""
-  );
+  const [toolName, setToolName] = useState("");
+  const [toolDescription, setToolDescription] = useState("");
 
-  const handleUpdateTool = async () => {
+  useEffect(() => {
+    if (open) {
+      setToolName(popData?.name || "");
+      setToolDescription(popData?.description || "");
+    }
+  }, [open, popData]);
+
+  const handleSubmitTool = async () => {
+    if (mode === "edit" && !toolId) {
+      console.error("Tool ID is required for editing");
+      return;
+    }
+
+    if (mode === "create" && !labId) {
+      console.error("Lab ID is required for creating a tool");
+      return;
+    }
+
     try {
-      const response = await api.put(`/api/tools/update/${toolId}`, {
-        name: toolName,
-        description: toolDescription,
-      });
+      if (mode === "create") {
+        const response = await api.post(`/api/tools/create`, {
+          labId: labId,
+          name: toolName,
+          description: toolDescription,
+        });
 
-      console.log(`response from updating tool ${toolId}:`, response.data);
+        console.log("response from creating tool:", response.data);
+      }
+
+      if (mode === "edit") {
+        const response = await api.put(`/api/tools/update/${toolId}`, {
+          labId: labId,
+          name: toolName,
+          description: toolDescription,
+        });
+
+        console.log(`response from updating tool ${toolId}:`, response.data);
+      }
 
       await onUpdate();
       onClose();
     } catch (error) {
-      console.error("Error updating tool:", error);
+      console.error(
+        mode === "create" ? "Error creating tool:" : "Error updating tool:",
+        error
+      );
     }
   };
 
@@ -91,7 +126,9 @@ const ToolEditModal = ({
           p: 4,
         }}
       >
-        <Typography variant="h6">Edit Tool</Typography>
+        <Typography variant="h6">
+          {mode === "create" ? "Create Tool" : "Edit Tool"}
+        </Typography>
 
         <TextField
           label="Name"
@@ -110,10 +147,11 @@ const ToolEditModal = ({
         />
 
         <Box sx={{ display: "flex", justifyContent: "space-between", gap: 1 }}>
-          <Button sx={{ mt: 3 }} variant="contained" onClick={handleUpdateTool}>
-            Update
+          <Button sx={{ mt: 3 }} variant="contained" onClick={handleSubmitTool}>
+            {mode === "create" ? "Create" : "Update"}
           </Button>
-          <Button sx={{ mt: 3 }} variant="contained" onClick={onClose}>
+
+          <Button sx={{ mt: 3 }} variant="outlined" onClick={onClose}>
             Close
           </Button>
         </Box>
@@ -122,6 +160,66 @@ const ToolEditModal = ({
   );
 };
 
+const ToolEditModal = ({
+  open,
+  onClose,
+  onUpdate,
+  toolId,
+  popData,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onUpdate: () => void | Promise<void>;
+  toolId: string;
+  popData:{ description?: string; name: string };
+}) => {
+  if (!toolId) {
+    return (
+      <Alert severity="error">
+        Tool ID is required. Something went wrong.
+      </Alert>
+    );
+  }
+
+  return (
+    <>
+      {!popData && (
+        <Alert severity="warning">Failed to load tool data</Alert>
+      )}
+
+      <ToolModalForm
+        open={open}
+        onClose={onClose}
+        onUpdate={onUpdate}
+        toolId={toolId}
+        popData={popData}
+        mode="edit"
+      />
+    </>
+  );
+};
+
+const ToolCreateModal = ({
+  open,
+  onClose,
+  onUpdate,
+  labId,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onUpdate: () => void | Promise<void>;
+  labId: string;
+}) => {
+  return (
+    <ToolModalForm
+      open={open}
+      onClose={onClose}
+      onUpdate={onUpdate}
+      mode="create"
+      labId={labId}
+    />
+  );
+};
 const resolveTrainingNodeLink = (tool: LabTool): ToolSummary | null => {
   const trainingNodeId = tool.trainingNode?.id ?? tool.trainingNodeId;
   if (!trainingNodeId) {
@@ -296,79 +394,104 @@ const ToolCard = ({ tool, currentLab }: ToolCardProps) => {
 
 
 const ToolsTab = ({ lab, tools }: ToolsTabProps) => {
+  const [toolList, setToolList] = useState<LabTool[]>(tools);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+
+  const handleCreateModalOpen = () => {
+    setCreateModalOpen(true);
+  }
+  const handleCreateModalClose = () => setCreateModalOpen(false);
+  
+  const handleToolListUpdate = async () => {
+    try {
+      const response = await api.get(`/api/labs/${lab.id}/tools`);
+      setToolList(response.data.data);
+    } catch (error) {
+      console.error("Error fetching updated tool list:", error)
+    }
+  };
+
   return (
-    <Stack spacing={3}>
-      <Stack
-        direction={{ xs: 'column', sm: 'row' }}
-        spacing={2}
-        sx={{ justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' } }}
-      >
-        <SectionHeader
-          eyebrow="Tools"
-          title="Lab tools"
-          description="Each card is rendered from the tool objects already included in the lab detail response."
-          accent="#2563EB"
-        />
-
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={noop}
-          sx={{
-            flexShrink: 0,
-            borderRadius: 999,
-            textTransform: 'none',
-            fontWeight: 800,
-            px: 2.25,
-            boxShadow: 'none',
-          }}
+    <>
+      <ToolCreateModal 
+        open={createModalOpen}
+        onClose={handleCreateModalClose} 
+        onUpdate={handleToolListUpdate}
+        labId={lab.id}
+      />
+      <Stack spacing={3}>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={2}
+          sx={{ justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' } }}
         >
-          Add Tool
-        </Button>
+          <SectionHeader
+            eyebrow="Tools"
+            title="Lab tools"
+            description="Each card is rendered from the tool objects already included in the lab detail response."
+            accent="#2563EB"
+          />
+
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={handleCreateModalOpen}
+            sx={{
+              flexShrink: 0,
+              borderRadius: 999,
+              textTransform: 'none',
+              fontWeight: 800,
+              px: 2.25,
+              boxShadow: 'none',
+            }}
+          >
+            Add Tool
+          </Button>
+        </Stack>
+
+        <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
+          <Chip label={`${toolList.length} tool${toolList.length === 1 ? '' : 's'}`} />
+          <Chip label={`Lab: ${safeText(lab.name, lab.id)}`} variant="outlined" />
+        </Stack>
+
+        {toolList.length === 0 ? (
+          <Paper
+            elevation={0}
+            sx={{
+              p: 5,
+              borderRadius: 4,
+              border: '1px dashed',
+              borderColor: alpha('#0F172A', 0.18),
+              textAlign: 'center',
+              backgroundColor: 'rgba(255,255,255,0.96)',
+            }}
+          >
+            <Typography variant="h6" sx={{ fontWeight: 800 }}>
+              No tools found
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1, lineHeight: 1.7 }}>
+              This lab does not have any tool entries in the current API response yet.
+            </Typography>
+          </Paper>
+        ) : (
+          <Box
+            sx={{
+              display: 'grid',
+              gap: 2.5,
+              gridTemplateColumns: {
+                xs: '1fr',
+                lg: 'repeat(2, minmax(0, 1fr))',
+                xl: 'repeat(3, minmax(0, 1fr))',
+              },
+            }}
+          >
+            {toolList.map((tool) => (
+              <ToolCard key={tool.id} tool={tool} currentLab={lab} />
+            ))}
+          </Box>
+        )}
       </Stack>
-
-      <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
-        <Chip label={`${tools.length} tool${tools.length === 1 ? '' : 's'}`} />
-        <Chip label={`Lab: ${safeText(lab.name, lab.id)}`} variant="outlined" />
-      </Stack>
-
-      {tools.length === 0 ? (
-        <Paper
-          elevation={0}
-          sx={{
-            p: 5,
-            borderRadius: 4,
-            border: '1px dashed',
-            borderColor: alpha('#0F172A', 0.18),
-            textAlign: 'center',
-            backgroundColor: 'rgba(255,255,255,0.96)',
-          }}
-        >
-          <Typography variant="h6" sx={{ fontWeight: 800 }}>
-            No tools found
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1, lineHeight: 1.7 }}>
-            This lab does not have any tool entries in the current API response yet.
-          </Typography>
-        </Paper>
-      ) : (
-        <Box
-          sx={{
-            display: 'grid',
-            gap: 2.5,
-            gridTemplateColumns: {
-              xs: '1fr',
-              lg: 'repeat(2, minmax(0, 1fr))',
-              xl: 'repeat(3, minmax(0, 1fr))',
-            },
-          }}
-        >
-          {tools.map((tool) => (
-            <ToolCard key={tool.id} tool={tool} currentLab={lab} />
-          ))}
-        </Box>
-      )}
-    </Stack>
+    </>
   );
 };
 

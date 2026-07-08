@@ -43,4 +43,22 @@ const updateTool = async (toolId: string, updateData: { name: string; descriptio
 
 };
 
-export { getToolsofLab, getToolNamesAndIdsByLabs, updateTool };
+
+const createTool = async (labId: string, name: string, description?: string) => {
+    try {
+        const newTool = await prisma.tool.create({
+            data: {
+                labId,
+                name,
+                description: description || null,
+            }
+        });
+        return newTool;
+    } catch (error) {
+        console.error("Error creating tool:", error);
+        throw new Error('Failed to create tool');
+    }
+};
+
+
+export { getToolsofLab, getToolNamesAndIdsByLabs, updateTool, createTool };

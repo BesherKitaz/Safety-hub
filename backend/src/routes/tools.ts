@@ -2,7 +2,7 @@ import { Router } from 'express'
 
 import { authMiddleware } from '../middleware/auth'
 import type { AuthRequest } from "../middleware/auth"
-import { getToolsofLab, getToolNamesAndIdsByLabs, updateTool } from '../controllers/toolsController';
+import { getToolsofLab, getToolNamesAndIdsByLabs, updateTool, createTool } from '../controllers/toolsController';
 import { isUserAdmin } from '../util/checkRoles'
 import prisma from '../lib/prisma';
 const router = Router();
@@ -92,5 +92,21 @@ router.get('/updated/:toolId', authMiddleware, async (req: AuthRequest, res) => 
     });
 });
 
+
+router.post('/create', authMiddleware, async (req: AuthRequest, res) => {
+    const { labId, name, description } = req.body;
+    if (!labId || !name) {
+        return res.status(400).json({ error: 'Missing required parameters' });
+    }
+    try {
+        const newTool = await createTool(labId as string, name as string, description as string);
+        res.json({
+            data: newTool,
+            message: "Tool created successfully"
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to create tool' });
+    }
+});
 export default router;
 

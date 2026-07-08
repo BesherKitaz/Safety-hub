@@ -1,6 +1,11 @@
 import prisma from '../lib/prisma'
 
-
+class LabIdRequiredError extends Error {
+    constructor() {
+        super("Lab ID is required");
+        this.name = "LabIdRequiredError";
+    }
+}
 
 const getLabs = async () => {
     try {
@@ -38,27 +43,6 @@ const getLabById = async (labId: string) => {
                 description: true,
                 createdAt: true,
                 updatedAt: true,
-                trainingNodes: {
-                    select: {
-                        id: true,
-                        name: true,
-                        tool: {
-                            select: {
-                                id: true,
-                                name: true,
-                            }
-                        }
-                    },
-                },
-                tools: {
-                    select: {
-                        id: true,
-                        name: true,
-                        description: true,
-                        createdAt: true,
-                        updatedAt: true,
-                    },
-                },
             }
         });
         return lab;
@@ -68,5 +52,57 @@ const getLabById = async (labId: string) => {
     }
 }
 
+const getTrainingNodesByLabId = async (labId: string) => {
+    if (!labId) {
+        throw new LabIdRequiredError();
+    }
+    try {
+        const trainingNodes = await prisma.trainingNode.findMany({
+            where: {
+                labId: labId
+            }, 
+            select: {
+                id: true,
+                name: true,
+                type: true,
+                tool: {
+                    select: {
+                        id: true,
+                        name: true,
+                    }
+                }
+            },
+        })
 
-export { getLabs, getLabsNamesAndIds, getLabById }
+        return trainingNodes;
+    } catch (error) {
+        throw new Error(`Something went wrong!, ${error}`)
+    }
+}
+
+
+const getToolsByLabId = async (labId: string) => {
+    if (!labId) {
+        throw new LabIdRequiredError();
+    }
+    try {
+        const tools = await prisma.tool.findMany({
+            where: {
+                labId: labId
+            },
+            select: {
+                id: true,
+                name: true,
+                description: true,
+                createdAt: true,
+                updatedAt: true,
+            },
+        });
+        return tools;
+    } catch (error) {
+        throw new Error(`Something went wrong!, ${error}`)
+    }
+}
+
+export { getLabs, getLabsNamesAndIds, getLabById, getToolsByLabId, getTrainingNodesByLabId, LabIdRequiredError }
+

@@ -28,7 +28,7 @@ import api from '../lib/api';
 import GradientBox from '../components/ui/GradientBox';
 
 // Types and helpers and commons
-import type { LabDetail } from './ManageLabTabs/commons/types';
+import type { LabDetail, LabTool, TrainingNodeSummary } from './ManageLabTabs/commons/types';
 import { formatDateTime, safeText } from './ManageLabTabs/commons/helperFunctions';
 
 // Tabs
@@ -100,12 +100,25 @@ const LabManagement = () => {
       }
 
       try {
-        const response = await api.get(`/api/labs/${encodeURIComponent(labId)}`);
-        const payload = response.data?.data as LabDetail | null | undefined;
+        const labDetails = await api.get(`/api/labs/${encodeURIComponent(labId)}`);
+        const labTools = await api.get(`/api/labs/${encodeURIComponent(labId)}/tools`);
+        const labTrainings = await api.get(`/api/labs/${encodeURIComponent(labId)}/trainingNodes`);
 
-        if (!payload) {
-          throw new Error('Lab details were not returned by the API.');
+
+        const labDetailsPayload = labDetails.data?.data as LabDetail | null | undefined;
+
+        if (!labDetailsPayload) {
+          throw new Error("Lab details were not returned by the API.");
         }
+
+        const labToolsPayload = labTools.data?.data as LabTool[] | null | undefined;
+        const labTrainingsPayload = labTrainings.data?.data as TrainingNodeSummary[] | null | undefined;
+
+        const payload: LabDetail = {
+          ...labDetailsPayload,
+          tools: labToolsPayload ?? [],
+          trainingNodes: labTrainingsPayload ?? [],
+        };
 
         if (active) {
           setLabData(payload);
