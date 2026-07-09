@@ -313,6 +313,12 @@ const getTrainingById = async (trainingId: string) => {
           id: trainingId
         },
         include: {
+          lab: {
+            select: {
+              id: true,
+              name: true,
+            }
+          },
           tool: {
             select: {
               id: true,

@@ -9,7 +9,7 @@ import EditProfile from './views/ProfileForm.jsx'
 import AddCertification from './views/AddCertification'
 import Certifications from './views/Certifications'
 import AddLab from './views/AddLab'
-import AddTraing from './views/AddTraining'
+import TrainingForm from './views/TrainingForm.tsx'
 import CertificationView from './views/CertificationView'
 import Users from './views/Users.tsx'
 import Lab from  './views/Labs.tsx';
@@ -56,7 +56,8 @@ function App() {
               <Route path="/certifications/:id" element={<CertificationView />} />
               <Route path="/lab-management/lab/:labId" element={<LabManagement />} />
               <Route path="/lab-management/lab/add" element={<AddLab />} />
-              <Route path="/lab-management/training/add" element={<AddTraing />} />
+              <Route path="/lab-management/training/add" element={<TrainingForm mode="create" />} />
+              <Route path="/lab-management/lab/:labId/training/:trainingId/edit" element={<TrainingForm mode="edit" />} />
               <Route path="/lab-management/lab/:labId/training/:trainingId" element={<ViewTraining />} />
             </Route>
 

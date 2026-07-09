@@ -2,7 +2,7 @@ import { Typography, TextField, Paper, Box, MenuItem, Button, Stack, Collapse, A
 import GradientBox from '../components/ui/GradientBox'
 import React, { useState, useEffect } from 'react'
 
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
 
 import api from '../lib/api';
 import axios from 'axios';
@@ -35,6 +35,39 @@ type TrainingNodeData = {
     description?: string
 }
 
+type TrainingRelations = {
+  parentEdges: {
+    parent: {
+      id: string;
+      name: string;
+      type: string;
+      childEdges: {
+        child: {
+          id: string;
+          name: string;
+          type: string;
+        };
+      }[];
+    };
+  }[];
+
+  childEdges: {
+    child: {
+      id: string;
+      name: string;
+      type: string;
+    };
+  }[];
+};
+
+type FetchedTrainingNodeData = {
+  labId: string;
+  name: string;
+  description?: string;
+  type: TrainingNodeType;
+  toolId?: string;
+} & TrainingRelations
+
 
 const initialFormData = {
     selectedLabId: '',
@@ -53,13 +86,40 @@ type TrainingNodeOption = {
   labId: string;
 };
 
+
 type LocationState = {
   from?: string;
 };
 
+const normalizeFetchedTrainingNodeData = (data: FetchedTrainingNodeData): TrainingNodeData => {
+  const childTrainingNodeIds: string[] = []
+  const parentTrainingNodeIds: string[] = []
 
-const AddTraining = () => {
+  data.childEdges.forEach(edge => {
+    if (!childTrainingNodeIds.includes(edge.child.id)) {
+      childTrainingNodeIds.push(edge.child.id);
+    }
+  });
+  data.parentEdges.forEach(edge => {
+    if (!parentTrainingNodeIds.includes(edge.parent.id)) {
+      parentTrainingNodeIds.push(edge.parent.id);
+    }
+  });
 
+  const normalizedData = {
+    name: data.name,
+    description: data.description,
+    selectedLabId: data.labId,
+    type: data.type,
+    toolId: data.toolId,
+    parentTrainingNodeIds: parentTrainingNodeIds,
+    childTrainingNodeIds: childTrainingNodeIds,
+  }
+  return normalizedData;
+} 
+
+
+const TrainingForm = ({ mode }: { mode: 'create' | 'edit' }) => {
     const [labs, setLabs] = useState<Lab[]|null>(null)
     const [tools, setTools] = useState<Tool[]|null>(null)
     const [trainingNodes, setTrainingNodes] = useState<TrainingNodeOption[]>([]);
@@ -68,11 +128,13 @@ const AddTraining = () => {
         initialFormData
     )
 
+      const { trainingId } = useParams<{ trainingId: string }>();
+
       const navigate = useNavigate();
       const location = useLocation();
 
 
-      const from = (location.state as LocationState | null)?.from ?? "/certifications";
+      const from = (location.state as LocationState | null)?.from ?? "/lab-management";
 
     const handleFormDataChange = (field: string) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> ) => {
         setFormData((prev) => ({
@@ -188,6 +250,32 @@ const AddTraining = () => {
       (node) => !formData.parentTrainingNodeIds.includes(node.id)
     );
 
+    useEffect(() => {
+      if (mode !== 'edit' || !trainingId) return;
+
+      const fetchTraining = async () => {
+        try {
+          const response = await api.get(`/api/trainings/${trainingId}`);
+          const normalizedData = normalizeFetchedTrainingNodeData(response.data.data);
+          setFormData(prev => ({
+            ...prev,
+            selectedLabId: normalizedData.selectedLabId,
+          }));
+          setFormData(prev => ({
+            ...prev,
+            name: normalizedData.name,
+            description: normalizedData.description,
+            type: normalizedData.type,
+            toolId: normalizedData.toolId,
+          }));
+        } catch (error) {
+          console.error("Error fetching training:", error);
+        }
+      };
+
+      fetchTraining();
+    }, [mode, trainingId]);
+
 
     return (
     <GradientBox sx={{ minHeight: "calc((100dvh / var(--app-scale, 1)) - var(--app-header-height, 64px))", px: 0, py: 0 }}>
@@ -215,7 +303,7 @@ const AddTraining = () => {
               lineHeight: 1.1,
             }}
           >
-            Add a Training
+            {mode === 'edit' ? 'Edit Training' : 'Add a Training'}
           </Typography>
 
           <Typography variant="body1" sx={{ color: "text.secondary", mt: 1 }}>
@@ -263,6 +351,7 @@ const AddTraining = () => {
                     onChange={(handleFormDataChange('selectedLabId'))}
                     fullWidth
                     required
+                    disabled={mode === 'edit'}
                 >
                     {labs && labs.length > 0 && <MenuItem value="">Select a lab</MenuItem>}
                     {labs && labs.length === 0 && <MenuItem value="">No labs found</MenuItem>}
@@ -360,7 +449,7 @@ const AddTraining = () => {
               <Button
                 type="button"
                 variant="contained"
-                onClick={()=> {}}
+                onClick={goBack}
                 sx={{
                   flex: 1,
                   borderRadius: 999,
@@ -405,4 +494,4 @@ const AddTraining = () => {
     )
 }
 
-export default AddTraining
+export default TrainingForm
