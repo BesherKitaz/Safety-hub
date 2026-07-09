@@ -1,4 +1,4 @@
-import { Typography, TextField, Paper, Box, MenuItem, Button, Stack, Collapse, Autocomplete } from '@mui/material'
+import { Typography, TextField, Paper, Box, MenuItem, Button, Stack, Collapse, Autocomplete, Alert } from '@mui/material'
 import GradientBox from '../components/ui/GradientBox'
 import React, { useState, useEffect } from 'react'
 
@@ -9,11 +9,13 @@ import axios from 'axios';
 
 
 
-enum TrainingNodeType {
-  GENERAL = "General Training",
-  LAB = "Lab Training",
-  TOOL = "Tool Training",
-}
+const TrainingNodeTypeLabels = {
+  GENERAL: "General Training",
+  LAB: "Lab Training",
+  TOOL: "Tool Training",
+} as const;
+
+type TrainingNodeType = keyof typeof TrainingNodeTypeLabels;
 
 type Lab = {
     id: string;
@@ -36,48 +38,48 @@ type TrainingNodeData = {
 }
 
 type TrainingRelations = {
-  parentEdges: {
-    parent: {
+  parentEdges?: {
+    parent?: {
       id: string;
       name: string;
       type: string;
-      childEdges: {
-        child: {
+      childEdges?: {
+        child?: {
           id: string;
           name: string;
           type: string;
-        };
-      }[];
-    };
-  }[];
+        } | null;
+      }[] | null;
+    } | null;
+  }[] | null;
 
-  childEdges: {
-    child: {
+  childEdges?: {
+    child?: {
       id: string;
       name: string;
       type: string;
-    };
-  }[];
+    } | null;
+  }[] | null;
 };
 
 type FetchedTrainingNodeData = {
   labId: string;
   name: string;
-  description?: string;
+  description?: string | null;
   type: TrainingNodeType;
-  toolId?: string;
+  toolId?: string | null;
 } & TrainingRelations
 
 
-const initialFormData = {
-    selectedLabId: '',
-    type: TrainingNodeType.GENERAL,
-    toolId: '',
-    parentTrainingNodeIds: [],
-    childTrainingNodeIds: [],
-    name: '',
-    description: ''
-}
+const initialFormData: TrainingNodeData = {
+  selectedLabId: '',
+  type: 'GENERAL',
+  toolId: '',
+  parentTrainingNodeIds: [],
+  childTrainingNodeIds: [],
+  name: '',
+  description: '',
+};
 
 type TrainingNodeOption = {
   id: string;
@@ -91,27 +93,48 @@ type LocationState = {
   from?: string;
 };
 
-const normalizeFetchedTrainingNodeData = (data: FetchedTrainingNodeData): TrainingNodeData => {
-  const childTrainingNodeIds: string[] = []
-  const parentTrainingNodeIds: string[] = []
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (axios.isAxiosError<{ message?: string; error?: string }>(error)) {
+    return (
+      error.response?.data?.message ??
+      error.response?.data?.error ??
+      error.message ??
+      fallback
+    );
+  }
 
-  data.childEdges.forEach(edge => {
-    if (!childTrainingNodeIds.includes(edge.child.id)) {
-      childTrainingNodeIds.push(edge.child.id);
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return fallback;
+};
+
+const normalizeFetchedTrainingNodeData = (data: FetchedTrainingNodeData): TrainingNodeData => {
+  const childTrainingNodeIds: string[] = [];
+  const parentTrainingNodeIds: string[] = [];
+  const childEdges = data.childEdges ?? [];
+  const parentEdges = data.parentEdges ?? [];
+
+  childEdges.forEach((edge) => {
+    const childId = edge?.child?.id;
+    if (childId && !childTrainingNodeIds.includes(childId)) {
+      childTrainingNodeIds.push(childId);
     }
   });
-  data.parentEdges.forEach(edge => {
-    if (!parentTrainingNodeIds.includes(edge.parent.id)) {
-      parentTrainingNodeIds.push(edge.parent.id);
+  parentEdges.forEach((edge) => {
+    const parentId = edge?.parent?.id;
+    if (parentId && !parentTrainingNodeIds.includes(parentId)) {
+      parentTrainingNodeIds.push(parentId);
     }
   });
 
   const normalizedData = {
-    name: data.name,
-    description: data.description,
-    selectedLabId: data.labId,
+    name: data.name ?? '',
+    description: data.description ?? '',
+    selectedLabId: data.labId ?? '',
     type: data.type,
-    toolId: data.toolId,
+    toolId: data.toolId ?? '',
     parentTrainingNodeIds: parentTrainingNodeIds,
     childTrainingNodeIds: childTrainingNodeIds,
   }
@@ -120,10 +143,10 @@ const normalizeFetchedTrainingNodeData = (data: FetchedTrainingNodeData): Traini
 
 
 const TrainingForm = ({ mode }: { mode: 'create' | 'edit' }) => {
-    const [labs, setLabs] = useState<Lab[]|null>(null)
-    const [tools, setTools] = useState<Tool[]|null>(null)
+    const [labs, setLabs] = useState<Lab[]>([])
+    const [tools, setTools] = useState<Tool[]>([])
     const [trainingNodes, setTrainingNodes] = useState<TrainingNodeOption[]>([]);
-    const [errorMessage, setErrorMessage] = useState('')
+    const [errorMessage, setErrorMessage] = useState<string | null>(null)
     const [formData, setFormData] = useState<TrainingNodeData>(
         initialFormData
     )
@@ -149,10 +172,10 @@ const TrainingForm = ({ mode }: { mode: 'create' | 'edit' }) => {
             try {
                 const response = await api.get('api/labs/listings')
                 const data = response.data.data
-                setLabs(data)
+                setLabs(Array.isArray(data) ? data : [])
             } catch (error) {
                 console.error("An Error Happened while fetching existing labs: ", error)
-                setErrorMessage(`Something went wrong. Please try again: ${error}`)
+                setErrorMessage(getErrorMessage(error, 'Something went wrong while loading labs.'))
             }
         }
         getLabs()
@@ -167,14 +190,16 @@ const TrainingForm = ({ mode }: { mode: 'create' | 'edit' }) => {
                 }
               })
               const data = response.data.data
-              setTools(data)
+              setTools(Array.isArray(data) ? data : [])
         } catch (error) {
             console.error("An Error Happened while fetching existing tools: ", error)
-            setErrorMessage(`Something went wrong. Please try again: ${error}`)
+            setErrorMessage(getErrorMessage(error, 'Something went wrong while loading tools.'))
         }
       } 
-      if (formData.type === "TOOL" as TrainingNodeType) {
+      if (formData.type === 'TOOL') {
         getTools()          
+      } else {
+        setTools([]);
       }
       
     }, [formData.selectedLabId, formData.type])
@@ -188,10 +213,10 @@ const TrainingForm = ({ mode }: { mode: 'create' | 'edit' }) => {
                 }
               })
               const data = response.data.data
-              setTrainingNodes(data)
+              setTrainingNodes(Array.isArray(data) ? data : [])
         } catch (error) {
             console.error("An Error Happened while fetching existing training nodes: ", error)
-            setErrorMessage(`Something went wrong. Please try again: ${error}`)
+            setErrorMessage(getErrorMessage(error, 'Something went wrong while loading training nodes.'))
         }
       } 
       if (formData.selectedLabId) {
@@ -205,41 +230,52 @@ const TrainingForm = ({ mode }: { mode: 'create' | 'edit' }) => {
 
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!formData.selectedLabId) return;
-    if (!formData.type) return;
-    if (!formData.name) return;
-
-    // Send the certification data to the backend
-    const sendData = async () => {
-      // Get the users data into the rest of the form data together
-      const submitData = {
-        labId: formData.selectedLabId,
-        type: formData.type,
-        toolId: formData.toolId,
-        name: formData.name,
-        description: formData.description,
-        parentTrainingNodeIds: formData.parentTrainingNodeIds,
-        childTrainingNodeIds: formData.childTrainingNodeIds,
-      }
-      console.log("submitData:", submitData);
-      try {
-        const response =await api.post("/api/trainings/add", submitData);
-        console.log(response.data.error);
-        console.log(response.data.message);
-      } catch (error) {
-        console.error("Error adding certification:", error);
-        if (axios.isAxiosError(error)) {
-          if (error.response?.status === 409) {
-            setErrorMessage(error.response.data?.message ?? "Conflict error.");
-          } else {
-            setErrorMessage(
-              error.response?.data?.message ?? error.message
-            );
-          }
-        } 
-      }
+    if (!formData.selectedLabId) {
+      setErrorMessage('Please select a lab before saving the training.');
+      return;
     }
-    await sendData();
+    if (!formData.type) {
+      setErrorMessage('Please select a training type.');
+      return;
+    }
+    if (!formData.name.trim()) {
+      setErrorMessage('Training name is required.');
+      return;
+    }
+    if (mode === 'edit' && !trainingId) {
+      setErrorMessage('Training ID is missing from the edit route.');
+      return;
+    }
+
+    const submitData = {
+      labId: formData.selectedLabId,
+      type: formData.type,
+      toolId: formData.toolId,
+      name: formData.name,
+      description: formData.description,
+      parentTrainingNodeIds: formData.parentTrainingNodeIds,
+      childTrainingNodeIds: formData.childTrainingNodeIds,
+    }
+
+    try {
+      if (mode === 'edit') {
+        await api.put(`/api/trainings/update/${encodeURIComponent(trainingId as string)}`, submitData);
+      } else {
+        await api.post('/api/trainings/add', submitData);
+      }
+
+      goBack();
+    } catch (error) {
+      console.error(mode === 'edit' ? 'Error updating training:' : 'Error adding training:', error);
+      setErrorMessage(
+        getErrorMessage(
+          error,
+          mode === 'edit'
+            ? 'Something went wrong while updating the training.'
+            : 'Something went wrong while creating the training.'
+        )
+      );
+    }
   }
 
     const parentOptions = trainingNodes.filter(
@@ -253,27 +289,33 @@ const TrainingForm = ({ mode }: { mode: 'create' | 'edit' }) => {
     useEffect(() => {
       if (mode !== 'edit' || !trainingId) return;
 
+      let active = true;
+
       const fetchTraining = async () => {
         try {
-          const response = await api.get(`/api/trainings/${trainingId}`);
+          const response = await api.get(`/api/trainings/${encodeURIComponent(trainingId)}`);
           const normalizedData = normalizeFetchedTrainingNodeData(response.data.data);
-          setFormData(prev => ({
-            ...prev,
-            selectedLabId: normalizedData.selectedLabId,
-          }));
-          setFormData(prev => ({
-            ...prev,
-            name: normalizedData.name,
-            description: normalizedData.description,
-            type: normalizedData.type,
-            toolId: normalizedData.toolId,
-          }));
+
+          if (!active) {
+            return;
+          }
+
+          setFormData(normalizedData);
         } catch (error) {
           console.error("Error fetching training:", error);
+          if (active) {
+            setErrorMessage(
+              getErrorMessage(error, 'Something went wrong while loading the training.')
+            );
+          }
         }
       };
 
       fetchTraining();
+
+      return () => {
+        active = false;
+      };
     }, [mode, trainingId]);
 
 
@@ -367,11 +409,11 @@ const TrainingForm = ({ mode }: { mode: 'create' | 'edit' }) => {
                     fullWidth
                     required
                 >
-                    {Object.entries(TrainingNodeType).map(([key, value]) => (
+                    {Object.entries(TrainingNodeTypeLabels).map(([key, value]) => (
                         <MenuItem value={key} key={key}> {value} </MenuItem>
                     ))}        
                 </TextField>
-                <Collapse in={formData.type === "TOOL" as TrainingNodeType} timeout={300} unmountOnExit>
+                <Collapse in={formData.type === 'TOOL'} timeout={300} unmountOnExit>
                   <TextField
                       select
                       label="Associated Tool"
@@ -437,9 +479,9 @@ const TrainingForm = ({ mode }: { mode: 'create' | 'edit' }) => {
                   />
             </Stack>
               {errorMessage && (
-                <Typography variant="body1" color="error" sx= {{ fontWeight: "bold" }}>
+                <Alert severity="error" sx={{ alignItems: "center" }}>
                   {errorMessage}
-                </Typography>
+                </Alert>
               )}
             <Stack
               direction={{ xs: "column", sm: "row" }}
@@ -484,7 +526,7 @@ const TrainingForm = ({ mode }: { mode: 'create' | 'edit' }) => {
                   },
                 }}
               >
-                Create Training
+                {mode === 'edit' ? 'Update Training' : 'Add Training'}
               </Button>
             </Stack>
           </Box>
@@ -495,3 +537,7 @@ const TrainingForm = ({ mode }: { mode: 'create' | 'edit' }) => {
 }
 
 export default TrainingForm
+
+
+
+

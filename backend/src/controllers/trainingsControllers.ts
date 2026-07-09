@@ -245,19 +245,40 @@ const normalizeOptionalId = (value: unknown): string | null => {
   return trimmed;
 };
 
+const clearTrainingEdges = async (tx: any, trainingId: string) => {
+  await tx.trainingEdge.deleteMany({
+    where: {
+      OR: [{ parentId: trainingId }, { childId: trainingId }],
+    },
+  });
+};
+
 // This function adds a new training node to the database, along with its parent and child edges. 
 // It validates the input data, checks for cycles in the graph, and handles unique constraints.
 const addTraining = async (trainingData: TrainingNodeData) => {
   const { parentIds, childIds } = await validateTrainingNodeData(trainingData);
-  console.log("Validated training data. Parent IDs:", parentIds, "Child IDs:", childIds); 
   try {
     const result = await prisma.$transaction(async (tx) => {
+      const toolId = normalizeOptionalId(trainingData.toolId);
+
       const trainingNode = await tx.trainingNode.create({
         data: {
           name: trainingData.name.trim(),
           type: trainingData.type,
-          labId: trainingData.labId,
-          toolId: normalizeOptionalId(trainingData.toolId),
+          lab: {
+            connect: {
+              id: trainingData.labId,
+            },
+          },
+          ...(toolId
+            ? {
+                tool: {
+                  connect: {
+                    id: toolId,
+                  },
+                },
+              }
+            : {}),
         },
       });
 
@@ -372,4 +393,85 @@ const getTrainingById = async (trainingId: string) => {
   }
 };
 
-export { getTrainingsofLab, getTrainingNamesAndIdsByLab, addTraining, getTrainingById, AppError };
+const updateTraining = async (trainingId: string, updateData: TrainingNodeData) => {
+  const { parentIds, childIds } = await validateTrainingNodeData(updateData);
+  console.log("Validated training data. Parent IDs:", parentIds, "Child IDs:", childIds);
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const toolId = normalizeOptionalId(updateData.toolId);
+
+      const updatedTraining = await tx.trainingNode.update({
+        where: { id: trainingId },
+        data: {
+          name: updateData.name.trim(),
+          type: updateData.type,
+          lab: {
+            connect: {
+              id: updateData.labId,
+            },
+          },
+          tool: toolId
+            ? {
+                connect: {
+                  id: toolId,
+                },
+              }
+            : {
+                disconnect: true,
+              },
+        },
+      });
+
+      await clearTrainingEdges(tx, trainingId);
+
+      const edgesToCreate = [
+        ...parentIds.map((parentId: string) => ({
+          parentId,
+          childId: updatedTraining.id,
+        })),
+        ...childIds.map((childId: string) => ({
+          parentId: updatedTraining.id,
+          childId,
+        })),
+      ];
+
+      if (edgesToCreate.length > 0) {
+        await tx.trainingEdge.createMany({
+          data: edgesToCreate,
+          skipDuplicates: true,
+        });
+      }
+
+      return updatedTraining;
+    });
+
+    return result;
+  } catch (error: any) {
+    console.error('Error updating training:', error);
+    if (error instanceof AppError) {
+      throw error;
+    }
+
+    if (error.code === "P2002") {
+      throw new AppError(
+        409,
+        "UNIQUE_CONSTRAINT_FAILED",
+        "A unique constraint was violated. This tool may already have a training node."
+      );
+    }
+
+    throw new AppError(
+      500,
+      "TRAINING_UPDATE_FAILED",
+      "Something went wrong while updating the training node."
+    );
+  }
+};
+
+export { getTrainingsofLab, getTrainingNamesAndIdsByLab, addTraining, getTrainingById, updateTraining, AppError };
+
+
+
+
+
+
