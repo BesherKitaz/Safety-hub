@@ -25,6 +25,12 @@ const columns: GridColDef[] = [
     flex: 1,
   },
   {
+    field: 'role',
+    headerName: 'Role',
+    width: 150,
+    flex: 1,
+  },
+  {
     field: 'isUserAgreementComplete',
     headerName: 'User Agreement Complete',
     width: 200,

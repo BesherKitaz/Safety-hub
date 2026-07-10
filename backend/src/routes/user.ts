@@ -9,6 +9,8 @@ import {
   login, 
   userSearch, 
   getTabularUsers,
+  getUserRoleById,
+  getUserIdByEmail,
 } from '../controllers/userController';
 
 import { authMiddleware } from "../middleware/auth";
@@ -137,9 +139,13 @@ router.post("/login", async (req, res, next) => {
   }
   try {
     const token = await login(email, password, next);
+    const userId = await getUserIdByEmail(email);
+    const userRole = await getUserRoleById(userId);
     res.json({
       message: "User logged in successfully",
       token: token,
+      role: userRole,
+      id: userId,
       status: 200,
     });
   } catch (error) {
@@ -174,6 +180,8 @@ router.get("/search", authMiddleware, async (req, res) => {
     });
   }
 });
+
+
 
 export default router;
 

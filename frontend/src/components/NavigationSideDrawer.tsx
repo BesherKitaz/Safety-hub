@@ -15,27 +15,37 @@ import { useNavigate } from 'react-router-dom'
 import { useContext, useState } from "react";
 import DrawerContext from "../contexts/DrawerContext";
 
+
 const navItems = [
-  { label: 'Home', to: '/', icon: <HomeIcon /> },
-  { label: 'Certifications', to: '/certifications', icon: <WorkspacePremiumIcon /> },
-  { label: 'Manage Members', to: '/users', icon: <GroupIcon /> },
-  { label: 'Manage Labs', to: '/lab-management', icon: <ScienceIcon /> },
-  { label: 'Profile', to: '/user', icon: <PersonIcon /> },
-  { label: 'Log Out', to: '/login', icon: <LogoutIcon /> },
+  { id: 'home', label: 'Home', to: '/', icon: <HomeIcon /> },
+  { id: 'certifications', label: 'Certifications', to: '/certifications', icon: <WorkspacePremiumIcon /> },
+  { id: 'manage-members', label: 'Manage Members', to: '/users', icon: <GroupIcon /> },
+  { id: 'manage-labs', label: 'Manage Labs', to: '/lab-management', icon: <ScienceIcon /> },
+  { id: 'profile', label: 'Profile', to: '/user', icon: <PersonIcon /> },
+  { id: 'logout', label: 'Log Out', to: '/login', icon: <LogoutIcon /> },
 ];
+
 
 type ListItemLinkProps = {
   to: string;
   primary: string;
   icon?: React.ReactElement;
   expanded?: boolean;
+  onClick?: () => void;
   onSelect: (to: string) => void;
 };
 
-const ListItemLink = ({ to, primary, icon, expanded, onSelect }: ListItemLinkProps) => {
+
+const ListItemLink = ({ to, primary, icon, expanded, onClick, onSelect }: ListItemLinkProps) => {
   return (
     <ListItemButton
-      onClick={() => onSelect(to)}
+      onClick={() => {
+        if (onClick) {
+          onClick();
+        } else {
+          onSelect(to);
+        }
+      }}
       sx={{
         minHeight: 48,
         justifyContent: expanded ? 'initial' : 'center',
@@ -67,6 +77,7 @@ const ListItemLink = ({ to, primary, icon, expanded, onSelect }: ListItemLinkPro
     </ListItemButton>
   );
 };
+
 
 const NavigationSidePanelComponent = () => {
   const [hovered, setHovered] = useState(false);
@@ -154,19 +165,73 @@ const NavigationSidePanelComponent = () => {
       )}
 
       <List>
-        {navItems.map(({ label, to, icon }) => (
-          <ListItemLink
-            to={to}
-            key={to}
-            icon={icon}
-            primary={label}
-            expanded={expanded}
-            onSelect={handleSelect}
-          />
-        ))}
+        {navItems.map(({ id, label, to, icon }) => {
+
+            if (id === "home") {
+            const userRole = localStorage.getItem("userRole");
+            if (userRole !== "ADMIN" && userRole !== "STAFF" && userRole !== "SUPERVISOR") {
+              return null; // Skip rendering this item for non-admin users
+            }
+          }
+
+
+          if (id === "manage-labs") {
+            const userRole = localStorage.getItem("userRole");
+            if (userRole !== "ADMIN" && userRole !== "STAFF") {
+              return null; // Skip rendering this item for non-admin users
+            }
+          }
+
+          if (id === "manage-members") {
+            const userRole = localStorage.getItem("userRole");
+            if (userRole !== "ADMIN" && userRole !== "STAFF") {
+              return null; // Skip rendering this item for non-admin users
+            }
+          }
+
+          if (id === "certifications") {
+            const userRole = localStorage.getItem("userRole");
+            if (userRole !== "ADMIN" && userRole !== "STAFF" && userRole !== "MENTOR" && userRole !== "SUPERVISOR") {
+              return null; // Skip rendering this item for non-admin users
+            }
+          }
+
+          if (id === "logout") {
+            return (
+              <ListItemLink
+                to={to}
+                key={to}
+                icon={icon}
+                primary={label}
+                expanded={expanded}
+                onClick={() => {
+                  if (id === "logout") {
+                    localStorage.removeItem("token");
+                    localStorage.removeItem("userRole");
+                    localStorage.removeItem("userId");
+                    window.location.reload();
+                  }
+                }}
+                onSelect={handleSelect}
+              />
+            )
+          }
+          
+          return (
+            <ListItemLink
+              to={to}
+              key={to}
+              icon={icon}
+              primary={label}
+              expanded={expanded}
+              onSelect={handleSelect}
+            />
+          )
+        })}
       </List>
     </Drawer>
   );
 };
+
 
 export default NavigationSidePanelComponent;

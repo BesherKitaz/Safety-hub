@@ -1,9 +1,9 @@
-
 type TrainingNodeSummary = {
   id: string;
   name?: string | null;
   type?: string | null;
   description?: string | null;
+  isActive?: boolean | null;
   lab?: LabSummary | null;
   labId?: string | null;
   tool?: ToolSummary | null;
@@ -23,6 +23,7 @@ type LabDetail = {
   description?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
+  isActive?: boolean | null;
   tools?: LabTool[] | null;
   trainingNodes?: TrainingNodeSummary[] | null;
 };
@@ -32,6 +33,7 @@ type LabSummary = {
   id: string;
   name?: string | null;
   description?: string | null;
+  isActive?: boolean | null;
 };
 
 type LabTool = {
@@ -40,6 +42,7 @@ type LabTool = {
   description?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
+  isActive?: boolean | null;
   lab?: LabSummary | null;
   labId?: string | null;
   trainingNode?: ToolSummary | null;
@@ -49,6 +52,7 @@ type LabTool = {
 type ToolSummary = {
   id: string;
   name?: string | null;
+  isActive?: boolean | null;
 };
 
 type SectionHeaderProps = {
@@ -72,6 +76,7 @@ type LabInfoTabProps = {
   lab: LabDetail;
   tools: LabTool[];
   trainingNodes: TrainingNodeSummary[];
+  onLabUpdated: () => void | Promise<void>;
 };
 
 export type { 
@@ -85,4 +90,3 @@ export type {
   TrainingCardProps,
   LabInfoTabProps,
 }; 
-

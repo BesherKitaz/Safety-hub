@@ -40,6 +40,7 @@ model Lab {
   id          String  @id @default(cuid())
   name        String  @unique
   description String?
+  isActive Boolean @default(true)
 
   tools       Tool[]
   trainingNodes TrainingNode[]
@@ -56,6 +57,7 @@ model Tool {
   description String?
   labId       String
   lab         Lab   @relation(fields: [labId], references: [id])
+  isActive Boolean @default(true)
   
   trainingNode TrainingNode?
   createdAt DateTime @default(now())
@@ -124,6 +126,7 @@ model TrainingNode {
 
   labId String
   lab   Lab   @relation(fields: [labId], references: [id])
+  isActive Boolean @default(true)
 
   toolId String? @unique
   tool   Tool?   @relation(fields: [toolId], references: [id])

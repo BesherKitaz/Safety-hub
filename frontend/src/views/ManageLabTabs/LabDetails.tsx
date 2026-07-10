@@ -1,14 +1,18 @@
-import { Stack, Button, Paper, Box, Typography } from '@mui/material';
+import { useState } from 'react';
+import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Paper, Stack, Typography } from '@mui/material';
 import BlockOutlined from '@mui/icons-material/BlockOutlined';
 import EditOutlined from '@mui/icons-material/EditOutlined';
+import FlashOnOutlined from '@mui/icons-material/FlashOnOutlined';
 import { alpha } from '@mui/material/styles';
+import axios from 'axios';
 
 import SectionHeader from './components/SectionHeader';
 import DetailField from './components/DetailField';
+import LabFormModal, { type LabFormValues } from './components/LabFormModal';
 
 import { formatDateTime, safeText } from './commons/helperFunctions';
 import type { LabInfoTabProps } from './commons/types';
-
+import api from '../../lib/api';
 
 export const pageSurfaceSx = {
   p: { xs: 2.25, md: 3 },
@@ -21,44 +25,157 @@ export const pageSurfaceSx = {
   backdropFilter: 'blur(10px)',
 };
 
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (axios.isAxiosError<{ message?: string; error?: string }>(error)) {
+    return error.response?.data?.message ?? error.response?.data?.error ?? error.message ?? fallback;
+  }
 
-const noop = () => {};
+  if (error instanceof Error) return error.message;
 
-const LabActions = () => (
-  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25} useFlexGap sx={{ flexWrap: 'wrap' }}>
-    <Button
-      variant="contained"
-      startIcon={<EditOutlined />}
-      onClick={noop}
-      sx={{
-        borderRadius: 999,
-        textTransform: 'none',
-        fontWeight: 800,
-        px: 2.25,
-        boxShadow: 'none',
-      }}
-    >
-      Edit Lab
-    </Button>
-    <Button
-      variant="outlined"
-      color="error"
-      startIcon={<BlockOutlined />}
-      onClick={noop}
-      sx={{
-        borderRadius: 999,
-        textTransform: 'none',
-        fontWeight: 800,
-        px: 2.25,
-      }}
-    >
-      Deactivate Lab
-    </Button>
-  </Stack>
-);
+  return fallback;
+};
 
+const LabActions = ({ lab, onLabUpdated }: { lab: NonNullable<LabInfoTabProps['lab']>; onLabUpdated: () => void | Promise<void> }) => {
+  const [editOpen, setEditOpen] = useState(false);
+  const [deactivateOpen, setDeactivateOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-const LabInfoTab = ({ lab, tools, trainingNodes }: LabInfoTabProps) => {
+  const isActive = lab.isActive !== false;
+
+  const handleEditSubmit = async (values: LabFormValues) => {
+    try {
+      setBusy(true);
+      setError(null);
+      await api.put(`/api/labs/update/${encodeURIComponent(lab.id)}`, values);
+      setEditOpen(false);
+      await onLabUpdated();
+    } catch (requestError) {
+      throw new Error(getErrorMessage(requestError, 'Failed to update the lab.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDeactivate = async () => {
+    try {
+      setBusy(true);
+      setError(null);
+      await api.patch(`/api/labs/${encodeURIComponent(lab.id)}/deactivate`);
+      setDeactivateOpen(false);
+      await onLabUpdated();
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, 'Failed to deactivate the lab.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleActivate = async () => {
+    try {
+      setBusy(true);
+      setError(null);
+      await api.patch(`/api/labs/${encodeURIComponent(lab.id)}/activate`);
+      await onLabUpdated();
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, 'Failed to activate the lab.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <LabFormModal
+        open={editOpen}
+        mode="edit"
+        initialValues={{
+          name: lab.name ?? '',
+          description: lab.description ?? '',
+        }}
+        onClose={() => setEditOpen(false)}
+        onSubmit={handleEditSubmit}
+      />
+
+      <Dialog open={deactivateOpen} onClose={() => setDeactivateOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800 }}>Deactivate lab?</DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ lineHeight: 1.7 }}>
+            Deactivating this lab will also deactivate all associated tools and training nodes.
+            They will stay inactive until they are reactivated manually.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button onClick={() => setDeactivateOpen(false)} disabled={busy} sx={{ textTransform: 'none', fontWeight: 700 }}>
+            Cancel
+          </Button>
+          <Button onClick={handleDeactivate} variant="contained" color="error" disabled={busy} sx={{ textTransform: 'none', fontWeight: 800 }}>
+            Deactivate
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Stack spacing={1.25} sx={{ flexWrap: 'wrap' }}>
+        {error && <Alert severity="error">{error}</Alert>}
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25} useFlexGap sx={{ flexWrap: 'wrap' }}>
+          <Button
+            variant="contained"
+            startIcon={<EditOutlined />}
+            onClick={() => setEditOpen(true)}
+            disabled={busy || !isActive}
+            sx={{
+              borderRadius: 999,
+              textTransform: 'none',
+              fontWeight: 800,
+              px: 2.25,
+              boxShadow: 'none',
+            }}
+          >
+            Edit Lab
+          </Button>
+          {isActive ? (
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<BlockOutlined />}
+              onClick={() => setDeactivateOpen(true)}
+              disabled={busy}
+              sx={{
+                borderRadius: 999,
+                textTransform: 'none',
+                fontWeight: 800,
+                px: 2.25,
+              }}
+            >
+              Deactivate Lab
+            </Button>
+          ) : (
+            <Button
+              variant="contained"
+              color="success"
+              startIcon={<FlashOnOutlined />}
+              onClick={handleActivate}
+              disabled={busy}
+              sx={{
+                borderRadius: 999,
+                textTransform: 'none',
+                fontWeight: 800,
+                px: 2.25,
+                boxShadow: 'none',
+              }}
+            >
+              Activate Lab
+            </Button>
+          )}
+        </Stack>
+      </Stack>
+    </>
+  );
+};
+
+const LabInfoTab = ({ lab, tools, trainingNodes, onLabUpdated }: LabInfoTabProps) => {
+  const isActive = lab.isActive !== false;
+
   return (
     <Stack spacing={3}>
       <Paper elevation={0} sx={pageSurfaceSx}>
@@ -71,12 +188,18 @@ const LabInfoTab = ({ lab, tools, trainingNodes }: LabInfoTabProps) => {
             <SectionHeader
               eyebrow="Lab Info"
               title="Current lab record"
-              description="Review the lab details that are already returned by the API, with a few UI-only management actions layered on top."
+              description="Review the lab details and manage the record directly from this tab."
               accent="#7C3AED"
             />
 
-            <LabActions />
+            <LabActions lab={lab} onLabUpdated={onLabUpdated} />
           </Stack>
+
+          {!isActive && (
+            <Alert severity="warning" sx={{ alignItems: 'center' }}>
+              This lab is inactive. Activate it before making changes.
+            </Alert>
+          )}
 
           <Typography variant="body1" sx={{ color: 'text.secondary', lineHeight: 1.8 }}>
             {safeText(lab.description, 'No description provided for this lab.')}
@@ -93,6 +216,15 @@ const LabInfoTab = ({ lab, tools, trainingNodes }: LabInfoTabProps) => {
               },
             }}
           >
+            <DetailField
+              label="Status"
+              value={
+                <Typography sx={{ fontWeight: 800, color: isActive ? 'success.main' : 'text.secondary' }}>
+                  {isActive ? 'Active' : 'Inactive'}
+                </Typography>
+              }
+              helper="Whether this lab is currently available for changes."
+            />
             <DetailField
               label="Lab ID"
               value={<Typography sx={{ fontWeight: 700, wordBreak: 'break-word' }}>{lab.id}</Typography>}
@@ -139,6 +271,5 @@ const LabInfoTab = ({ lab, tools, trainingNodes }: LabInfoTabProps) => {
   );
 };
 
-
-
 export default LabInfoTab;
+

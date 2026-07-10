@@ -1,18 +1,17 @@
-import { Box, Button, Chip, Divider, Paper, Stack, Typography } from '@mui/material';
+import { useState } from 'react';
+import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Divider, Paper, Stack, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import BlockOutlined from '@mui/icons-material/BlockOutlined';
 import EditOutlined from '@mui/icons-material/EditOutlined';
+import FlashOnOutlined from '@mui/icons-material/FlashOnOutlined';
 import { alpha } from '@mui/material/styles';
-
-import type { TrainingNodeSummary, ToolSummary, TrainingsTabProps, TrainingCardProps } from './commons/types';
-import { resolveLabReference, safeText } from './commons/helperFunctions';
-import DetailField from './components/DetailField';
-
-import SectionHeader from './components/SectionHeader';
 import { useNavigate } from 'react-router-dom';
 
-
-const noop = () => {};
+import type { TrainingsTabProps, TrainingNodeSummary } from './commons/types';
+import { safeText } from './commons/helperFunctions';
+import DetailField from './components/DetailField';
+import SectionHeader from './components/SectionHeader';
+import api from '../../lib/api';
 
 const trainingCardShellSx = {
   height: '100%',
@@ -33,113 +32,120 @@ const trainingCardShellSx = {
   },
 };
 
-
-const resolveRelatedTool = (node: TrainingNodeSummary): ToolSummary | null => {
-  const toolId = node.tool?.id ?? node.toolId;
-  if (!toolId) {
-    return null;
-  }
-
-  return {
-    id: toolId,
-    name: safeText(node.tool?.name, `Tool ${toolId}`),
-  };
+type TrainingCardProps = {
+  trainingNode: TrainingNodeSummary;
+  currentLab: TrainingsTabProps['lab'];
+  onTrainingChanged: () => void | Promise<void>;
 };
 
-const resolveRelatedTrainingNodes = (node: TrainingNodeSummary, kind: 'parents' | 'children') => {
-  if (kind === 'parents') {
-    return firstNonEmptyList(node.parentNodes, node.parents, node.parentTrainingNodes);
-  }
-
-  return firstNonEmptyList(node.childNodes, node.children, node.childTrainingNodes);
-};
-
-const firstNonEmptyList = <T,>(...values: Array<T[] | null | undefined>) => {
-  for (const value of values) {
-    if (Array.isArray(value) && value.length > 0) {
-      return value;
-    }
-  }
-
-  return [] as T[];
-};
-
-
-const RelatedNodeList = ({ nodes }: { nodes: TrainingNodeSummary[] }) => {
-  if (!nodes.length) {
-    return (
-      <Typography variant="body2" color="text.secondary">
-        Not provided in the current API payload.
-      </Typography>
-    );
-  }
-
-  return (
-    <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
-      {nodes.map((node) => (
-        <Chip
-          key={node.id}
-          label={safeText(node.name, node.id)}
-          size="small"
-          variant="outlined"
-          sx={{
-            borderColor: alpha('#0F766E', 0.2),
-            bgcolor: alpha('#0F766E', 0.06),
-            color: '#0F766E',
-            fontWeight: 700,
-          }}
-        />
-      ))}
-    </Stack>
-  );
-};
-
-const TrainingCard = ({ trainingNode, currentLab }: TrainingCardProps) => {
-  const labReference = resolveLabReference(currentLab, trainingNode.lab, trainingNode.labId);
+const TrainingCard = ({ trainingNode, currentLab, onTrainingChanged }: TrainingCardProps) => {
   const navigate = useNavigate();
+  const [busy, setBusy] = useState(false);
+  const [deactivateOpen, setDeactivateOpen] = useState(false);
+
+  const isLabActive = currentLab.isActive !== false;
+  const isTrainingActive = trainingNode.isActive !== false;
+
+  const handleDeactivate = async () => {
+    try {
+      setBusy(true);
+      await api.patch(`/api/trainings/${encodeURIComponent(trainingNode.id)}/deactivate`);
+      setDeactivateOpen(false);
+      await onTrainingChanged();
+    } catch (error) {
+      console.error('Error deactivating training:', error);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleActivate = async () => {
+    try {
+      setBusy(true);
+      await api.patch(`/api/trainings/${encodeURIComponent(trainingNode.id)}/activate`);
+      await onTrainingChanged();
+    } catch (error) {
+      console.error('Error activating training:', error);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
-    <Paper elevation={0} sx={trainingCardShellSx}>
-      <Box sx={{ height: 6, bgcolor: '#0F766E' }} />
+    <>
+      <Dialog open={deactivateOpen} onClose={() => setDeactivateOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800 }}>Deactivate training node?</DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ lineHeight: 1.7 }}>
+            Deactivating this training node will also deactivate all of its children. Any associated tool will stay active.
+            Children will remain inactive until they are reactivated manually.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button onClick={() => setDeactivateOpen(false)} disabled={busy} sx={{ textTransform: 'none', fontWeight: 700 }}>
+            Cancel
+          </Button>
+          <Button onClick={handleDeactivate} variant="contained" color="error" disabled={busy} sx={{ textTransform: 'none', fontWeight: 800 }}>
+            Deactivate
+          </Button>
+        </DialogActions>
+      </Dialog>
 
-      <Stack spacing={2.25} sx={{ p: 2.5, flexGrow: 1 }}>
-        <Stack direction="row" spacing={1.5} sx={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <Box sx={{ minWidth: 0 }}>
-            <Typography variant="h6" sx={{ fontWeight: 850, lineHeight: 1.15, color: '#111827' }}>
-              {safeText(trainingNode.name, `Training node ${trainingNode.id}`)}
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, wordBreak: 'break-word' }}>
-              Training node ID: {trainingNode.id}
-            </Typography>
-          </Box>
+      <Paper elevation={0} sx={trainingCardShellSx}>
+        <Box sx={{ height: 6, bgcolor: isTrainingActive ? '#0F766E' : '#6B7280' }} />
 
-          <Chip
-            size="small"
-            label={safeText(trainingNode.type, 'Type not provided')}
-            variant="outlined"
-            sx={{
-              flexShrink: 0,
-              borderColor: alpha('#0F766E', 0.2),
-              bgcolor: alpha('#0F766E', 0.08),
-              color: '#0F766E',
-              fontWeight: 700,
-            }}
-          />
-        </Stack>
-
-        <Stack spacing={1.25}>
-          <DetailField
-            label="Description"
-            value={
-              <Typography variant="body2" sx={{ color: 'text.primary', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
-                {safeText(trainingNode.description, 'No description provided.')}
+        <Stack spacing={2.25} sx={{ p: 2.5, flexGrow: 1 }}>
+          <Stack direction="row" spacing={1.5} sx={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography variant="h6" sx={{ fontWeight: 850, lineHeight: 1.15, color: '#111827' }}>
+                {safeText(trainingNode.name, `Training node ${trainingNode.id}`)}
               </Typography>
-            }
-          />
-        </Stack>
-      </Stack>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, wordBreak: 'break-word' }}>
+                Training node ID: {trainingNode.id}
+              </Typography>
+            </Box>
 
-      <Divider />
+            <Chip
+              size="small"
+              label={isTrainingActive ? 'Active' : 'Inactive'}
+              variant="outlined"
+              sx={{
+                flexShrink: 0,
+                borderColor: isTrainingActive ? alpha('#0F766E', 0.2) : alpha('#6B7280', 0.2),
+                bgcolor: isTrainingActive ? alpha('#0F766E', 0.08) : alpha('#6B7280', 0.08),
+                color: isTrainingActive ? '#0F766E' : '#4B5563',
+                fontWeight: 700,
+              }}
+            />
+          </Stack>
+
+          <Stack spacing={1.25}>
+            <DetailField
+              label="Description"
+              value={
+                <Typography variant="body2" sx={{ color: 'text.primary', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
+                  {safeText(trainingNode.description, 'No description provided.')}
+                </Typography>
+              }
+            />
+            <DetailField
+              label="Associated tool"
+              value={
+                trainingNode.tool ? (
+                  <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                    {safeText(trainingNode.tool.name, trainingNode.tool.id)}
+                  </Typography>
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    No tool attached.
+                  </Typography>
+                )
+              }
+            />
+          </Stack>
+        </Stack>
+
+        <Divider />
 
         <Box sx={{ p: 2 }}>
           <Stack
@@ -148,49 +154,76 @@ const TrainingCard = ({ trainingNode, currentLab }: TrainingCardProps) => {
             useFlexGap
             sx={{ flexWrap: 'wrap', justifyContent: 'space-between', alignItems: { sm: 'center' } }}
           >
-            <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}> 
+            {isTrainingActive ? (
               <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
                 <Button
                   size="small"
                   variant="outlined"
                   startIcon={<EditOutlined fontSize="small" />}
                   onClick={() => navigate(`training/${trainingNode.id}`)}
+                  disabled={!isLabActive}
                   sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 700 }}
                 >
                   View
                 </Button>
-              </Stack>
-              <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
                 <Button
                   size="small"
                   variant="outlined"
                   startIcon={<EditOutlined fontSize="small" />}
                   onClick={() => navigate(`training/${trainingNode.id}/edit`)}
+                  disabled={!isLabActive}
                   sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 700 }}
                 >
                   Edit
                 </Button>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="error"
+                  startIcon={<BlockOutlined fontSize="small" />}
+                  onClick={() => setDeactivateOpen(true)}
+                  disabled={!isLabActive}
+                  sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 700 }}
+                >
+                  Deactivate
+                </Button>
               </Stack>
-            </Stack>
-            <Button
-              size="small"
-              variant="outlined"
-              color="error"
-              startIcon={<BlockOutlined fontSize="small" />}
-              onClick={() => navigate(`training/${trainingNode.id}/deactivate`)}
-              sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 700 }}
-            >
-              Deactivate
-            </Button>
+            ) : (
+              <Button
+                size="small"
+                variant="contained"
+                color="success"
+                startIcon={<FlashOnOutlined fontSize="small" />}
+                onClick={handleActivate}
+                disabled={!isLabActive || busy}
+                sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 700 }}
+              >
+                Activate
+              </Button>
+            )}
           </Stack>
         </Box>
-    </Paper>
+      </Paper>
+    </>
   );
 };
 
-
 const TrainingsTab = ({ lab, trainingNodes }: TrainingsTabProps) => {
   const navigate = useNavigate();
+  const [trainingList, setTrainingList] = useState<TrainingNodeSummary[]>(trainingNodes);
+  const [showInactive, setShowInactive] = useState(false);
+  const isLabActive = lab.isActive !== false;
+  const visibleTrainingNodes = showInactive ? trainingList : trainingList.filter((trainingNode) => trainingNode.isActive !== false);
+
+  const handleTrainingListUpdate = async () => {
+    try {
+      const response = await api.get(`/api/labs/${lab.id}/trainingNodes`);
+      setTrainingList(response.data.data);
+    } catch (error) {
+      console.error('Error fetching updated training list:', error);
+    }
+  };
+
   return (
     <Stack spacing={3}>
       <Stack
@@ -205,29 +238,46 @@ const TrainingsTab = ({ lab, trainingNodes }: TrainingsTabProps) => {
           accent="#0F766E"
         />
 
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => navigate("/lab-management/training/add")}
-          sx={{
-            flexShrink: 0,
-            borderRadius: 999,
-            textTransform: 'none',
-            fontWeight: 800,
-            px: 2.25,
-            boxShadow: 'none',
-          }}
-        >
-          Add Training
-        </Button>
+        <Stack direction="row" spacing={1.25} useFlexGap sx={{ flexWrap: 'wrap' }}>
+          <Button
+            variant="outlined"
+            onClick={() => setShowInactive((current) => !current)}
+            sx={{
+              flexShrink: 0,
+              borderRadius: 999,
+              textTransform: 'none',
+              fontWeight: 800,
+            }}
+          >
+            {showInactive ? 'Hide inactive trainings' : 'Show inactive trainings'}
+          </Button>
+
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => navigate('/lab-management/training/add')}
+            disabled={!isLabActive}
+            sx={{
+              flexShrink: 0,
+              borderRadius: 999,
+              textTransform: 'none',
+              fontWeight: 800,
+              px: 2.25,
+              boxShadow: 'none',
+            }}
+          >
+            Add Training
+          </Button>
+        </Stack>
       </Stack>
 
       <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
-        <Chip label={`${trainingNodes.length} training node${trainingNodes.length === 1 ? '' : 's'}`} />
+        <Chip label={`${visibleTrainingNodes.length} visible training node${visibleTrainingNodes.length === 1 ? '' : 's'}`} />
+        <Chip label={`${trainingList.filter((trainingNode) => trainingNode.isActive === false).length} inactive`} variant="outlined" />
         <Chip label={`Lab: ${safeText(lab.name, lab.id)}`} variant="outlined" />
       </Stack>
 
-      {trainingNodes.length === 0 ? (
+      {visibleTrainingNodes.length === 0 ? (
         <Paper
           elevation={0}
           sx={{
@@ -240,10 +290,12 @@ const TrainingsTab = ({ lab, trainingNodes }: TrainingsTabProps) => {
           }}
         >
           <Typography variant="h6" sx={{ fontWeight: 800 }}>
-            No training nodes found
+            {showInactive ? 'No training nodes found' : 'No active training nodes found'}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1, lineHeight: 1.7 }}>
-            The current lab detail response does not contain any training nodes yet.
+            {showInactive
+              ? 'The current lab detail response does not contain any training nodes yet.'
+              : 'Inactive training nodes are hidden by default. Use the toggle above to show them.'}
           </Typography>
         </Paper>
       ) : (
@@ -258,8 +310,13 @@ const TrainingsTab = ({ lab, trainingNodes }: TrainingsTabProps) => {
             },
           }}
         >
-          {trainingNodes.map((trainingNode) => (
-            <TrainingCard key={trainingNode.id} trainingNode={trainingNode} currentLab={lab} />
+          {visibleTrainingNodes.map((trainingNode) => (
+            <TrainingCard
+              key={trainingNode.id}
+              trainingNode={trainingNode}
+              currentLab={lab}
+              onTrainingChanged={handleTrainingListUpdate}
+            />
           ))}
         </Box>
       )}

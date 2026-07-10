@@ -147,6 +147,7 @@ const getTabularUsers = async (page: number, pageSize: number) => {
                 email: true,
                 firstName: true,
                 lastName: true,
+                role: true,
                 isUserAgreementComplete: true,
                 userAgreementSource: true,
                 createdAt: true,
@@ -273,6 +274,41 @@ const login = async (email: string, password: string, next: (error?: Error) => v
 
     return token;
 };
-export { getUserDataById, getUserProfileById, getUserNameDatabyId, createUser, login, userSearch, getTabularUsers };
+
+
+const getUserIdByEmail = async (email: string) => {
+    try {
+        const user = await prisma.user.findUnique({
+            where: { email },
+            select: { id: true }
+        });
+        if (!user) {
+            throw new Error(`User with email ${email} not found`);
+        }
+        return user.id;
+    } catch (error) {
+        console.error("Error fetching user ID by email:", error);
+        throw error;
+    }
+};
+
+
+const getUserRoleById = async (id: string) => {
+    try {
+        const user = await prisma.user.findUnique({
+            where: { id },
+            select: { role: true }
+        });
+        if (!user) {
+            throw new Error(`User with id ${id} not found`);
+        }
+        return user?.role;
+    } catch (error) {
+        console.error("Error fetching user role:", error);
+        throw error;
+    }
+}
+
+export { getUserDataById, getUserProfileById, getUserNameDatabyId, createUser, login, userSearch, getTabularUsers, getUserRoleById, getUserIdByEmail };
 
 

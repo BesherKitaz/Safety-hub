@@ -13,6 +13,7 @@ import TrainingForm from './views/TrainingForm.tsx'
 import CertificationView from './views/CertificationView'
 import Users from './views/Users.tsx'
 import Lab from  './views/Labs.tsx';
+import DeactivatedLabs from './views/DeactivatedLabs.tsx';
 import LabManagement from './views/LabManagement.tsx'
 import ViewTraining from './views/ManageLabTabs/ViewTraining.tsx'
 
@@ -49,8 +50,9 @@ function App() {
               <Route path="/certifications" element={<Certifications />} />
               <Route path="/users" element={<Users />} />
               <Route path="/lab-management" element={<Lab />} />
+              <Route path="/lab-management/deactivated" element={<DeactivatedLabs />} />
 
-              <Route path="/profile/edit" element={<EditProfile mode="edit" />} />
+              <Route path="/profile/:id/edit" element={<EditProfile mode="edit" />} />
               <Route path="/profile/create" element={<EditProfile mode="create" />} />
               <Route path="/certifications/add" element={<AddCertification />} />
               <Route path="/certifications/:id" element={<CertificationView />} />
@@ -71,6 +73,3 @@ function App() {
 }
 
 export default App
-
-
-

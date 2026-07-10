@@ -1,5 +1,5 @@
 import { useState, type ChangeEvent, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   Box,
   Button,
@@ -35,6 +35,18 @@ const initialProfileData: ProfileData = {
 };
 
 const EditProfile = ({ mode }: EditProfileProps) => {
+  const { id } = useParams<{ id: string }>();
+
+  if (mode !== "edit" && mode !== "create") {
+    throw new Error('Invalid mode. Must be "edit" or "create".');
+  }
+  if (mode === "edit") {
+    if (!id) {
+      throw new Error("Missing profile ID for edit mode.");
+    }
+  }
+
+  
   const [profileData, setProfileData] = useState<ProfileData>(initialProfileData);
   const navigate = useNavigate();
 

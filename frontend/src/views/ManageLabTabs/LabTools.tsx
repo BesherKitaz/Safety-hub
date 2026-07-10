@@ -1,19 +1,20 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import { Alert, Box, Button, Chip, Divider, Link, Paper, Stack, Typography, TextField, Modal } from '@mui/material';
-import { EditOutlined, BlockOutlined } from '@mui/icons-material';
+import { Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Divider, Link, Paper, Stack, Typography, TextField, Modal } from '@mui/material';
+import { EditOutlined, BlockOutlined, FlashOnOutlined } from '@mui/icons-material';
 import AddIcon from '@mui/icons-material/Add';
 import { alpha } from '@mui/material/styles';
 import api from '../../lib/api';
 
 import type { LabTool, LabDetail, ToolSummary } from './commons/types';
-import { safeText, resolveLabReference, formatDateTime } from './commons/helperFunctions';
+import { safeText, formatDateTime } from './commons/helperFunctions';
 import DetailField from './components/DetailField';
 import SectionHeader from './components/SectionHeader';
 
 type ToolCardProps = {
   tool: LabTool;
   currentLab: LabDetail;
+  onToolChanged: () => void | Promise<void>;
 };
 
 type ToolsTabProps = {
@@ -40,7 +41,6 @@ const toolCardShellSx = {
   },
 };
 
-const noop = () => {};
 
 const ToolModalForm = ({
   open,
@@ -234,31 +234,50 @@ const resolveTrainingNodeLink = (tool: LabTool): ToolSummary | null => {
 
 
 
-const ToolCard = ({ tool, currentLab }: ToolCardProps) => {
+const ToolCard = ({ tool, currentLab, onToolChanged }: ToolCardProps) => {
   const [toolData, setToolData] = useState<LabTool>(tool);
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [deactivateOpen, setDeactivateOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
 
-  const labReference = resolveLabReference(currentLab, toolData.lab, toolData.labId);
   const trainingNodeReference = resolveTrainingNodeLink(toolData);
+  const isLabActive = currentLab.isActive !== false;
+  const isToolActive = toolData.isActive !== false;
+
+  useEffect(() => {
+    setToolData(tool);
+  }, [tool]);
 
   const handleEditModalOpen = () => setEditModalOpen(true);
   const handleEditModalClose = () => setEditModalOpen(false);
 
-  const fetchToolData = async () => {
+  const handleToolUpdated = async () => {
+    await onToolChanged();
+  };
+
+  const handleDeactivate = async () => {
     try {
-      const response = await api.get(`/api/tools/updated/${toolData.id}`);
-      setToolData({
-        ...toolData,
-        name: response.data.data.name,
-        description: response.data.data.description,
-      });
+      setBusy(true);
+      await api.patch(`/api/tools/${encodeURIComponent(toolData.id)}/deactivate`);
+      setDeactivateOpen(false);
+      await onToolChanged();
     } catch (error) {
-      console.error("Error fetching updated tool data:", error);
+      console.error('Error deactivating tool:', error);
+    } finally {
+      setBusy(false);
     }
   };
 
-  const handleToolUpdated = async () => {
-    await fetchToolData();
+  const handleActivate = async () => {
+    try {
+      setBusy(true);
+      await api.patch(`/api/tools/${encodeURIComponent(toolData.id)}/activate`);
+      await onToolChanged();
+    } catch (error) {
+      console.error('Error activating tool:', error);
+    } finally {
+      setBusy(false);
+    }
   };
 
   if (!toolData?.id || !toolData.name || !toolData.description) {
@@ -267,6 +286,23 @@ const ToolCard = ({ tool, currentLab }: ToolCardProps) => {
 
   return (
     <>
+      <Dialog open={deactivateOpen} onClose={() => setDeactivateOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800 }}>Deactivate tool?</DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ lineHeight: 1.7 }}>
+            Deactivating this tool will also deactivate its associated training node. The training node will stay inactive until it is reactivated manually.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button onClick={() => setDeactivateOpen(false)} disabled={busy} sx={{ textTransform: 'none', fontWeight: 700 }}>
+            Cancel
+          </Button>
+          <Button onClick={handleDeactivate} variant="contained" color="error" disabled={busy} sx={{ textTransform: 'none', fontWeight: 800 }}>
+            Deactivate
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <ToolEditModal
         open={editModalOpen}
         onClose={handleEditModalClose}
@@ -276,9 +312,9 @@ const ToolCard = ({ tool, currentLab }: ToolCardProps) => {
           name: toolData.name,
           description: toolData.description,
         }}
-      />      
+      />
       <Paper elevation={0} sx={toolCardShellSx}>
-        <Box sx={{ height: 6, bgcolor: '#2563EB' }} />
+        <Box sx={{ height: 6, bgcolor: isToolActive ? '#2563EB' : '#6B7280' }} />
 
         <Stack spacing={2.25} sx={{ p: 2.5, flexGrow: 1 }}>
           <Stack direction="row" spacing={1.5} sx={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -293,13 +329,13 @@ const ToolCard = ({ tool, currentLab }: ToolCardProps) => {
 
             <Chip
               size="small"
-              label="Tool"
+              label={isToolActive ? 'Active' : 'Inactive'}
               variant="outlined"
               sx={{
                 flexShrink: 0,
-                borderColor: alpha('#2563EB', 0.2),
-                bgcolor: alpha('#2563EB', 0.08),
-                color: '#1D4ED8',
+                borderColor: isToolActive ? alpha('#2563EB', 0.2) : alpha('#6B7280', 0.2),
+                bgcolor: isToolActive ? alpha('#2563EB', 0.08) : alpha('#6B7280', 0.08),
+                color: isToolActive ? '#1D4ED8' : '#4B5563',
                 fontWeight: 700,
               }}
             />
@@ -362,28 +398,43 @@ const ToolCard = ({ tool, currentLab }: ToolCardProps) => {
             useFlexGap
             sx={{ flexWrap: 'wrap', justifyContent: 'space-between', alignItems: { sm: 'center' } }}
           >
-            <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
+            {isToolActive ? (
+              <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<EditOutlined fontSize="small" />}
+                  onClick={handleEditModalOpen}
+                  disabled={!isLabActive}
+                  sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 700 }}
+                >
+                  Edit
+                </Button>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="error"
+                  startIcon={<BlockOutlined fontSize="small" />}
+                  onClick={() => setDeactivateOpen(true)}
+                  disabled={!isLabActive}
+                  sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 700 }}
+                >
+                  Deactivate
+                </Button>
+              </Stack>
+            ) : (
               <Button
                 size="small"
-                variant="outlined"
-                startIcon={<EditOutlined fontSize="small" />}
-                onClick={handleEditModalOpen}
+                variant="contained"
+                color="success"
+                startIcon={<FlashOnOutlined fontSize="small" />}
+                onClick={handleActivate}
+                disabled={!isLabActive || busy}
                 sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 700 }}
               >
-                Edit
+                Activate
               </Button>
-            </Stack>
-
-            <Button
-              size="small"
-              variant="outlined"
-              color="error"
-              startIcon={<BlockOutlined fontSize="small" />}
-              onClick={noop}
-              sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 700 }}
-            >
-              Deactivate
-            </Button>
+            )}
           </Stack>
         </Box>
       </Paper>
@@ -391,31 +442,32 @@ const ToolCard = ({ tool, currentLab }: ToolCardProps) => {
   );
 };
 
-
-
 const ToolsTab = ({ lab, tools }: ToolsTabProps) => {
   const [toolList, setToolList] = useState<LabTool[]>(tools);
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [showInactive, setShowInactive] = useState(false);
+  const isLabActive = lab.isActive !== false;
+  const visibleToolList = showInactive ? toolList : toolList.filter((tool) => tool.isActive !== false);
 
   const handleCreateModalOpen = () => {
     setCreateModalOpen(true);
-  }
+  };
   const handleCreateModalClose = () => setCreateModalOpen(false);
-  
+
   const handleToolListUpdate = async () => {
     try {
       const response = await api.get(`/api/labs/${lab.id}/tools`);
       setToolList(response.data.data);
     } catch (error) {
-      console.error("Error fetching updated tool list:", error)
+      console.error('Error fetching updated tool list:', error);
     }
   };
 
   return (
     <>
-      <ToolCreateModal 
+      <ToolCreateModal
         open={createModalOpen}
-        onClose={handleCreateModalClose} 
+        onClose={handleCreateModalClose}
         onUpdate={handleToolListUpdate}
         labId={lab.id}
       />
@@ -432,29 +484,46 @@ const ToolsTab = ({ lab, tools }: ToolsTabProps) => {
             accent="#2563EB"
           />
 
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={handleCreateModalOpen}
-            sx={{
-              flexShrink: 0,
-              borderRadius: 999,
-              textTransform: 'none',
-              fontWeight: 800,
-              px: 2.25,
-              boxShadow: 'none',
-            }}
-          >
-            Add Tool
-          </Button>
+          <Stack direction="row" spacing={1.25} useFlexGap sx={{ flexWrap: 'wrap' }}>
+            <Button
+              variant="outlined"
+              onClick={() => setShowInactive((current) => !current)}
+              sx={{
+                flexShrink: 0,
+                borderRadius: 999,
+                textTransform: 'none',
+                fontWeight: 800,
+              }}
+            >
+              {showInactive ? 'Hide inactive tools' : 'Show inactive tools'}
+            </Button>
+
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={handleCreateModalOpen}
+              disabled={!isLabActive}
+              sx={{
+                flexShrink: 0,
+                borderRadius: 999,
+                textTransform: 'none',
+                fontWeight: 800,
+                px: 2.25,
+                boxShadow: 'none',
+              }}
+            >
+              Add Tool
+            </Button>
+          </Stack>
         </Stack>
 
         <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
-          <Chip label={`${toolList.length} tool${toolList.length === 1 ? '' : 's'}`} />
+          <Chip label={`${visibleToolList.length} visible tool${visibleToolList.length === 1 ? '' : 's'}`} />
+          <Chip label={`${toolList.filter((tool) => tool.isActive === false).length} inactive`} variant="outlined" />
           <Chip label={`Lab: ${safeText(lab.name, lab.id)}`} variant="outlined" />
         </Stack>
 
-        {toolList.length === 0 ? (
+        {visibleToolList.length === 0 ? (
           <Paper
             elevation={0}
             sx={{
@@ -467,10 +536,12 @@ const ToolsTab = ({ lab, tools }: ToolsTabProps) => {
             }}
           >
             <Typography variant="h6" sx={{ fontWeight: 800 }}>
-              No tools found
+              {showInactive ? 'No tools found' : 'No active tools found'}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1, lineHeight: 1.7 }}>
-              This lab does not have any tool entries in the current API response yet.
+              {showInactive
+                ? 'This lab does not have any tool entries in the current API response yet.'
+                : 'Inactive tools are hidden by default. Use the toggle above to show them.'}
             </Typography>
           </Paper>
         ) : (
@@ -485,8 +556,8 @@ const ToolsTab = ({ lab, tools }: ToolsTabProps) => {
               },
             }}
           >
-            {toolList.map((tool) => (
-              <ToolCard key={tool.id} tool={tool} currentLab={lab} />
+            {visibleToolList.map((tool) => (
+              <ToolCard key={tool.id} tool={tool} currentLab={lab} onToolChanged={handleToolListUpdate} />
             ))}
           </Box>
         )}
@@ -495,5 +566,10 @@ const ToolsTab = ({ lab, tools }: ToolsTabProps) => {
   );
 };
 
-
 export default ToolsTab;
+
+
+
+
+
+
