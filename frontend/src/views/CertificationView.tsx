@@ -336,7 +336,7 @@ const CertificationView = () => {
               <Button variant="contained" size="large" onClick={() => navigate('/certifications')}>
                 Back to certifications
               </Button>
-              <Button variant="outlined" size="large" startIcon={<HistoryRounded />}>
+              <Button variant="outlined" size="large" startIcon={<HistoryRounded />} onClick={() => navigate(`/certifications/${id}/history`)}>
                 View history
               </Button>
               <Button variant="outlined" color="error" size="large" startIcon={<EditOutlined />}>
@@ -547,5 +547,7 @@ const CertificationView = () => {
 };
 
 export default CertificationView;
+
+
 
 
