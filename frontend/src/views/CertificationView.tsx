@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import { alpha } from '@mui/material/styles';
 import {
+    Alert,
   Box,
   Button,
   Chip,
@@ -187,12 +188,15 @@ const CertificationView = () => {
 
   const [certification, setCertification] = useState<CertificationDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [pageError, setPageError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  
+  const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
     const fetchCertification = async () => {
       if (!id) {
-        setError('Certification ID is missing.');
+        setPageError('Certification ID is missing.');
         setLoading(false);
         return;
       }
@@ -201,12 +205,12 @@ const CertificationView = () => {
         setLoading(true);
         const response = await api.get(`/api/certifications/${id}`);
         setCertification(response.data.data);
-        setError(null);
+        setPageError(null);
       } catch (requestError) {
         if (axios.isAxiosError(requestError) && requestError.response?.status === 404) {
-          setError('Certification not found.');
+          setPageError('Certification not found.');
         } else {
-          setError('Failed to load certification details.');
+          setPageError('Failed to load certification details.');
         }
       } finally {
         setLoading(false);
@@ -215,6 +219,61 @@ const CertificationView = () => {
 
     fetchCertification();
   }, [id]);
+
+  const isAdmin = localStorage.getItem('userRole') === 'ADMIN';
+  const isRevoked = certification?.status.toUpperCase() === 'REVOKED';
+
+  const handleModify = () => {
+    if (!id) {
+      return;
+    }
+
+    navigate(`/certifications/${id}/edit`);
+  };
+
+  const handleRevoke = async () => {
+    if (!id) {
+      return;
+    }
+
+    if (!window.confirm('Revoking this certification may cascade to dependent certifications for the same holder. Continue?')) {
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      await api.put(`/api/certifications/${id}/revoke`);
+      window.location.reload();
+    } catch (requestError) {
+      if (axios.isAxiosError(requestError)) {
+        setActionError(requestError.response?.data?.message ?? 'Failed to revoke certification.');
+      } else {
+        setActionError('Failed to revoke certification.');
+      }
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleUnrevoke = async () => {
+    if (!id) {
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      await api.put(`/api/certifications/${id}/unrevoke`);
+      window.location.reload();
+    } catch (requestError) {
+      if (axios.isAxiosError(requestError)) {
+        setActionError(`Failed to unrevoke certification. ${requestError.response?.data?.code}`);
+      } else {
+        setActionError('Failed to unrevoke certification.');
+      }
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -228,7 +287,7 @@ const CertificationView = () => {
     );
   }
 
-  if (error || !certification) {
+  if (pageError || !certification) {
     return (
       <GradientBox>
         <Box sx={{ minHeight: '50vh', display: 'grid', placeItems: 'center', px: 2 }}>
@@ -245,7 +304,7 @@ const CertificationView = () => {
             }}
           >
             <Typography variant="h5" sx={{ fontWeight: 800, mb: 1 }}>
-              {error ?? 'Certification not found.'}
+              {pageError ?? 'Certification not found.'}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.7, mb: 3 }}>
               The certification record could not be loaded.
@@ -266,6 +325,24 @@ const CertificationView = () => {
 
   return (
     <GradientBox sx={{ position: 'relative', overflow: 'hidden' }}>
+      {actionError && (
+        <Alert
+          severity="error"
+          onClose={() => setActionError(null)}
+          sx={{
+            position: 'fixed',
+            top: 80,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: (theme) => theme.zIndex.snackbar,
+            minWidth: 360,
+            maxWidth: 700,
+            boxShadow: 6,
+          }}
+        >
+          {actionError}
+        </Alert>
+    )}
       <Box sx={{ maxWidth: 1320, mx: 'auto', display: 'flex', flexDirection: 'column', gap: 3 }}>
         <Paper
           elevation={0}
@@ -339,9 +416,22 @@ const CertificationView = () => {
               <Button variant="outlined" size="large" startIcon={<HistoryRounded />} onClick={() => navigate(`/certifications/${id}/history`)}>
                 View history
               </Button>
-              <Button variant="outlined" color="error" size="large" startIcon={<EditOutlined />}>
-                Revoke and edit
-              </Button>
+              {isAdmin && (
+                <>
+                  <Button variant="outlined" size="large" startIcon={<EditOutlined />} onClick={handleModify} disabled={actionLoading}>
+                    Modify
+                  </Button>
+                  {isRevoked ? (
+                    <Button variant="outlined" color="success" size="large" onClick={handleUnrevoke} disabled={actionLoading}>
+                      Unrevoke
+                    </Button>
+                  ) : (
+                    <Button variant="outlined" color="error" size="large" onClick={handleRevoke} disabled={actionLoading}>
+                      Revoke
+                    </Button>
+                  )}
+                </>
+              )}
             </Stack>
           </Stack>
         </Paper>
@@ -376,7 +466,7 @@ const CertificationView = () => {
                 <FieldCard
                   label="Issued to"
                   value={
-                    <Link component={RouterLink} to={`/profile/${certification.issuedTo.id}`} underline="hover" sx={{ fontWeight: 700 }}>
+                    <Link component={RouterLink} to={`/user/${certification.issuedTo.id}`} underline="hover" sx={{ fontWeight: 700 }}>
                       {formatName(certification.issuedTo)}
                     </Link>
                   }
@@ -385,7 +475,7 @@ const CertificationView = () => {
                 <FieldCard
                   label="Issued by"
                   value={
-                    <Link component={RouterLink} to={`/profile/${certification.issuedBy.id}`} underline="hover" sx={{ fontWeight: 700 }}>
+                    <Link component={RouterLink} to={`/user/${certification.issuedBy.id}`} underline="hover" sx={{ fontWeight: 700 }}>
                       {formatName(certification.issuedBy)}
                     </Link>
                   }
@@ -415,13 +505,18 @@ const CertificationView = () => {
               <Stack spacing={1.5}>
                 <FieldCard
                   label="Training"
-                  value={<Typography sx={{ fontWeight: 700 }}>{training.name}</Typography>}
+                  value={<Link
+                      to={`/lab-management/lab/${training.lab?.id}/training/${training.id}`}
+                      underline="hover"
+                      sx={{ fontWeight: 700 }}>{training.name}
+                      </Link>
+                     }
                   helper="Training record connected to this certification."
                 />
                 <FieldCard
                   label="Type"
                   value={<Chip label={training.type} size="small" sx={{ fontWeight: 700 }} />}
-                  helper="Type stored on the related training record."
+                  helper="Indicates whether this is a general training, lab or tool."
                 />
                 <FieldCard
                   label="Lab"
@@ -429,7 +524,7 @@ const CertificationView = () => {
                     hasLab ? (
                       <Link
                         component={RouterLink}
-                        to={`/lab-management/lab/add?labId=${training.lab?.id}`}
+                        to={`/lab-management/lab/${training.lab?.id}`}
                         underline="hover"
                         sx={{ fontWeight: 700 }}
                       >
@@ -445,14 +540,9 @@ const CertificationView = () => {
                   label="Tool"
                   value={
                     hasTool ? (
-                      <Link
-                        component={RouterLink}
-                        to={`/lab-management/training/add?toolId=${training.tool?.id}`}
-                        underline="hover"
-                        sx={{ fontWeight: 700 }}
-                      >
+                      <Typography>
                         {training.tool?.name}
-                      </Link>
+                      </Typography>
                     ) : (
                       <Typography color="text.secondary">No tool assigned</Typography>
                     )
@@ -547,6 +637,11 @@ const CertificationView = () => {
 };
 
 export default CertificationView;
+
+
+
+
+
 
 
 

@@ -1,10 +1,10 @@
 import { Typography, TextField, Paper, Box, MenuItem, Button, Stack, Collapse, Autocomplete, Alert } from '@mui/material'
-import GradientBox from '../components/ui/GradientBox'
+import GradientBox from '../../components/ui/GradientBox'
 import React, { useState, useEffect } from 'react'
 
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
 
-import api from '../lib/api';
+import api from '../../lib/api';
 import axios from 'axios';
 
 

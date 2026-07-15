@@ -9,7 +9,7 @@ import EditProfile from './views/ProfileForm.jsx'
 import AddCertification from './views/AddCertification'
 import Certifications from './views/Certifications'
 import AddLab from './views/AddLab'
-import TrainingForm from './views/TrainingForm.tsx'
+import TrainingForm from './views/ManageLabTabs/TrainingForm.tsx'
 import CertificationView from './views/CertificationView'
 import CertificationHistory from './views/CertificationHistory'
 import Users from './views/Users.tsx'
@@ -53,9 +53,10 @@ function App() {
               <Route path="/lab-management" element={<Lab />} />
               <Route path="/lab-management/deactivated" element={<DeactivatedLabs />} />
 
-              <Route path="/profile/:id/edit" element={<EditProfile mode="edit" />} />
-              <Route path="/profile/create" element={<EditProfile mode="create" />} />
+              <Route path="/user/:id/edit" element={<EditProfile mode="edit" />} />
+              <Route path="/user/create" element={<EditProfile mode="create" />} />
               <Route path="/certifications/add" element={<AddCertification />} />
+              <Route path="/certifications/:certificationId/edit" element={<AddCertification />} />
               <Route path="/certifications/:id" element={<CertificationView />} />
               <Route path="/certifications/:id/history" element={<CertificationHistory />} />
               <Route path="/certifications/:id/history/:historyId" element={<CertificationHistory />} />
@@ -76,5 +77,6 @@ function App() {
 }
 
 export default App
+
 
 

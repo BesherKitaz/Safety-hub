@@ -1,5 +1,5 @@
 import { useState, useEffect, type ReactNode } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams, useLocation } from "react-router-dom";
 import { alpha } from "@mui/material/styles";
 import {
   Avatar,
@@ -12,6 +12,7 @@ import {
   Paper,
   Stack,
   Typography,
+  Alert,
 } from "@mui/material";
 import {
   CalendarMonthOutlined,
@@ -479,6 +480,7 @@ const Profile = () => {
   const [error, setError] = useState(false)
   const { id } = useParams<{ id?: string }>();
   const profileId = id?.trim();
+  const location = useLocation();
 
 
    useEffect( () => {
@@ -510,7 +512,7 @@ const Profile = () => {
   if (error) {
     return  (   
       <Box sx={{display: "flex", justifyContent: "Center", alignItems: "Center" }}>
-          <Typography> Loading...</Typography>
+          <Alert severity="error">Error fetching user profile.</Alert>
       </Box>
     )
   }
@@ -518,7 +520,7 @@ const Profile = () => {
   if (!userData) {
     return (
       <Box sx={{display: "flex", justifyContent: "Center", alignItems: "Center" }}>
-          <Typography> This user was not found! </Typography>
+          <Alert severity="error">User not found.</Alert>
       </Box>
     )
   }
@@ -540,7 +542,7 @@ const Profile = () => {
         return certification;
       }
 
-      return new Date(certification.issuedAt).getTime() > new Date(issuedAt).getTime()
+      return new Date(certification.issuedAt).getTime() > new Date(certification.issuedAt).getTime()
         ? certification
         : latest;
     },
@@ -722,11 +724,11 @@ const Profile = () => {
               </Stack>
 
               <Stack direction="row" spacing={1.5} useFlexGap sx={{ flexWrap: "wrap" }}>
-                <Button variant="contained" size="large" sx={{ px: 3 }}>
+                <Button component={Link} state={{ from: location.pathname + location.search }} to={`/user/${userData.id}/edit`} variant="contained" size="large" sx={{ px: 3 }}>
                   Edit profile
                 </Button>
                 <Button variant="outlined" size="large" sx={{ px: 3 }}>
-                  View certifications
+                  Send User Agreement
                 </Button>
               </Stack>
             </Stack>

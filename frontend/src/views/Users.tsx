@@ -53,9 +53,6 @@ const columns: GridColDef[] = [
         <Button variant="contained" color="primary" component={RouterLink} to={`/user/${params.row.id}`}>
           View Profile
         </Button>
-        <Button variant="contained" color="primary">
-          Edit
-        </Button>
       </Box>
 
     ),

@@ -80,7 +80,9 @@ const Labs = () => {
       setCreateModalOpen(false);
       setReloadToken((current) => current + 1);
     } catch (requestError) {
-      throw new Error(getErrorMessage(requestError));
+      throw new Error(getErrorMessage(requestError), {
+        cause: requestError,
+      });
     }
   };
 

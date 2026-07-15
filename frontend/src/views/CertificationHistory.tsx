@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useState, useMemo, type ReactNode } from 'react';
 import axios from 'axios';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import { alpha } from '@mui/material/styles';
@@ -60,7 +60,7 @@ type CertificationDetail = {
   issuedBy: UserSummary;
 };
 
-type HistoricalCertification = {
+type CertificationSnapshot = {
   id: string;
   trainingNodeId: string;
   notes: string | null;
@@ -82,11 +82,17 @@ type HistoryRecord = {
   expiryDateBefore: string | null;
   notesBefore: string | null;
   trainingNodeIdBefore: string;
+  levelAfter: number;
+  statusAfter: string;
+  expiryDateAfter: string | null;
+  notesAfter: string | null;
+  trainingNodeIdAfter: string;
   reason: string | null;
   changedAt: string;
   changedBy: UserSummary;
   trainingNodeBefore: TrainingSummary | null;
-  historicalCertification: HistoricalCertification;
+  trainingNodeAfter: TrainingSummary | null;
+  certificationSnapshot: CertificationSnapshot;
 };
 
 type HistoryListResponse = {
@@ -181,25 +187,67 @@ const FieldCard = ({ label, value, helper }: { label: string; value: ReactNode; 
       background: 'linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.92) 100%)',
     }}
   >
-    <Typography
-      variant="caption"
-      sx={{
-        textTransform: 'uppercase',
-        letterSpacing: 1.15,
-        color: 'text.secondary',
-        fontWeight: 700,
-      }}
-    >
+    <Typography variant="caption" sx={{ textTransform: 'uppercase', letterSpacing: 1.15, color: 'text.secondary', fontWeight: 700 }}>
       {label}
     </Typography>
     <Box sx={{ mt: 1 }}>{value}</Box>
-    {helper && (
-      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75, lineHeight: 1.6 }}>
-        {helper}
-      </Typography>
-    )}
+    {helper && <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75, lineHeight: 1.6 }}>{helper}</Typography>}
   </Box>
 );
+
+const SnapshotPanel = ({
+  title,
+  eyebrow,
+  certification,
+  emptyMessage,
+}: {
+  title: string;
+  eyebrow: string;
+  certification: CertificationSnapshot | null;
+  emptyMessage?: string;
+}) => {
+  if (!certification) {
+    return (
+      <Paper elevation={0} sx={{ p: 3, borderRadius: 4, border: '1px solid', borderColor: alpha('#0F172A', 0.08), background: 'linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(248,250,252,0.88) 100%)' }}>
+        <Typography variant="overline" sx={{ color: '#2563EB', fontWeight: 800, letterSpacing: 1.8 }}>{eyebrow}</Typography>
+        <Typography variant="h6" sx={{ mt: 1, fontWeight: 800 }}>{title}</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 1.25 }}>{emptyMessage ?? 'Not available.'}</Typography>
+      </Paper>
+    );
+  }
+
+  const training = certification.trainingNode;
+
+  return (
+    <Paper
+      elevation={0}
+      sx={{
+        p: { xs: 2.25, md: 3 },
+        borderRadius: 4,
+        border: '1px solid',
+        borderColor: alpha('#0F172A', 0.08),
+        background: 'linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(248,250,252,0.88) 100%)',
+        boxShadow: '0 18px 40px rgba(15, 23, 42, 0.08)',
+      }}
+    >
+      <Typography variant="overline" sx={{ color: '#2563EB', fontWeight: 800, letterSpacing: 1.8 }}>{eyebrow}</Typography>
+      <Typography component="h2" sx={{ mt: 0.75, fontSize: 28, fontWeight: 800, lineHeight: 1.1 }}>{title}</Typography>
+      <Divider sx={{ my: 2.25 }} />
+      <Stack spacing={1.5}>
+        <FieldCard label="Status" value={<Typography sx={{ fontWeight: 700 }}>{formatStatus(certification.status)}</Typography>} />
+        <FieldCard label="Level" value={<Typography sx={{ fontWeight: 700 }}>Level {certification.level}</Typography>} />
+        <FieldCard label="Issued at" value={<Typography sx={{ fontWeight: 700 }}>{formatDateTime(certification.issuedAt)}</Typography>} />
+        <FieldCard label="Expiry date" value={<Typography sx={{ fontWeight: 700 }}>{formatDateTime(certification.expiryDate)}</Typography>} />
+        <FieldCard label="Notes" value={<Typography sx={{ fontWeight: 700 }}>{certification.notes || 'No notes provided'}</Typography>} />
+        <FieldCard label="Training" value={training ? <Typography sx={{ fontWeight: 700 }}>{training.name}</Typography> : <Typography color="text.secondary">No training captured</Typography>} />
+        <FieldCard label="Lab" value={training?.lab ? <Typography sx={{ fontWeight: 700 }}>{training.lab.name}</Typography> : <Typography color="text.secondary">No lab captured</Typography>} />
+        <FieldCard label="Tool" value={training?.tool ? <Typography sx={{ fontWeight: 700 }}>{training.tool.name}</Typography> : <Typography color="text.secondary">No tool captured</Typography>} />
+        <FieldCard label="Issued to" value={<Typography sx={{ fontWeight: 700 }}>{formatPerson(certification.issuedTo)}</Typography>} />
+        <FieldCard label="Issued by" value={<Typography sx={{ fontWeight: 700 }}>{formatPerson(certification.issuedBy)}</Typography>} />
+      </Stack>
+    </Paper>
+  );
+};
 
 const CertificationHistory = () => {
   const { id, historyId } = useParams<{ id: string; historyId?: string }>();
@@ -256,9 +304,7 @@ const CertificationHistory = () => {
     return (
       <GradientBox>
         <Box sx={{ minHeight: '50vh', display: 'grid', placeItems: 'center' }}>
-          <Typography variant="h6" color="text.secondary">
-            Loading certification history...
-          </Typography>
+          <Typography variant="h6" color="text.secondary">Loading certification history...</Typography>
         </Box>
       </GradientBox>
     );
@@ -268,35 +314,21 @@ const CertificationHistory = () => {
     return (
       <GradientBox>
         <Box sx={{ minHeight: '50vh', display: 'grid', placeItems: 'center', px: 2 }}>
-          <Paper
-            elevation={0}
-            sx={{
-              maxWidth: 560,
-              width: '100%',
-              p: 3,
-              borderRadius: 4,
-              border: '1px solid',
-              borderColor: alpha('#2563EB', 0.12),
-              textAlign: 'center',
-            }}
-          >
-            <Typography variant="h5" sx={{ fontWeight: 800, mb: 1 }}>
-              {error ?? 'History not found.'}
-            </Typography>
+          <Paper elevation={0} sx={{ maxWidth: 560, width: '100%', p: 3, borderRadius: 4, border: '1px solid', borderColor: alpha('#2563EB', 0.12), textAlign: 'center' }}>
+            <Typography variant="h5" sx={{ fontWeight: 800, mb: 1 }}>{error ?? 'History not found.'}</Typography>
             <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.7, mb: 3 }}>
               The certification history could not be loaded.
             </Typography>
-            <Button variant="contained" onClick={() => navigate('/certifications')}>
-              Back to certifications
-            </Button>
+            <Button variant="contained" onClick={() => navigate('/certifications')}>Back to certifications</Button>
           </Paper>
         </Box>
       </GradientBox>
     );
   }
 
+  const orderedHistory = [...historyRecords].sort((a, b) => new Date(b.changedAt).getTime() - new Date(a.changedAt).getTime());
+  const selectedHistory = historyRecord ?? orderedHistory[0] ?? null;
   const currentTraining = certification.trainingNode;
-  const historical = activeHistoryRecord?.historicalCertification;
 
   return (
     <GradientBox sx={{ position: 'relative', overflow: 'hidden' }}>
@@ -316,13 +348,7 @@ const CertificationHistory = () => {
             <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
               <Chip icon={<HistoryRounded fontSize="small" />} label="Certification history" sx={{ fontWeight: 700 }} />
               <Chip icon={<CalendarMonthOutlined fontSize="small" />} label={`Issued ${formatDateTime(certification.issuedAt)}`} variant="outlined" />
-              {activeHistoryRecord && (
-                <Chip
-                  icon={<VisibilityOutlined fontSize="small" />}
-                  label={`${formatAction(activeHistoryRecord.action)} ${formatDateTime(activeHistoryRecord.changedAt)}`}
-                  variant="outlined"
-                />
-              )}
+              {selectedHistory && <Chip icon={<VisibilityOutlined fontSize="small" />} label={`${formatAction(selectedHistory.action)} ${formatDateTime(selectedHistory.changedAt)}`} variant="outlined" />}
             </Stack>
 
             <Box sx={{ maxWidth: 920 }}>
@@ -331,8 +357,8 @@ const CertificationHistory = () => {
               </Typography>
               <Typography variant="body1" sx={{ mt: 1.25, color: 'text.secondary', lineHeight: 1.7 }}>
                 {isDetailView
-                  ? 'This view shows the certification exactly as it looked before the selected change was recorded.'
-                  : 'Each entry shows who changed the certification, when it happened, and the version that was captured at that moment.'}
+                  ? 'This view shows the certification as it was recorded after the selected change.'
+                  : 'Each entry shows who changed the certification, when it happened, and the recorded snapshot after that action.'}
               </Typography>
             </Box>
 
@@ -349,137 +375,64 @@ const CertificationHistory = () => {
           </Stack>
         </Paper>
 
-        {!isDetailView && historyRecords.length === 0 ? (
-          <Paper
-            elevation={0}
-            sx={{
-              p: 3,
-              borderRadius: 4,
-              border: '1px solid',
-              borderColor: alpha('#0F172A', 0.08),
-              background: 'rgba(255,255,255,0.96)',
-            }}
-          >
-            <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
-              No history entries yet
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              This certification has not recorded any history changes yet.
-            </Typography>
+        {!isDetailView && orderedHistory.length === 0 ? (
+          <Paper elevation={0} sx={{ p: 3, borderRadius: 4, border: '1px solid', borderColor: alpha('#0F172A', 0.08), background: 'rgba(255,255,255,0.96)' }}>
+            <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>No history entries yet</Typography>
+            <Typography variant="body2" color="text.secondary">This certification has not recorded any history changes yet.</Typography>
           </Paper>
         ) : null}
 
-        {isDetailView && activeHistoryRecord && historical ? (
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1.2fr) minmax(320px, 0.8fr)' },
-              gap: 3,
-              alignItems: 'start',
-            }}
-          >
+        {isDetailView && selectedHistory ? (
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, gap: 3, alignItems: 'start' }}>
             <Stack spacing={3}>
-              <Paper
-                elevation={0}
-                sx={{
-                  p: { xs: 2.25, md: 3 },
-                  borderRadius: 4,
-                  border: '1px solid',
-                  borderColor: alpha('#0F172A', 0.08),
-                  background: 'linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(248,250,252,0.88) 100%)',
-                  boxShadow: '0 18px 40px rgba(15, 23, 42, 0.08)',
-                }}
-              >
-                <Typography variant="overline" sx={{ color: '#2563EB', fontWeight: 800, letterSpacing: 1.8 }}>
-                  Change details
-                </Typography>
+              <Paper elevation={0} sx={{ p: { xs: 2.25, md: 3 }, borderRadius: 4, border: '1px solid', borderColor: alpha('#0F172A', 0.08), background: 'linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(248,250,252,0.88) 100%)', boxShadow: '0 18px 40px rgba(15, 23, 42, 0.08)' }}>
+                <Typography variant="overline" sx={{ color: '#2563EB', fontWeight: 800, letterSpacing: 1.8 }}>Change details</Typography>
                 <Typography component="h2" sx={{ mt: 0.75, fontSize: 28, fontWeight: 800, lineHeight: 1.1 }}>
-                  {formatAction(activeHistoryRecord.action)} on {formatDateTime(activeHistoryRecord.changedAt)}
+                  {formatAction(selectedHistory.action)} on {formatDateTime(selectedHistory.changedAt)}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 1.25, lineHeight: 1.7 }}>
-                  {formatPerson(activeHistoryRecord.changedBy)} recorded this change.
+                  {formatPerson(selectedHistory.changedBy)} recorded this change.
                 </Typography>
                 <Divider sx={{ my: 2.25 }} />
                 <Stack spacing={1.5}>
+                  <FieldCard label="Reason" value={<Typography sx={{ fontWeight: 700 }}>{selectedHistory.reason || 'No reason provided'}</Typography>} />
+                  <FieldCard label="Action" value={<Chip label={formatAction(selectedHistory.action)} sx={{ fontWeight: 700 }} />} />
                   <FieldCard
-                    label="Reason"
-                    value={<Typography sx={{ fontWeight: 700 }}>{activeHistoryRecord.reason || 'No reason provided'}</Typography>}
-                  />
-                  <FieldCard
-                    label="Action"
-                    value={<Chip label={formatAction(activeHistoryRecord.action)} sx={{ fontWeight: 700 }} />}
-                  />
-                  <FieldCard
-                    label="Changed by"
-                    value={
-                      activeHistoryRecord.changedBy ? (
-                        <Link component={RouterLink} to={`/profile/${activeHistoryRecord.changedBy.id}`} underline="hover" sx={{ fontWeight: 700 }}>
-                          {formatPerson(activeHistoryRecord.changedBy)}
-                        </Link>
-                      ) : (
-                        <Typography color="text.secondary">Unknown user</Typography>
-                      )
-                    }
+                    label="Updated by"
+                    value={selectedHistory.changedBy ? <Link component={RouterLink} to={`/user/${selectedHistory.changedBy.id}`} underline="hover" sx={{ fontWeight: 700 }}>{formatPerson(selectedHistory.changedBy)}</Link> : <Typography color="text.secondary">Unknown user</Typography>}
                   />
                 </Stack>
               </Paper>
 
-              <Paper
-                elevation={0}
-                sx={{
-                  p: { xs: 2.25, md: 3 },
-                  borderRadius: 4,
-                  border: '1px solid',
-                  borderColor: alpha('#0F172A', 0.08),
-                  background: 'linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(248,250,252,0.88) 100%)',
-                  boxShadow: '0 18px 40px rgba(15, 23, 42, 0.08)',
+              <SnapshotPanel
+                eyebrow="Before this change"
+                title="Certification data before this action"
+                certification={selectedHistory.action === 'CREATED' ? null : {
+                  id: selectedHistory.certificationId,
+                  trainingNodeId: selectedHistory.trainingNodeIdBefore,
+                  notes: selectedHistory.notesBefore,
+                  status: selectedHistory.statusBefore,
+                  level: selectedHistory.levelBefore,
+                  expiryDate: selectedHistory.expiryDateBefore,
+                  issuedAt: certification.issuedAt,
+                  issuedTo: certification.issuedTo,
+                  issuedBy: certification.issuedBy,
+                  trainingNode: selectedHistory.trainingNodeBefore,
                 }}
-              >
-                <Typography variant="overline" sx={{ color: '#0F766E', fontWeight: 800, letterSpacing: 1.8 }}>
-                  Historical certification
-                </Typography>
-                <Typography component="h2" sx={{ mt: 0.75, fontSize: 28, fontWeight: 800, lineHeight: 1.1 }}>
-                  Certification data before this change
-                </Typography>
-                <Divider sx={{ my: 2.25 }} />
-                <Stack spacing={1.5}>
-                  <FieldCard label="Status" value={<Typography sx={{ fontWeight: 700 }}>{formatStatus(historical.status)}</Typography>} />
-                  <FieldCard label="Level" value={<Typography sx={{ fontWeight: 700 }}>Level {historical.level}</Typography>} />
-                  <FieldCard label="Issued at" value={<Typography sx={{ fontWeight: 700 }}>{formatDateTime(historical.issuedAt)}</Typography>} />
-                  <FieldCard label="Expiry date" value={<Typography sx={{ fontWeight: 700 }}>{formatDateTime(historical.expiryDate)}</Typography>} />
-                  <FieldCard label="Notes" value={<Typography sx={{ fontWeight: 700 }}>{historical.notes || 'No notes provided'}</Typography>} />
-                  <FieldCard
-                    label="Training"
-                    value={
-                      historical.trainingNode ? (
-                        <Typography sx={{ fontWeight: 700 }}>{historical.trainingNode.name}</Typography>
-                      ) : (
-                        <Typography color="text.secondary">No training captured</Typography>
-                      )
-                    }
-                  />
-                </Stack>
-              </Paper>
+                emptyMessage="This certification did not exist before this action."
+              />
             </Stack>
 
             <Stack spacing={3}>
-              <Paper
-                elevation={0}
-                sx={{
-                  p: { xs: 2.25, md: 3 },
-                  borderRadius: 4,
-                  border: '1px solid',
-                  borderColor: alpha('#0F172A', 0.08),
-                  background: 'linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(248,250,252,0.88) 100%)',
-                  boxShadow: '0 18px 40px rgba(15, 23, 42, 0.08)',
-                }}
-              >
-                <Typography variant="overline" sx={{ color: '#7C3AED', fontWeight: 800, letterSpacing: 1.8 }}>
-                  Current record
-                </Typography>
-                <Typography component="h2" sx={{ mt: 0.75, fontSize: 28, fontWeight: 800, lineHeight: 1.1 }}>
-                  Certification that exists now
-                </Typography>
+              <SnapshotPanel
+                eyebrow="After this change"
+                title="Certification data after this action"
+                certification={selectedHistory.certificationSnapshot}
+              />
+
+              <Paper elevation={0} sx={{ p: { xs: 2.25, md: 3 }, borderRadius: 4, border: '1px solid', borderColor: alpha('#0F172A', 0.08), background: 'linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(248,250,252,0.88) 100%)', boxShadow: '0 18px 40px rgba(15, 23, 42, 0.08)' }}>
+                <Typography variant="overline" sx={{ color: '#7C3AED', fontWeight: 800, letterSpacing: 1.8 }}>Current record</Typography>
+                <Typography component="h2" sx={{ mt: 0.75, fontSize: 28, fontWeight: 800, lineHeight: 1.1 }}>Certification that exists now</Typography>
                 <Divider sx={{ my: 2.25 }} />
                 <Stack spacing={1.5}>
                   <FieldCard label="Current status" value={<Typography sx={{ fontWeight: 700 }}>{formatStatus(certification.status)}</Typography>} />
@@ -493,7 +446,7 @@ const CertificationHistory = () => {
           </Box>
         ) : (
           <Stack spacing={2.25}>
-            {historyRecords.map((record) => (
+            {orderedHistory.map((record) => (
               <Paper
                 key={record.id}
                 elevation={0}
@@ -507,32 +460,17 @@ const CertificationHistory = () => {
                   boxShadow: '0 18px 40px rgba(15, 23, 42, 0.08)',
                   cursor: 'pointer',
                   transition: 'transform 0.18s ease, box-shadow 0.18s ease',
-                  '&:hover': {
-                    transform: 'translateY(-2px)',
-                    boxShadow: '0 24px 50px rgba(15, 23, 42, 0.12)',
-                  },
+                  '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 24px 50px rgba(15, 23, 42, 0.12)' },
                 }}
               >
                 <Stack spacing={1.5}>
                   <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
-                    <Chip
-                      label={formatAction(record.action)}
-                      sx={{
-                        ...getActionStyles(record.action),
-                        fontWeight: 700,
-                        border: '1px solid',
-                        borderColor: getActionStyles(record.action).border,
-                      }}
-                    />
+                    <Chip label={formatAction(record.action)} sx={{ ...getActionStyles(record.action), fontWeight: 700, border: '1px solid', borderColor: getActionStyles(record.action).border }} />
                     <Chip icon={<PersonOutlineRounded fontSize="small" />} label={formatPerson(record.changedBy)} variant="outlined" />
                     <Chip icon={<CalendarMonthOutlined fontSize="small" />} label={formatDateTime(record.changedAt)} variant="outlined" />
                   </Stack>
-                  <Typography variant="h6" sx={{ fontWeight: 800 }}>
-                    {formatAction(record.action)} by {formatPerson(record.changedBy)}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.7 }}>
-                    {record.reason || 'No reason was provided for this change.'}
-                  </Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 800 }}>{formatAction(record.action)} by {formatPerson(record.changedBy)}</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.7 }}>{record.reason || 'No reason was provided for this change.'}</Typography>
                 </Stack>
               </Paper>
             ))}
@@ -544,3 +482,4 @@ const CertificationHistory = () => {
 };
 
 export default CertificationHistory;
+

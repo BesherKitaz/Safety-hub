@@ -193,7 +193,7 @@ const ViewTraining = () => {
         const payload = response.data?.data as TrainingNodeRelationshipResponse | null | undefined;
 
         if (!payload) {
-          throw new Error('Training details were not returned by the API.');
+          throw new Error('An unexpected error occurred: the API returned no data for the training record.');
         }
 
         const flowElements = buildFlowElements(payload);

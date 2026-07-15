@@ -103,8 +103,16 @@ model CertificationHistory {
   expiryDateBefore DateTime?
   notesBefore     String?
 
+  // snapshot AFTER action
+  levelAfter      Int
+  statusAfter     CertificationStatus
+  expiryDateAfter DateTime?
+  notesAfter      String?
+
   trainingNodeIdBefore String
   trainingNodeBefore   TrainingNode @relation("TrainingNodeCertificationHistory", fields: [trainingNodeIdBefore], references: [id])
+  trainingNodeIdAfter  String
+  trainingNodeAfter    TrainingNode @relation("TrainingNodeCertificationHistoryAfter", fields: [trainingNodeIdAfter], references: [id])
 
   action          CertificationHistoryAction
 
@@ -137,6 +145,7 @@ model TrainingNode {
 
   certifications Certification[]
   certificationHistory CertificationHistory[] @relation("TrainingNodeCertificationHistory")
+  certificationHistoryAfter CertificationHistory[] @relation("TrainingNodeCertificationHistoryAfter")
 }
 
 
@@ -187,3 +196,5 @@ enum CertificationHistoryAction {
   EXPIRED
   DEACTIVATED
 }
+
+

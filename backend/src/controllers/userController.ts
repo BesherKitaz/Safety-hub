@@ -260,7 +260,8 @@ const login = async (email: string, password: string, next: (error?: Error) => v
             token = jwt.sign(
                 {
                     userId: user.id,
-                    email: user.email
+                    email: user.email,
+                    role: user.role
                 },
                 JWT_SECRET,
                 { expiresIn: "7d" }

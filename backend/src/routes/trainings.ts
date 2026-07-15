@@ -9,6 +9,7 @@ const router = Router();
 router.use(authMiddleware);
 
 const handleTrainingError = (res: any, error: unknown, fallback: string) => {
+    console.error('Error:', error);
     if (error instanceof AppError) {
         return res.status(error.statusCode).json({
             code: error.code,
@@ -86,6 +87,7 @@ router.get('/:trainingId', async (req: AuthRequest, res) => {
             message: 'Training fetched successfully',
         });
     } catch (error) {
+        console.error('Error fetching training:', error);
         handleTrainingError(res, error, 'Failed to fetch training');
     }
 });
@@ -101,7 +103,6 @@ router.put('/update/:trainingId', async (req: AuthRequest, res) => {
     if (!trainingId) {
         return res.status(400).json({ error: 'Missing trainingId parameter' });
     }
-
     try {
         const updatedTraining = await updateTraining(trainingId, updateData);
         res.json({

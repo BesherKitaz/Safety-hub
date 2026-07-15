@@ -33,7 +33,7 @@ const handleLabError = (res: any, error: unknown, fallback: string) => {
   return res.status(500).json({ error: fallback });
 };
 
-router.get("/", async (req: AuthRequest, res) => {
+router.get("/", authMiddleware, async (req: AuthRequest, res) => {
   try {
     const labs = await getLabs();
     res.json({
@@ -45,7 +45,7 @@ router.get("/", async (req: AuthRequest, res) => {
   }
 });
 
-router.get("/listings", async (req: AuthRequest, res) => {
+router.get("/listings", authMiddleware, async (req: AuthRequest, res) => {
   try {
     const labs = await getLabsNamesAndIds();
     res.json({
@@ -57,7 +57,7 @@ router.get("/listings", async (req: AuthRequest, res) => {
   }
 });
 
-router.get("/deactivated", async (req: AuthRequest, res) => {
+router.get("/deactivated", authMiddleware, async (req: AuthRequest, res) => {
   try {
     const labs = await getDeactivatedLabs();
     res.json({
@@ -143,7 +143,7 @@ router.patch("/:labId/activate", authMiddleware, async (req: AuthRequest, res) =
   }
 });
 
-router.get("/:labId", async (req: AuthRequest, res) => {
+router.get("/:labId", authMiddleware, async (req: AuthRequest, res) => {
   try {
     const { labId } = req.params;
     if (!labId) {
@@ -162,7 +162,7 @@ router.get("/:labId", async (req: AuthRequest, res) => {
   }
 });
 
-router.get("/:labId/tools", async (req: AuthRequest, res) => {
+router.get("/:labId/tools", authMiddleware, async (req: AuthRequest, res) => {
   try {
     const { labId } = req.params;
     if (!labId) {
@@ -178,7 +178,7 @@ router.get("/:labId/tools", async (req: AuthRequest, res) => {
   }
 });
 
-router.get("/:labId/trainingNodes", async (req: AuthRequest, res) => {
+router.get("/:labId/trainingNodes", authMiddleware, async (req: AuthRequest, res) => {
   try {
     const { labId } = req.params;
     if (!labId) {

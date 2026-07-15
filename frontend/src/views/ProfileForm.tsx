@@ -1,5 +1,5 @@
 import { useState, type ChangeEvent, type FormEvent } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   Box,
   Button,
@@ -37,6 +37,8 @@ const initialProfileData: ProfileData = {
 const EditProfile = ({ mode }: EditProfileProps) => {
   const { id } = useParams<{ id: string }>();
 
+  const from = mode === "edit" ? `/user/${id}` : "/user";
+
   if (mode !== "edit" && mode !== "create") {
     throw new Error('Invalid mode. Must be "edit" or "create".');
   }
@@ -46,12 +48,19 @@ const EditProfile = ({ mode }: EditProfileProps) => {
     }
   }
 
-  
+  const userRole = localStorage.getItem("userRole");
+
   const [profileData, setProfileData] = useState<ProfileData>(initialProfileData);
   const navigate = useNavigate();
 
   const handleChange =
     (field: keyof ProfileData) => (event: ChangeEvent<HTMLInputElement>) => {
+      if (field === "graduationYear") {
+        const value = event.target.value;
+        if (!/^\d{0,4}$/.test(value)) {
+          return
+        }
+      }
       setProfileData((current) => ({
         ...current,
         [field]: event.target.value,
@@ -59,7 +68,7 @@ const EditProfile = ({ mode }: EditProfileProps) => {
     };
 
   const goToProfileDetails = () => {
-    navigate("/profile");
+    navigate("/user");
   };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -158,30 +167,26 @@ const EditProfile = ({ mode }: EditProfileProps) => {
                 required
               />
 
-              <TextField
-                label="Phone Number"
-                type="tel"
-                value={profileData.phoneNumber}
-                onChange={handleChange("phoneNumber")}
-                fullWidth
-                required
-              />
-
-              <TextField
-                label="Purdue ID"
-                value={profileData.purdueId}
-                onChange={handleChange("purdueId")}
-                fullWidth
-                required
-              />
-
-              <TextField
-                label="Graduation Year"
-                value={profileData.graduationYear}
-                onChange={handleChange("graduationYear")}
-                fullWidth
-                required
-              />
+              {!(userRole === "ADMIN" || userRole === "STAFF") && (
+                <TextField
+                  label="Graduation Year"
+                  type="year"
+                  value={profileData.graduationYear}
+                  onChange={handleChange("graduationYear")}
+                  fullWidth
+                  required
+                />
+              )}
+              {(userRole === "ADMIN" || userRole === "STAFF") && (
+                <TextField
+                  label=""
+                  type="year"
+                  value={profileData.graduationYear}
+                  onChange={handleChange("graduationYear")}
+                  fullWidth
+                  required
+                />
+              )}
 
               <TextField
                 label="Department/College"
@@ -201,6 +206,8 @@ const EditProfile = ({ mode }: EditProfileProps) => {
             >
               <Button
                 type="button"
+                component={Link}
+                to={from}
                 variant="contained"
                 onClick={goToProfileDetails}
                 sx={{
