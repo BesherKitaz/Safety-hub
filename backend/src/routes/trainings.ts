@@ -3,28 +3,19 @@ import { authMiddleware } from '../middleware/auth';
 import type { AuthRequest } from '../middleware/auth';
 import { getTrainingsofLab, getTrainingNamesAndIdsByLab, addTraining, AppError, getTrainingById, updateTraining, deactivateTraining, activateTraining } from '../controllers/trainingsControllers';
 import { isUserAdmin, isUserStaff } from '../util/checkRoles';
+import { sendError } from '../middleware/errorHandler';
 
 const router = Router();
 
 router.use(authMiddleware);
 
-const handleTrainingError = (res: any, error: unknown, fallback: string) => {
-    console.error('Error:', error);
-    if (error instanceof AppError) {
-        return res.status(error.statusCode).json({
-            code: error.code,
-            error: error.message,
-        });
-    }
-
-    console.error(fallback, error);
-    return res.status(500).json({ error: fallback });
-};
+const handleTrainingError = (res: any, error: unknown, fallback: string) =>
+    sendError(res, error, { statusCode: 500, code: 'TRAINING_REQUEST_FAILED', message: fallback });
 
 router.get('/', async (req: AuthRequest, res) => {
     const { labId } = req.query;
     if (!labId) {
-        return res.status(400).json({ error: 'Missing labId parameter' });
+        return sendError(res, new AppError(400, 'LAB_ID_REQUIRED', 'Missing labId parameter'));
     }
 
     try {
@@ -41,7 +32,7 @@ router.get('/', async (req: AuthRequest, res) => {
 router.get('/listings', async (req: AuthRequest, res) => {
     const { labId } = req.query;
     if (!labId) {
-        return res.status(400).json({ error: 'Missing labId parameter' });
+        return sendError(res, new AppError(400, 'LAB_ID_REQUIRED', 'Missing labId parameter'));
     }
 
     try {
@@ -58,7 +49,7 @@ router.get('/listings', async (req: AuthRequest, res) => {
 router.post('/add', async (req: AuthRequest, res) => {
     const userId = req.user!.userId;
     if (!isUserAdmin(userId) && !isUserStaff(userId)) {
-        return res.status(403).json({ error: 'Access denied. Admin privileges required.' });
+        return sendError(res, new AppError(403, 'FORBIDDEN', 'Access denied. Admin privileges required.'));
     }
 
     try {
@@ -77,7 +68,7 @@ router.post('/add', async (req: AuthRequest, res) => {
 router.get('/:trainingId', async (req: AuthRequest, res) => {
     const { trainingId } = req.params;
     if (!trainingId) {
-        return res.status(400).json({ error: 'Missing trainingId parameter' });
+        return sendError(res, new AppError(400, 'TRAINING_ID_REQUIRED', 'Missing trainingId parameter'));
     }
 
     try {
@@ -97,11 +88,11 @@ router.put('/update/:trainingId', async (req: AuthRequest, res) => {
     const updateData = req.body;
     const userId = req.user!.userId;
     if (!isUserAdmin(userId) && !isUserStaff(userId)) {
-        return res.status(403).json({ error: 'Access denied. Admin privileges required.' });
+        return sendError(res, new AppError(403, 'FORBIDDEN', 'Access denied. Admin privileges required.'));
     }
 
     if (!trainingId) {
-        return res.status(400).json({ error: 'Missing trainingId parameter' });
+        return sendError(res, new AppError(400, 'TRAINING_ID_REQUIRED', 'Missing trainingId parameter'));
     }
     try {
         const updatedTraining = await updateTraining(trainingId, updateData);
@@ -118,11 +109,11 @@ router.patch('/:trainingId/deactivate', async (req: AuthRequest, res) => {
     const { trainingId } = req.params;
     const userId = req.user!.userId;
     if (!isUserAdmin(userId) && !isUserStaff(userId)) {
-        return res.status(403).json({ error: 'Access denied. Admin privileges required.' });
+        return sendError(res, new AppError(403, 'FORBIDDEN', 'Access denied. Admin privileges required.'));
     }
 
     if (!trainingId) {
-        return res.status(400).json({ error: 'Missing trainingId parameter' });
+        return sendError(res, new AppError(400, 'TRAINING_ID_REQUIRED', 'Missing trainingId parameter'));
     }
 
     try {
@@ -140,11 +131,11 @@ router.patch('/:trainingId/activate', async (req: AuthRequest, res) => {
     const { trainingId } = req.params;
     const userId = req.user!.userId;
     if (!isUserAdmin(userId) && !isUserStaff(userId)) {
-        return res.status(403).json({ error: 'Access denied. Admin privileges required.' });
+        return sendError(res, new AppError(403, 'FORBIDDEN', 'Access denied. Admin privileges required.'));
     }
 
     if (!trainingId) {
-        return res.status(400).json({ error: 'Missing trainingId parameter' });
+        return sendError(res, new AppError(400, 'TRAINING_ID_REQUIRED', 'Missing trainingId parameter'));
     }
 
     try {

@@ -68,6 +68,9 @@ const Users = () => {
       page: 0,
       pageSize: 25,
     });
+    const [filters, setFilters] = useState({
+      search: '',
+    });
 
 
     useEffect(() => {
@@ -87,6 +90,7 @@ const Users = () => {
         params: {
           page: paginationModel.page + 1, // backend often uses 1-based pages
           pageSize: paginationModel.pageSize,
+          search: filters.search,
           }
         });
         console.log("Fetched data:", response.data.data);
@@ -98,6 +102,7 @@ const Users = () => {
           isUserAgreementComplete: user.isUserAgreementComplete ? 'Yes' : 'No',
           userAgreementSource: user.userAgreementSource || 'N/A',
           id: user.id,
+          filters: filters,
         };
       });
       setRows(rowData);
@@ -106,7 +111,7 @@ const Users = () => {
       fetchData();
       getTotalRows();
 
-      }, [paginationModel])
+      }, [paginationModel, filters])
 
 
 
@@ -122,7 +127,7 @@ const Users = () => {
       </Box>
       <Box sx={{ maxWidth: 720, px: { xs: 2, sm: 4, }, mx: "auto", textAlign: "center" }}>
               <Typography variant="h3" component="h1" sx={{ fontWeight: 700, mb: 1, mt:1 } }>
-              Manage Users
+                Manage Users
               </Typography>
       </Box>
       <Box
@@ -137,9 +142,12 @@ const Users = () => {
         <Box sx={{ maxWidth: 720, px: { xs: 2, sm: 4 } }}>
             <Box sx={{ mb: 2 }}>
             <SearchBox
-                onSearch={(value: string) => {
-                console.log("Search submitted:", value);
-                }}
+              onSearch={(value: string) => {
+                                setFilters(prev => ({
+                                  ...prev,
+                                  search: value,
+                                }));
+                              }}
             />
             </Box>
             <Typography variant="body1" sx={{ color: "text.secondary", lineHeight: 1.7 }}>

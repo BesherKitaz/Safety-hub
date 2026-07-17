@@ -4,7 +4,9 @@ import  prisma from '../lib/prisma';
 import bcrypt from "bcrypt";
 import jwt from 'jsonwebtoken'
 import dotenv from 'dotenv'
-
+import { ZxcvbnFactory } from "@zxcvbn-ts/core";
+import * as commonPackage from "@zxcvbn-ts/language-common";
+import { AppError } from '../middleware/errorHandler';
 
 type User = {
     firstName: string;
@@ -19,10 +21,22 @@ type CertificationsByLab = {
     certifications: {}[];
 };
 
+type PasswordValidationResult = {
+  valid: boolean;
+  errors: string[];
+};
+
 
 dotenv.config({
     path: '../.env'
 });
+
+const options = {
+  dictionary: {
+    ...commonPackage.dictionary,
+  },
+  graphs: commonPackage.adjacencyGraphs,
+};
 
 
 const getUserDataById = async (id: string) => {
@@ -105,7 +119,7 @@ const getUserProfileById = async (id: string) => {
                 let existingLabGroup = acc.find(
                     (group) => group.labId === lab.id
                 );
-
+      
                 if (!existingLabGroup) {
                     existingLabGroup = {
                         labId: lab.id,
@@ -136,12 +150,20 @@ const getUserProfileById = async (id: string) => {
     }
 }
 
-const getTabularUsers = async (page: number, pageSize: number) => {
+const getTabularUsers = async (page: number, pageSize: number, filters: { search: string }) => {
     try {
         const skip = (page - 1) * pageSize;
-        const certifications = await prisma.user.findMany({
+        const users = await prisma.user.findMany({
             skip,
             take: pageSize,
+            // Filter users based on search query
+            where: {
+                OR: [
+                    { email: { contains: filters.search, mode: "insensitive" } },
+                    { firstName: { contains: filters.search, mode: "insensitive" } },
+                    { lastName: { contains: filters.search, mode: "insensitive" } },
+                ],
+            },
             select: {
                 id: true,
                 email: true,
@@ -156,7 +178,7 @@ const getTabularUsers = async (page: number, pageSize: number) => {
                 createdAt: 'desc',
             }
         })
-        return certifications;
+        return users;
     } catch (error) {
         console.error("Error fetching tabular users:", error);
         throw error;
@@ -204,54 +226,83 @@ const userSearch = async (query: string) => {
   return users;
 }
 
-const createUser = async (userData: User) => {
+function checkPasswordStrength(
+  password: string,
+  personalWords: string[] = []
+) {
+    const passwordChecker = new ZxcvbnFactory(options);
+    const result = passwordChecker.check(password, personalWords);
 
-    const checkUserExists = await prisma.user.findUnique({
-        where: {
-            email: userData.email
-        }
+  return {
+    valid: password.length >= 12 && result.score >= 3,
+    score: result.score, // 0–4
+    warning: result.feedback.warning,
+    suggestions: result.feedback.suggestions,
+  };
+}
+
+const createUser = async (userData: User) => {
+  try {
+    const existingUser = await prisma.user.findUnique({
+      where: {
+        email: userData.email,
+      },
     });
-    if (checkUserExists) {
-        throw new Error("User already exists");
+
+    if (existingUser) {
+      throw new AppError(
+        409,
+        "USER_EXISTS",
+        "A user with this email already exists"
+      );
     }
 
     const hashedPassword = await bcrypt.hash(userData.password, 10);
 
- 
-    try {
-        const user = await prisma.user.create({
-            data: {
-                firstName: userData.firstName,
-                lastName: userData.lastName,
-                email: userData.email,
-                passwordHash: hashedPassword
-            }
-        });
-        console.log("Created user:", user);
-        return user;
-    } catch (error) {
-        console.error("Error creating user:", error);
-        throw error;
+    return await prisma.user.create({
+      data: {
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        email: userData.email,
+        passwordHash: hashedPassword,
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+      },
+    });
+  } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
     }
+
+    throw new AppError(
+      500,
+      "USER_CREATION_FAILED",
+      "Failed to create user",
+    );
+  }
 };
 
-const login = async (email: string, password: string, next: (error?: Error) => void) => {
+const login = async (email: string, password: string) => {
     const user = await prisma.user.findUnique({
         where: {
             email: email
         }
     });
     if (!user) {
-        throw new Error("INVALID_CREDENTIALS");
+        throw new AppError(401, 'INVALID_CREDENTIALS', 'Invalid email or password');
     }
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
-        throw new Error("INVALID_CREDENTIALS");    
+        throw new AppError(401, 'INVALID_CREDENTIALS', 'Invalid email or password');    
     }   
 
     const JWT_SECRET = process.env.JWT_SECRET;
     if (!JWT_SECRET) {
-        throw new Error("JWT_SECRET is not defined");
+        throw new AppError(500, 'JWT_SECRET_MISSING', 'JWT secret is not configured');
     }
 
         let token: string;
@@ -268,9 +319,7 @@ const login = async (email: string, password: string, next: (error?: Error) => v
             );
         } catch (err) {
             console.log(err);
-            const error =
-                new Error("Error! Something went wrong.");
-            return next(error);
+            throw new AppError(500, 'TOKEN_CREATION_FAILED', 'Error! Something went wrong.');
         }
 
     return token;
@@ -284,7 +333,7 @@ const getUserIdByEmail = async (email: string) => {
             select: { id: true }
         });
         if (!user) {
-            throw new Error(`User with email ${email} not found`);
+            throw new AppError(404, "USER_NOT_FOUND", `User with email ${email} not found`);
         }
         return user.id;
     } catch (error) {
@@ -301,7 +350,7 @@ const getUserRoleById = async (id: string) => {
             select: { role: true }
         });
         if (!user) {
-            throw new Error(`User with id ${id} not found`);
+            throw new AppError(404, "USER_NOT_FOUND", `User with id ${id} not found`);
         }
         return user?.role;
     } catch (error) {
@@ -310,6 +359,52 @@ const getUserRoleById = async (id: string) => {
     }
 }
 
-export { getUserDataById, getUserProfileById, getUserNameDatabyId, createUser, login, userSearch, getTabularUsers, getUserRoleById, getUserIdByEmail };
+
+const validateSignupData = async (userData: { email?: string; password?: string; firstName?: string; lastName?: string; }) => {
+    // Check if a user with the given email already exists
+    if (
+        !userData.email ||
+        !userData.password ||
+        !userData.firstName ||
+        !userData.lastName
+    ) {
+    throw new AppError(
+      400,
+      "INVALID_INPUT",
+      "Missing required user data"
+    );
+  }
+    // Check if the email is a Purdue University email
+  /*   const emailPattern = /^[a-zA-Z0-9._%+-]+@purdue\.edu$/;
+    if (!emailPattern.test(userData.email)) {
+        throw new AppError(
+            400,
+            "INVALID_EMAIL",
+            "Email must be a Purdue University email"
+        );
+    } */
+
+    // Check if password is acceptable (e.g., meets minimum length requirements)
+    const passwordStrength = checkPasswordStrength(userData.password, [
+      userData.firstName,
+      userData.lastName,
+      userData.email,
+    ]);
+    
+    if (
+      !passwordStrength.valid ||
+      passwordStrength.score < 3 ||
+      userData.password.length < 12
+    ) {
+      throw new AppError(
+        400,
+        "WEAK_PASSWORD",
+        "Password does not meet strength requirements"
+      );
+    }
+}
+
+
+export { AppError, getUserDataById, getUserProfileById, getUserNameDatabyId, createUser, login, userSearch, getTabularUsers, getUserRoleById, getUserIdByEmail, checkPasswordStrength, validateSignupData };
 
 

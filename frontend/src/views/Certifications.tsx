@@ -93,10 +93,11 @@ const columns: GridColDef[] = [
 const Certifications = () => {
     const [rows, setRows] = useState([]);
     const [filters, setFilters] = useState({
-      holder: '',
-      issuedBy: '',
-      issuedAt: '',
-      status: true,
+      holder: '', // not currently used
+      issuedBy: '',  // not currently used
+      issuedAt: '', // not currently used
+      status: true,  // used; true for viewing active certifications, false for viewing revoked certifications
+      search: '',  // Value from search bar
     });
     const [totalRows, setTotalRows] = useState(0);
     const [paginationModel, setPaginationModel] = useState({
@@ -104,7 +105,7 @@ const Certifications = () => {
       pageSize: 25,
     });
 
-
+    // Fetch data and total rows whenever pagination model or filters change
     useEffect(() => {
     const getTotalRows = async () => {
       try {
@@ -122,10 +123,11 @@ const Certifications = () => {
           page: paginationModel.page + 1, // backend often uses 1-based pages
           pageSize: paginationModel.pageSize,
           filters: JSON.stringify({
-          holder: filters.holder,
-          issuedBy: filters.issuedBy,
-          issuedAt: filters.issuedAt,
-          status: filters.status,
+            holder: filters.holder,
+            issuedBy: filters.issuedBy,
+            issuedAt: filters.issuedAt,
+            status: filters.status,
+            search: filters.search,
           }),
         }
       });
@@ -195,7 +197,10 @@ const Certifications = () => {
             <Box sx={{ mb: 2 }}>
             <SearchBox
                 onSearch={(value: string) => {
-                console.log("Search submitted:", value);
+                  setFilters(prev => ({
+                    ...prev,
+                    search: value,
+                  }))
                 }}
             />
             </Box>

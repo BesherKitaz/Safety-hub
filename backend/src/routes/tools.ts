@@ -2,31 +2,23 @@ import { Router } from 'express'
 
 import { authMiddleware } from '../middleware/auth'
 import type { AuthRequest } from "../middleware/auth"
-import { getToolsofLab, getToolNamesAndIdsByLabs, updateTool, createTool, deactivateTool, activateTool } from '../controllers/toolsController';
+import { getToolsofLab, getToolNamesAndIdsByLabs, updateTool, createTool, deactivateTool, activateTool } from '../controllers/toolsControllers';
 import { AppError } from '../controllers/labsControllers';
 import { isUserAdmin } from '../util/checkRoles'
 import prisma from '../lib/prisma';
+import { sendError } from '../middleware/errorHandler';
 
 const router = Router();
 
 router.use(authMiddleware);
 
-const handleToolError = (res: any, error: unknown, fallback: string) => {
-    if (error instanceof AppError) {
-        return res.status(error.statusCode).json({
-            code: error.code,
-            error: error.message,
-        });
-    }
-
-    console.error(fallback, error);
-    return res.status(500).json({ error: fallback });
-};
+const handleToolError = (res: any, error: unknown, fallback: string) =>
+    sendError(res, error, { statusCode: 500, code: 'TOOL_REQUEST_FAILED', message: fallback });
 
 router.get('/', async (req: AuthRequest, res) => {
     const { labId } = req.query;
     if (!labId) {
-        return res.status(400).json({ error: 'Missing labId parameter' });
+        return sendError(res, new AppError(400, 'LAB_ID_REQUIRED', 'Missing labId parameter'));
     }
 
     try {
@@ -43,12 +35,12 @@ router.get('/', async (req: AuthRequest, res) => {
 router.get('/listings', async (req: AuthRequest, res) => {
     const userId: string = req.user!.userId;
     if (!(await isUserAdmin(userId))) {
-        return res.status(401).json({ error: 'Unauthorized' });
+        return sendError(res, new AppError(401, 'UNAUTHORIZED', 'Unauthorized'));
     }
 
     const { labId } = req.query;
     if (!labId) {
-        return res.status(400).json({ error: 'Missing labId parameter' });
+        return sendError(res, new AppError(400, 'LAB_ID_REQUIRED', 'Missing labId parameter'));
     }
 
     try {
@@ -67,12 +59,12 @@ router.put('/update/:toolId', async (req: AuthRequest, res) => {
     const { name, description } = req.body;
 
     if (!toolId || !name) {
-        return res.status(400).json({ error: 'Missing required parameters' });
+        return sendError(res, new AppError(400, 'MISSING_REQUIRED_PARAMETERS', 'Missing required parameters'));
     }
 
     const userId: string = req.user!.userId;
     if (!(await isUserAdmin(userId))) {
-        return res.status(403).json({ error: 'Access denied. Admin privileges required.' });
+        return sendError(res, new AppError(403, 'FORBIDDEN', 'Access denied. Admin privileges required.'));
     }
 
     try {
@@ -89,12 +81,12 @@ router.put('/update/:toolId', async (req: AuthRequest, res) => {
 router.patch('/:toolId/deactivate', async (req: AuthRequest, res) => {
     const { toolId } = req.params;
     if (!toolId) {
-        return res.status(400).json({ error: 'Missing toolId parameter' });
+        return sendError(res, new AppError(400, 'TOOL_ID_REQUIRED', 'Missing toolId parameter'));
     }
 
     const userId: string = req.user!.userId;
     if (!(await isUserAdmin(userId))) {
-        return res.status(403).json({ error: 'Access denied. Admin privileges required.' });
+        return sendError(res, new AppError(403, 'FORBIDDEN', 'Access denied. Admin privileges required.'));
     }
 
     try {
@@ -111,12 +103,12 @@ router.patch('/:toolId/deactivate', async (req: AuthRequest, res) => {
 router.patch('/:toolId/activate', async (req: AuthRequest, res) => {
     const { toolId } = req.params;
     if (!toolId) {
-        return res.status(400).json({ error: 'Missing toolId parameter' });
+        return sendError(res, new AppError(400, 'TOOL_ID_REQUIRED', 'Missing toolId parameter'));
     }
 
     const userId: string = req.user!.userId;
     if (!(await isUserAdmin(userId))) {
-        return res.status(403).json({ error: 'Access denied. Admin privileges required.' });
+        return sendError(res, new AppError(403, 'FORBIDDEN', 'Access denied. Admin privileges required.'));
     }
 
     try {
@@ -133,7 +125,7 @@ router.patch('/:toolId/activate', async (req: AuthRequest, res) => {
 router.get('/updated/:toolId', async (req: AuthRequest, res) => {
     const { toolId } = req.params;
     if (!toolId) {
-        return res.status(400).json({ error: 'Missing toolId parameter' });
+        return sendError(res, new AppError(400, 'TOOL_ID_REQUIRED', 'Missing toolId parameter'));
     }
 
     const tool = await prisma.tool.findUnique({
@@ -147,7 +139,7 @@ router.get('/updated/:toolId', async (req: AuthRequest, res) => {
     });
 
     if (!tool) {
-        return res.status(404).json({ error: 'Tool not found' });
+        return sendError(res, new AppError(404, 'TOOL_NOT_FOUND', 'Tool not found'));
     }
 
     res.json({
@@ -159,12 +151,12 @@ router.get('/updated/:toolId', async (req: AuthRequest, res) => {
 router.post('/create', async (req: AuthRequest, res) => {
     const { labId, name, description } = req.body;
     if (!labId || !name) {
-        return res.status(400).json({ error: 'Missing required parameters' });
+        return sendError(res, new AppError(400, 'MISSING_REQUIRED_PARAMETERS', 'Missing required parameters'));
     }
 
     const userId: string = req.user!.userId;
     if (!(await isUserAdmin(userId))) {
-        return res.status(403).json({ error: 'Access denied. Admin privileges required.' });
+        return sendError(res, new AppError(403, 'FORBIDDEN', 'Access denied. Admin privileges required.'));
     }
 
     try {

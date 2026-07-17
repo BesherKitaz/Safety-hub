@@ -26,6 +26,12 @@ model User {
   userAgreementSource String?
   passwordHash String
 
+  graduationYear Int?
+  jobTitle String?
+  department String?
+  phoneNumber String?
+  address   String?
+
 
   issuedCertifications   Certification[] @relation("IssuedCertifications")
   receivedCertifications Certification[] @relation("ReceivedCertifications")
@@ -33,6 +39,23 @@ model User {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  isProfileComplete Boolean @default(false)
+  emailVerificationTokens EmailVerificationToken[]
+}
+
+
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 

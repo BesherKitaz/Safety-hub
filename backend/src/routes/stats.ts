@@ -2,7 +2,8 @@ import { Router } from 'express';
 import { authMiddleware } from "../middleware/auth";
 import type { AuthRequest } from "../middleware/auth"
 
-import collectStats from "../controllers/statsController"
+import collectStats from "../controllers/statsControllers"
+import { sendError } from '../middleware/errorHandler';
 
 const router = Router();
 
@@ -18,7 +19,7 @@ router.get('/', async (req: AuthRequest, res) => {
             data: stats
          });
     } catch (error) {
-        res.status(500).json({ error: "Failed to collect stats" });
+        return sendError(res, error, { statusCode: 500, code: 'STATS_COLLECTION_FAILED', message: 'Failed to collect stats' });
     }
 });
 

@@ -1,19 +1,8 @@
 import { Prisma, UserRole } from '@prisma/client';
 import prisma from '../lib/prisma';
+import { AppError } from '../middleware/errorHandler';
 
 type DatabaseClient = Prisma.TransactionClient | typeof prisma;
-
-class AppError extends Error {
-  statusCode: number;
-  code: string;
-
-  constructor(statusCode: number, code: string, message: string) {
-    super(message);
-    this.name = 'AppError';
-    this.statusCode = statusCode;
-    this.code = code;
-  }
-}
 
 type CertificationStatus = 'ACTIVE' | 'DEACTIVATED' | 'EXPIRED' | 'REVOKED';
 type CertificationHistoryAction = 'CREATED' | 'UPDATED' | 'REVOKED' | 'REACTIVATED' | 'EXPIRED' | 'DEACTIVATED';
@@ -348,7 +337,8 @@ const getRecentCertifications = async () => {
 const getTabularCertifications = async (
   skip: number,
   pageSize: number,
-  status: CertificationStatus | boolean | number = 'ACTIVE'
+  status: CertificationStatus | boolean | number = 'ACTIVE',
+  search: string = '',
 ) => {
   const normalizedStatus: CertificationStatus =
     status === false || status === 0 || status === 'REVOKED'
@@ -358,11 +348,79 @@ const getTabularCertifications = async (
         : status === 'EXPIRED'
           ? 'EXPIRED'
           : 'ACTIVE';
+
+  search = search.trim();
+  const where: Prisma.CertificationWhereInput = search
+  ? {
+      OR: [
+        {
+          issuedTo: {
+            firstName: {
+              contains: search,
+              mode: "insensitive",
+            },
+          },
+        },
+        {
+          issuedTo: {
+            lastName: {
+              contains: search,
+              mode: "insensitive",
+            },
+          },
+        },
+        {
+          issuedTo: {
+            email: {
+              contains: search,
+              mode: "insensitive",
+            },
+          },
+        },
+        {
+          issuedBy: {
+            firstName: {
+              contains: search,
+              mode: "insensitive",
+            },
+          },
+        },
+        {
+          issuedBy: {
+            lastName: {
+              contains: search,
+              mode: "insensitive",
+            },
+          },
+        },
+        {
+          trainingNode: {
+            name: {
+              contains: search,
+              mode: "insensitive",
+            },
+          },
+        },
+        {
+          trainingNode: {
+            lab: {
+              name: {
+                contains: search,
+                mode: "insensitive",
+              },
+            },
+          },
+        },
+      ],
+    }
+  : {};
+  
   const certifications = await prisma.certification.findMany({
     skip,
     take: pageSize,
     where: {
       status: normalizedStatus,
+      AND: where,
     },
     select: {
       id: true,

@@ -16,22 +16,14 @@ import {
   AppError,
 } from "../controllers/labsControllers"
 import { isUserAdmin } from "../util/checkRoles";
+import { sendError } from '../middleware/errorHandler';
 
 const router = Router();
 
 router.use(authMiddleware);
 
-const handleLabError = (res: any, error: unknown, fallback: string) => {
-  if (error instanceof AppError) {
-    return res.status(error.statusCode).json({
-      code: error.code,
-      error: error.message,
-    });
-  }
-
-  console.error(fallback, error);
-  return res.status(500).json({ error: fallback });
-};
+const handleLabError = (res: any, error: unknown, fallback: string) =>
+  sendError(res, error, { statusCode: 500, code: 'LAB_REQUEST_FAILED', message: fallback });
 
 router.get("/", authMiddleware, async (req: AuthRequest, res) => {
   try {
@@ -72,7 +64,7 @@ router.get("/deactivated", authMiddleware, async (req: AuthRequest, res) => {
 router.post("/create", authMiddleware, async (req: AuthRequest, res) => {
   const userId = req.user!.userId;
   if (!(await isUserAdmin(userId))) {
-    return res.status(403).json({ error: 'Access denied. Admin privileges required.' });
+    return sendError(res, new AppError(403, 'FORBIDDEN', 'Access denied. Admin privileges required.'));
   }
 
   try {
@@ -89,7 +81,7 @@ router.post("/create", authMiddleware, async (req: AuthRequest, res) => {
 router.put("/update/:labId", authMiddleware, async (req: AuthRequest, res) => {
   const userId = req.user!.userId;
   if (!(await isUserAdmin(userId))) {
-    return res.status(403).json({ error: 'Access denied. Admin privileges required.' });
+    return sendError(res, new AppError(403, 'FORBIDDEN', 'Access denied. Admin privileges required.'));
   }
 
   try {
@@ -108,7 +100,7 @@ router.put("/update/:labId", authMiddleware, async (req: AuthRequest, res) => {
 router.patch("/:labId/deactivate", authMiddleware, async (req: AuthRequest, res) => {
   const userId = req.user!.userId;
   if (!(await isUserAdmin(userId))) {
-    return res.status(403).json({ error: 'Access denied. Admin privileges required.' });
+    return sendError(res, new AppError(403, 'FORBIDDEN', 'Access denied. Admin privileges required.'));
   }
 
   try {
@@ -127,7 +119,7 @@ router.patch("/:labId/deactivate", authMiddleware, async (req: AuthRequest, res)
 router.patch("/:labId/activate", authMiddleware, async (req: AuthRequest, res) => {
   const userId = req.user!.userId;
   if (!(await isUserAdmin(userId))) {
-    return res.status(403).json({ error: 'Access denied. Admin privileges required.' });
+    return sendError(res, new AppError(403, 'FORBIDDEN', 'Access denied. Admin privileges required.'));
   }
 
   try {
@@ -147,11 +139,11 @@ router.get("/:labId", authMiddleware, async (req: AuthRequest, res) => {
   try {
     const { labId } = req.params;
     if (!labId) {
-      return res.status(400).json({ error: "Lab ID is required" });
+      return sendError(res, new AppError(400, 'LAB_ID_REQUIRED', 'Lab ID is required'));
     }
     const lab = await getLabById(labId);
     if (!lab) {
-      return res.status(404).json({ error: "Lab not found" });
+      return sendError(res, new AppError(404, 'LAB_NOT_FOUND', 'Lab not found'));
     }
     res.json({
       message: "Lab fetched successfully",
@@ -166,7 +158,7 @@ router.get("/:labId/tools", authMiddleware, async (req: AuthRequest, res) => {
   try {
     const { labId } = req.params;
     if (!labId) {
-      return res.status(400).json({ error: "Lab ID is required" });
+      return sendError(res, new AppError(400, 'LAB_ID_REQUIRED', 'Lab ID is required'));
     }
     const tools = await getToolsByLabId(labId);
     res.json({
@@ -182,11 +174,11 @@ router.get("/:labId/trainingNodes", authMiddleware, async (req: AuthRequest, res
   try {
     const { labId } = req.params;
     if (!labId) {
-      return res.status(400).json({ error: "Lab ID is required" });
+      return sendError(res, new AppError(400, 'LAB_ID_REQUIRED', 'Lab ID is required'));
     }
     const trainingNodes = await getTrainingNodesByLabId(labId);
     if (!trainingNodes) {
-      return res.status(404).json({ error: "Training nodes not found" });
+      return sendError(res, new AppError(404, 'TRAINING_NODES_NOT_FOUND', 'Training nodes not found'));
     }
     res.json({
       message: "Training nodes fetched successfully",

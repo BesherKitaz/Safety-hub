@@ -1,21 +1,11 @@
 import prisma from '../lib/prisma'
+import { AppError } from '../middleware/errorHandler';
 const prismaAny = prisma as any
 
-class LabIdRequiredError extends Error {
+class LabIdRequiredError extends AppError {
     constructor() {
-        super("Lab ID is required");
+        super(400, 'LAB_ID_REQUIRED', 'Lab ID is required');
         this.name = "LabIdRequiredError";
-    }
-}
-
-class AppError extends Error {
-    statusCode: number;
-    code: string;
-
-    constructor(statusCode: number, code: string, message: string) {
-        super(message);
-        this.statusCode = statusCode;
-        this.code = code;
     }
 }
 
@@ -56,7 +46,7 @@ const getLabs = async () => {
             },
         });
     } catch (error) {
-        throw new Error(`Something went wrong!, ${error}`)
+        throw new AppError(500, 'LAB_FETCH_FAILED', `Something went wrong!, ${error}`)
     }
 };
 
@@ -74,7 +64,7 @@ const getLabsNamesAndIds = async () => {
         });
     }
     catch (error) {
-        throw new Error(`Something went wrong!, ${error}`)
+        throw new AppError(500, 'LAB_FETCH_FAILED', `Something went wrong!, ${error}`)
     }
 }
 
@@ -97,7 +87,7 @@ const getDeactivatedLabs = async () => {
             },
         });
     } catch (error) {
-        throw new Error(`Something went wrong!, ${error}`)
+        throw new AppError(500, 'LAB_FETCH_FAILED', `Something went wrong!, ${error}`)
     }
 };
 
@@ -118,7 +108,7 @@ const getLabById = async (labId: string) => {
         });
     }
     catch (error) {
-        throw new Error(`Something went wrong!, ${error}`)
+        throw new AppError(500, 'LAB_FETCH_FAILED', `Something went wrong!, ${error}`)
     }
 }
 
@@ -149,7 +139,7 @@ const getTrainingNodesByLabId = async (labId: string) => {
             },
         })
     } catch (error) {
-        throw new Error(`Something went wrong!, ${error}`)
+        throw new AppError(500, 'LAB_FETCH_FAILED', `Something went wrong!, ${error}`)
     }
 }
 

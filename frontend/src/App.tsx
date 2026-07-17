@@ -17,7 +17,7 @@ import Lab from  './views/Labs.tsx';
 import DeactivatedLabs from './views/DeactivatedLabs.tsx';
 import LabManagement from './views/LabManagement.tsx'
 import ViewTraining from './views/ManageLabTabs/ViewTraining.tsx'
-
+import EmailForm from './views/EmailForm'
 import HeaderContext from './contexts/HeaderContext.tsx';
 import Layout from './Layout';
 
@@ -52,7 +52,7 @@ function App() {
               <Route path="/users" element={<Users />} />
               <Route path="/lab-management" element={<Lab />} />
               <Route path="/lab-management/deactivated" element={<DeactivatedLabs />} />
-
+    
               <Route path="/user/:id/edit" element={<EditProfile mode="edit" />} />
               <Route path="/user/create" element={<EditProfile mode="create" />} />
               <Route path="/certifications/add" element={<AddCertification />} />
@@ -67,6 +67,7 @@ function App() {
               <Route path="/lab-management/lab/:labId/training/:trainingId" element={<ViewTraining />} />
             </Route>
 
+            <Route path="/email" element={<EmailForm />} /> 
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
           </Routes>
@@ -78,5 +79,4 @@ function App() {
 
 export default App
 
-
-
+// End of App component

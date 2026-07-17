@@ -60,7 +60,7 @@ const Navbar = ({ sx }: { sx?: React.CSSProperties }) => {
             component="div"
             sx={{ flexGrow: 1, fontWeight: 700 }}
         >
-          Safety Hub
+          BIDC Safety Hub
         </Typography>
         <NavButton label="Certify a Student" color="" to="/certifications/add" /> 
         <NavButton label="Log out" color="" onClick={logout} />

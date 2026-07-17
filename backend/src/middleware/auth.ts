@@ -1,6 +1,7 @@
 // middleware/authMiddleware.ts
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import { AppError } from "./errorHandler";
 
 type AuthTokenPayload = {
   userId: string;
@@ -19,13 +20,13 @@ export const authMiddleware = (
 ) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ message: "No token provided" });
+    return next(new AppError(401, 'TOKEN_REQUIRED', 'No token provided'));
   }
 
   const token = authHeader.split(" ")[1];
 
   if (!token) {
-    return res.status(401).json({ message: "No token provided" });
+    return next(new AppError(401, 'TOKEN_REQUIRED', 'No token provided'));
   }
 
   try {
@@ -38,7 +39,7 @@ export const authMiddleware = (
 
     next();
   } catch {
-    return res.status(401).json({ message: "Invalid or expired token" });
+    return next(new AppError(401, 'TOKEN_INVALID', 'Invalid or expired token'));
   }
 };
 

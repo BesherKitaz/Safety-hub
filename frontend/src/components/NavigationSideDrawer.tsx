@@ -152,7 +152,7 @@ const NavigationSidePanelComponent = () => {
           }}
         >
           <Typography variant="h6" sx={{ fontWeight: 700 }}>
-            Safety Hub
+            BIDC Safety Hub
           </Typography>
           <IconButton
             onClick={() => setMobileOpen(false)}
