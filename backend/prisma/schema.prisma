@@ -41,20 +41,17 @@ model User {
   updatedAt DateTime @updatedAt
 
   isProfileComplete Boolean @default(false)
-  emailVerificationTokens EmailVerificationToken[]
 }
 
 
 model EmailVerificationToken {
   id        String   @id @default(cuid())
+  email     String   @unique
   tokenHash String   @unique
-  userId    String
+  verifiedAt DateTime?
   expiresAt DateTime
   createdAt DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
   @@index([expiresAt])
 }
 
@@ -219,5 +216,6 @@ enum CertificationHistoryAction {
   EXPIRED
   DEACTIVATED
 }
+
 
 

@@ -18,6 +18,7 @@ import DeactivatedLabs from './views/DeactivatedLabs.tsx';
 import LabManagement from './views/LabManagement.tsx'
 import ViewTraining from './views/ManageLabTabs/ViewTraining.tsx'
 import EmailForm from './views/EmailForm'
+import VerifyEmail from './views/VerifyEmail'
 import HeaderContext from './contexts/HeaderContext.tsx';
 import Layout from './Layout';
 
@@ -68,6 +69,7 @@ function App() {
             </Route>
 
             <Route path="/email" element={<EmailForm />} /> 
+            <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
           </Routes>
@@ -80,3 +82,4 @@ function App() {
 export default App
 
 // End of App component
+

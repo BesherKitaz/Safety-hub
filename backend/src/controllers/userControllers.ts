@@ -4,9 +4,12 @@ import  prisma from '../lib/prisma';
 import bcrypt from "bcrypt";
 import jwt from 'jsonwebtoken'
 import dotenv from 'dotenv'
+import crypto from 'crypto';
 import { ZxcvbnFactory } from "@zxcvbn-ts/core";
 import * as commonPackage from "@zxcvbn-ts/language-common";
 import { AppError } from '../middleware/errorHandler';
+import { sendEmail } from '../services/emailService';
+import path from 'path'
 
 type User = {
     firstName: string;
@@ -28,7 +31,7 @@ type PasswordValidationResult = {
 
 
 dotenv.config({
-    path: '../.env'
+    path: path.resolve(process.cwd(), '../.env')
 });
 
 const options = {
@@ -38,6 +41,118 @@ const options = {
   graphs: commonPackage.adjacencyGraphs,
 };
 
+const VERIFICATION_TOKEN_TTL_MS = 1000 * 60 * 60 * 24;
+
+const getFrontendBaseUrl = () => {
+    return (process.env.FRONTEND_URL ?? 'http://localhost:3000').replace(/\/$/, '');
+};
+
+const normalizeEmail = (email: string) => email.trim().toLowerCase();
+
+const hashToken = (token: string) =>
+    crypto.createHash('sha256').update(token).digest('hex');
+
+const getVerifiedEmailRecord = async (email: string) => {
+    return prisma.emailVerificationToken.findFirst({
+        where: {
+            email,
+            verifiedAt: { not: null },
+        },
+    });
+};
+
+const requireVerifiedEmail = async (email: string) => {
+    const verifiedEmail = await getVerifiedEmailRecord(normalizeEmail(email));
+
+    if (!verifiedEmail) {
+        throw new AppError(403, 'EMAIL_NOT_VERIFIED', 'Please verify your email before creating an account');
+    }
+
+    return verifiedEmail;
+};
+
+const sendVerificationEmail = async (email: string) => {
+    const normalizedEmail = normalizeEmail(email);
+
+    const existingUser = await prisma.user.findUnique({
+        where: { email: normalizedEmail },
+    });
+
+    if (existingUser) {
+        throw new AppError(409, 'USER_EXISTS', 'A user with this email already exists');
+    }
+
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = hashToken(rawToken);
+    const expiresAt = new Date(Date.now() + VERIFICATION_TOKEN_TTL_MS);
+    const verificationUrl = `${getFrontendBaseUrl()}/verify-email?token=${rawToken}`;
+
+    await prisma.emailVerificationToken.upsert({
+        where: { email: normalizedEmail },
+        update: {
+            tokenHash,
+            expiresAt,
+            verifiedAt: null,
+        },
+        create: {
+            email: normalizedEmail,
+            tokenHash,
+            expiresAt,
+        },
+    });
+
+    const emailSubject = 'Verify your SafetyHub email';
+    const emailText = `Verify your email by opening this link: ${verificationUrl}`;
+    const emailHtml = `
+      <h2>SafetyHub</h2>
+      <p>Click the link below to verify your email address.</p>
+      <p><a href="${verificationUrl}">Verify email</a></p>
+    `;
+
+    const result = await sendEmail({
+        to: normalizedEmail,
+        subject: emailSubject,
+        text: emailText,
+        html: emailHtml,
+    });
+
+    return {
+        email: normalizedEmail,
+        message: 'Verification email sent successfully',
+        previewUrl: result.previewUrl,
+    };
+};
+
+const verifyEmailAddress = async (token: string) => {
+    const tokenHash = hashToken(token);
+    const verificationRecord = await prisma.emailVerificationToken.findUnique({
+        where: { tokenHash },
+    });
+
+    if (!verificationRecord) {
+        throw new AppError(400, 'INVALID_VERIFICATION_TOKEN', 'Verification link is invalid or expired');
+    }
+
+    if (verificationRecord.expiresAt.getTime() < Date.now()) {
+        await prisma.emailVerificationToken.delete({
+            where: { tokenHash },
+        });
+
+        throw new AppError(400, 'VERIFICATION_EXPIRED', 'Verification link has expired');
+    }
+
+    const updatedRecord = verificationRecord.verifiedAt
+        ? verificationRecord
+        : await prisma.emailVerificationToken.update({
+            where: { tokenHash },
+            data: { verifiedAt: new Date() },
+        });
+
+    return {
+        email: updatedRecord.email,
+        message: 'Email verified successfully',
+    };
+};
 
 const getUserDataById = async (id: string) => {
     try {
@@ -243,9 +358,12 @@ function checkPasswordStrength(
 
 const createUser = async (userData: User) => {
   try {
+    const normalizedEmail = normalizeEmail(userData.email);
+    await requireVerifiedEmail(normalizedEmail);
+
     const existingUser = await prisma.user.findUnique({
       where: {
-        email: userData.email,
+        email: normalizedEmail,
       },
     });
 
@@ -259,11 +377,11 @@ const createUser = async (userData: User) => {
 
     const hashedPassword = await bcrypt.hash(userData.password, 10);
 
-    return await prisma.user.create({
+    const createdUser = await prisma.user.create({
       data: {
         firstName: userData.firstName,
         lastName: userData.lastName,
-        email: userData.email,
+        email: normalizedEmail,
         passwordHash: hashedPassword,
       },
       select: {
@@ -273,6 +391,12 @@ const createUser = async (userData: User) => {
         email: true,
       },
     });
+
+    await prisma.emailVerificationToken.deleteMany({
+      where: { email: normalizedEmail },
+    });
+
+    return createdUser;
   } catch (error) {
     if (error instanceof AppError) {
       throw error;
@@ -405,6 +529,8 @@ const validateSignupData = async (userData: { email?: string; password?: string;
 }
 
 
-export { AppError, getUserDataById, getUserProfileById, getUserNameDatabyId, createUser, login, userSearch, getTabularUsers, getUserRoleById, getUserIdByEmail, checkPasswordStrength, validateSignupData };
+export { AppError, getUserDataById, getUserProfileById, getUserNameDatabyId, createUser, login, userSearch, getTabularUsers, getUserRoleById, getUserIdByEmail, checkPasswordStrength, validateSignupData, sendVerificationEmail, verifyEmailAddress };
+
+
 
 

@@ -29,11 +29,16 @@
   },
   "homepage": "https://github.com/BesherKitaz/Safety-hub#readme",
   "devDependencies": {
-    "concurrently": "^10.0.3"
+    "@types/pg": "^8.20.0",
+    "concurrently": "^10.0.3",
+    "prisma": "^7.8.0"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
     "dotenv": "^17.4.2",
     "monorepo": "github:radix-ui/themes",
+    "pg": "^8.22.0",
     "radix": "^0.0.0"
   }
 }

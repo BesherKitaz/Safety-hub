@@ -1,5 +1,15 @@
 import nodemailer from "nodemailer";
-import { AppError } from "../controllers/userControllers"
+import { AppError } from "../middleware/errorHandler"
+import dotenv from "dotenv";
+import path from "path";
+
+
+
+dotenv.config({
+  path: path.resolve(process.cwd(), "../.env"),
+});
+
+
 
 const {
   SMTP_HOST,
@@ -25,7 +35,6 @@ const smtpPort = Number(SMTP_PORT);
 if (Number.isNaN(smtpPort)) {
   throw new Error("SMTP_PORT must be a valid number");
 }
-
 const transporter = nodemailer.createTransport({
   host: SMTP_HOST,
   port: smtpPort,
@@ -50,6 +59,7 @@ export const sendEmail = async ({
   html,
 }: SendEmailOptions) => {
   try {
+    console.log(`SMTP configuration: host=${SMTP_HOST}, port=${smtpPort}, secure=${SMTP_SECURE}, user=${SMTP_USER}`);
     const result = await transporter.sendMail({
       from: EMAIL_FROM,
       to,

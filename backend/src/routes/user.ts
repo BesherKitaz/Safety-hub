@@ -14,6 +14,8 @@ import {
   getUserIdByEmail,
   checkPasswordStrength,
   validateSignupData,
+  sendVerificationEmail,
+  verifyEmailAddress,
   AppError,
 } from '../controllers/userControllers';
 
@@ -23,6 +25,60 @@ import prisma from '../lib/prisma';
 import { sendError } from '../middleware/errorHandler';
 
 const router = Router();
+
+/* Email-related routes */
+router.post("/send-email", async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (typeof email !== "string" || email.trim() === "") {
+      return sendError(res, new AppError(400, 'EMAIL_REQUIRED', 'Email is required'));
+    }
+
+    const result = await sendVerificationEmail(email);
+
+    return res.status(200).json({
+      message: result.message,
+      data: {
+        email: result.email,
+        previewUrl: result.previewUrl,
+      },
+    });
+  } catch (error) {
+    console.error("Error sending verification email:", error);
+    return sendError(res, error, {
+      statusCode: 500,
+      code: 'EMAIL_VERIFICATION_FAILED',
+      message: 'Error sending verification email',
+    });
+  }
+});
+
+router.get('/verify-email', async (req, res) => {
+  try {
+    const token = String(req.query.token ?? '').trim();
+
+    if (!token) {
+      return sendError(res, new AppError(400, 'TOKEN_REQUIRED', 'Verification token is required'));
+    }
+
+    const result = await verifyEmailAddress(token);
+
+    return res.json({
+      message: result.message,
+      data: {
+        email: result.email,
+      },
+    });
+  } catch (error) {
+    console.error('Error verifying email:', error);
+    return sendError(res, error, {
+      statusCode: 400,
+      code: 'EMAIL_VERIFICATION_FAILED',
+      message: 'Error verifying email',
+    });
+  }
+});
 
 /* Email-related routes */
 router.post("/test-email", async (req, res, next) => {
@@ -240,5 +296,8 @@ router.post("/login", async (req, res, next) => {
 
 // Export the router
 export default router;
+
+
+
 
 

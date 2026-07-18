@@ -1,5 +1,5 @@
 // src/components/AuthForm.tsx
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 // MUI Imports
 import {
@@ -45,11 +45,12 @@ export type AuthFormData = {
 type AuthFormProps = {
   mode: "login" | "signup" | "email";
   onSubmit: (data: AuthFormData) => void;
+  signupEmail?: string;
 };
 
 
 
-const AuthForm = ({ mode, onSubmit }: AuthFormProps) => {
+const AuthForm = ({ mode, onSubmit, signupEmail }: AuthFormProps) => {
   const [ passwordHelper, setPasswordHelper ] = useState<string>('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -63,6 +64,15 @@ const AuthForm = ({ mode, onSubmit }: AuthFormProps) => {
     confirmPassword: "",
   });
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isSignup) {
+      setFormData((current) => ({
+        ...current,
+        email: signupEmail ?? "",
+      }));
+    }
+  }, [isSignup, signupEmail]);
 
   const handleChange = (field: keyof AuthFormData) => (
     event: React.ChangeEvent<HTMLInputElement>
@@ -210,6 +220,16 @@ const AuthForm = ({ mode, onSubmit }: AuthFormProps) => {
                 fullWidth
                 required
               />
+
+              <TextField
+                label="Verified Email"
+                value={signupEmail ?? ""}
+                fullWidth
+                InputProps={{
+                  readOnly: true,
+                }}
+                helperText="This email was verified and cannot be changed."
+              />
             </>
           )}
           {!isSignup && (
@@ -255,7 +275,7 @@ const AuthForm = ({ mode, onSubmit }: AuthFormProps) => {
             )}
             {isSignup && (
               <FormHelperText>
-                Please enter your name to create an account.
+                Please enter your name and password to create an account.
               </FormHelperText>
             )}
             {(mode === "email") && (
