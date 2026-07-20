@@ -56,7 +56,8 @@ router.get('/listings', async (req: AuthRequest, res) => {
 
 router.put('/update/:toolId', async (req: AuthRequest, res) => {
     const { toolId } = req.params;
-    const { name, description } = req.body;
+    const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+    const description = typeof req.body?.description === 'string' ? req.body.description : undefined;
 
     if (!toolId || !name) {
         return sendError(res, new AppError(400, 'MISSING_REQUIRED_PARAMETERS', 'Missing required parameters'));
@@ -149,7 +150,10 @@ router.get('/updated/:toolId', async (req: AuthRequest, res) => {
 });
 
 router.post('/create', async (req: AuthRequest, res) => {
-    const { labId, name, description } = req.body;
+    const labId = typeof req.body?.labId === 'string' ? req.body.labId : '';
+    const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+    const description = typeof req.body?.description === 'string' ? req.body.description : undefined;
+
     if (!labId || !name) {
         return sendError(res, new AppError(400, 'MISSING_REQUIRED_PARAMETERS', 'Missing required parameters'));
     }
@@ -160,7 +164,7 @@ router.post('/create', async (req: AuthRequest, res) => {
     }
 
     try {
-        const newTool = await createTool(labId as string, name as string, description as string);
+        const newTool = await createTool(labId, name, description);
         res.status(201).json({
             data: newTool,
             message: 'Tool created successfully',

@@ -3,6 +3,11 @@ import { AppError, assertLabIsActive } from './labsControllers';
 
 const prismaAny = prisma as any;
 
+const normalizeOptionalText = (value?: string | null) => {
+    const trimmed = value?.trim();
+    return trimmed ? trimmed : null;
+};
+
 const getToolsofLab = async (labId: string) => {
     return prismaAny.tool.findMany({
         where: {
@@ -44,6 +49,13 @@ const getToolById = async (toolId: string) => {
 
 const updateTool = async (toolId: string, updateData: { name: string; description?: string }) => {
     try {
+        const name = updateData.name.trim();
+        const description = normalizeOptionalText(updateData.description);
+
+        if (!name) {
+            throw new AppError(400, 'TOOL_NAME_REQUIRED', 'Tool name is required.');
+        }
+
         const tool = await getToolById(toolId);
 
         if (!tool) {
@@ -58,7 +70,10 @@ const updateTool = async (toolId: string, updateData: { name: string; descriptio
 
         return await prismaAny.tool.update({
             where: { id: toolId },
-            data: updateData,
+            data: {
+                name,
+                description,
+            },
         });
     } catch (error) {
         console.error('Error updating tool:', error);
@@ -71,13 +86,20 @@ const updateTool = async (toolId: string, updateData: { name: string; descriptio
 
 const createTool = async (labId: string, name: string, description?: string) => {
     try {
+        const normalizedName = name.trim();
+        const normalizedDescription = normalizeOptionalText(description);
+
+        if (!normalizedName) {
+            throw new AppError(400, 'TOOL_NAME_REQUIRED', 'Tool name is required.');
+        }
+
         await assertLabIsActive(labId);
 
         return await prismaAny.tool.create({
             data: {
                 labId,
-                name,
-                description: description || null,
+                name: normalizedName,
+                description: normalizedDescription,
             },
         });
     } catch (error) {

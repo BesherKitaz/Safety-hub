@@ -125,6 +125,8 @@ const getTrainingNodesByLabId = async (labId: string) => {
                 id: true,
                 name: true,
                 type: true,
+                labId: true,
+                toolId: true,
                 isActive: true,
                 tool: {
                     select: {

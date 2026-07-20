@@ -3,6 +3,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import { Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Divider, Link, Paper, Stack, Typography, TextField, Modal } from '@mui/material';
 import { EditOutlined, BlockOutlined, FlashOnOutlined } from '@mui/icons-material';
 import AddIcon from '@mui/icons-material/Add';
+import axios from 'axios';
 import { alpha } from '@mui/material/styles';
 import api from '../../lib/api';
 
@@ -10,6 +11,23 @@ import type { LabTool, LabDetail, ToolSummary } from './commons/types';
 import { safeText, formatDateTime } from './commons/helperFunctions';
 import DetailField from './components/DetailField';
 import SectionHeader from './components/SectionHeader';
+
+const getToolErrorMessage = (error: unknown, fallback: string) => {
+  if (axios.isAxiosError<{ error?: { message?: string }; message?: string }>(error)) {
+    return (
+      error.response?.data?.error?.message ??
+      error.response?.data?.message ??
+      error.message ??
+      fallback
+    );
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return fallback;
+};
 
 type ToolCardProps = {
   tool: LabTool;
@@ -61,31 +79,43 @@ const ToolModalForm = ({
 }) => {
   const [toolName, setToolName] = useState("");
   const [toolDescription, setToolDescription] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
       setToolName(popData?.name || "");
       setToolDescription(popData?.description || "");
+      setFormError(null);
     }
   }, [open, popData]);
 
   const handleSubmitTool = async () => {
+    const normalizedName = toolName.trim();
+    const normalizedDescription = toolDescription.trim();
+
+    if (!normalizedName) {
+      setFormError('Tool name is required.');
+      return;
+    }
+
     if (mode === "edit" && !toolId) {
-      console.error("Tool ID is required for editing");
+      setFormError('Tool ID is required for editing.');
       return;
     }
 
     if (mode === "create" && !labId) {
-      console.error("Lab ID is required for creating a tool");
+      setFormError('Lab ID is required for creating a tool.');
       return;
     }
 
     try {
+      setFormError(null);
+
       if (mode === "create") {
         const response = await api.post(`/api/tools/create`, {
           labId: labId,
-          name: toolName,
-          description: toolDescription,
+          name: normalizedName,
+          description: normalizedDescription || undefined,
         });
 
         console.log("response from creating tool:", response.data);
@@ -94,8 +124,8 @@ const ToolModalForm = ({
       if (mode === "edit") {
         const response = await api.put(`/api/tools/update/${toolId}`, {
           labId: labId,
-          name: toolName,
-          description: toolDescription,
+          name: normalizedName,
+          description: normalizedDescription || undefined,
         });
 
         console.log(`response from updating tool ${toolId}:`, response.data);
@@ -104,6 +134,10 @@ const ToolModalForm = ({
       await onUpdate();
       onClose();
     } catch (error) {
+      const fallbackMessage = mode === "create"
+        ? 'Something went wrong while creating the tool.'
+        : 'Something went wrong while updating the tool.';
+      setFormError(getToolErrorMessage(error, fallbackMessage));
       console.error(
         mode === "create" ? "Error creating tool:" : "Error updating tool:",
         error
@@ -130,10 +164,22 @@ const ToolModalForm = ({
           {mode === "create" ? "Create Tool" : "Edit Tool"}
         </Typography>
 
+        {formError && (
+          <Alert severity="error" sx={{ mt: 2 }}>
+            {formError}
+          </Alert>
+        )}
+
         <TextField
           label="Name"
           value={toolName}
-          onChange={(e) => setToolName(e.target.value)}
+          onChange={(e) => {
+            setToolName(e.target.value);
+            if (formError) {
+              setFormError(null);
+            }
+          }}
+          required
           fullWidth
           margin="normal"
         />
@@ -144,6 +190,9 @@ const ToolModalForm = ({
           onChange={(e) => setToolDescription(e.target.value)}
           fullWidth
           margin="normal"
+          multiline
+          minRows={3}
+          helperText="Optional. Leave this blank if the tool does not need a description."
         />
 
         <Box sx={{ display: "flex", justifyContent: "space-between", gap: 1 }}>
@@ -280,7 +329,7 @@ const ToolCard = ({ tool, currentLab, onToolChanged }: ToolCardProps) => {
     }
   };
 
-  if (!toolData?.id || !toolData.name || !toolData.description) {
+  if (!toolData?.id || !toolData.name) {
     return null;
   }
 

@@ -39,6 +39,7 @@ export const normalizeError = (
 
 	if (error && typeof error === 'object') {
 		const statusCode =
+		
 			'statusCode' in error && typeof (error as { statusCode?: unknown }).statusCode === 'number'
 				? (error as { statusCode: number }).statusCode
 				: undefined;
@@ -85,3 +86,4 @@ export const sendError = (
 export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
 	sendError(res, error);
 };
+
