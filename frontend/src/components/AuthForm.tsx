@@ -1,352 +1,69 @@
-// src/components/AuthForm.tsx
-import React, { useEffect, useRef, useState } from "react";
-
-// MUI Imports
-import {
-  Box,
-  Button,
-  Paper,
-  TextField,
-  Typography,
-  Stack,
-  FormHelperText,
-  Alert,
-  IconButton,
-  InputAdornment,
-} from "@mui/material";
-
-import {
-  Visibility,
-  VisibilityOff,
-} from "@mui/icons-material";
-
-// Helpers (navigation and password strenght check)
+import { useState } from "react";
+import type { ChangeEvent, FormEvent } from "react";
+import { Alert, Box, Button, Chip, IconButton, InputAdornment, LinearProgress, Paper, Stack, TextField, Typography } from "@mui/material";
+import { Visibility, VisibilityOff, VerifiedUserOutlined } from "@mui/icons-material";
 import { Link } from "react-router-dom";
-import { ZxcvbnFactory } from "@zxcvbn-ts/core";
-import * as commonPackage from "@zxcvbn-ts/language-common";
+const passwordScore = (password: string) => [password.length >= 12, /[a-z]/.test(password) && /[A-Z]/.test(password), /\d/.test(password), /[^A-Za-z0-9]/.test(password)].filter(Boolean).length;
 
+export type AuthFormData = { firstName?: string; lastName?: string; email: string; password: string; confirmPassword?: string };
+type AuthMode = "login" | "signup" | "email" | "forgot" | "reset";
+type AuthFormProps = { mode: AuthMode; onSubmit: (data: AuthFormData) => Promise<unknown> | void; signupEmail?: string };
 
-const options = {
-  dictionary: {
-    ...commonPackage.dictionary,
-  },
-  graphs: commonPackage.adjacencyGraphs,
+const copy = {
+  login: { eyebrow: "Welcome back", title: "Log in to Safety Hub", body: "Use your account to manage certifications, members, and labs.", button: "Log in" },
+  signup: { eyebrow: "Email verified", title: "Finish creating your account", body: "Add your name and choose a secure password.", button: "Create account" },
+  email: { eyebrow: "New account", title: "Verify your email", body: "We’ll email you a secure link before you create your account.", button: "Send verification link" },
+  forgot: { eyebrow: "Account recovery", title: "Reset your password", body: "Enter your account email and we’ll send a secure reset link.", button: "Send reset link" },
+  reset: { eyebrow: "Secure reset", title: "Choose a new password", body: "Use at least 12 characters and avoid common words.", button: "Update password" },
 };
 
-
-export type AuthFormData = {
-  firstName?: string;
-  lastName?: string;
-  email: string;
-  password: string;
-  confirmPassword?: string;
-};
-
-type AuthFormProps = {
-  mode: "login" | "signup" | "email";
-  onSubmit: (data: AuthFormData) => void;
-  signupEmail?: string;
-};
-
-
-
-const AuthForm = ({ mode, onSubmit, signupEmail }: AuthFormProps) => {
-  const [ passwordHelper, setPasswordHelper ] = useState<string>('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isEmailCooldownActive, setIsEmailCooldownActive] = useState(false);
-  const cooldownTimeoutRef = useRef<number | null>(null);
-  const isSignup = mode === "signup";
-
-  const [formData, setFormData] = useState<AuthFormData>({
-    firstName: "",
-    lastName: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
-  });
+export default function AuthForm({ mode, onSubmit, signupEmail }: AuthFormProps) {
+  const [data, setData] = useState<AuthFormData>({ firstName: "", lastName: "", email: signupEmail ?? "", password: "", confirmPassword: "" });
+  const [visible, setVisible] = useState(false);
+  const [confirmVisible, setConfirmVisible] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const needsPassword = mode === "login" || mode === "signup" || mode === "reset";
+  const needsConfirmation = mode === "signup" || mode === "reset";
+  const strength = needsConfirmation && data.password ? passwordScore(data.password) : 0;
+  const details = copy[mode];
 
-  useEffect(() => {
-    if (isSignup) {
-      setFormData((current) => ({
-        ...current,
-        email: signupEmail ?? "",
-      }));
-    }
-  }, [isSignup, signupEmail]);
+  const change = (key: keyof AuthFormData) => (event: ChangeEvent<HTMLInputElement>) => setData((current) => ({ ...current, [key]: event.target.value }));
 
-  useEffect(() => {
-    return () => {
-      if (cooldownTimeoutRef.current !== null) {
-        window.clearTimeout(cooldownTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  const handleChange = (field: keyof AuthFormData) => (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    setFormData({
-      ...formData,
-      [field]: event.target.value,
-    });
-  };
-
-  const handleConfirmPasswordChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const confirmPassword = event.target.value;
-    if (confirmPassword !== formData.password) {
-      setPasswordHelper('Passwords must match!');
-    } else {
-      setPasswordHelper('');
-    }
-    setFormData({
-      ...formData,
-      confirmPassword,
-    });
-  };
-
-  const handlePasswordSignupChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const password = event.target.value;
-    if (password !== formData.confirmPassword) {
-      setPasswordHelper('Passwords must match!');
-    } else {
-      setPasswordHelper('');
-    }
-    setFormData({
-      ...formData,
-      password,
-    });
-    const passwordChecker = new ZxcvbnFactory(options);
-    const result = passwordChecker.check(password);
-    const resultDetails = {
-      valid: (password.length >= 12 && result.score >= 3),
-      score: result.score, // 0–4
-      warning: result.feedback.warning,
-      suggestions: result.feedback.suggestions,
-    }
-    if (!resultDetails.valid) {
-      setPasswordHelper(`Password is too weak`);
-    } else {
-      setPasswordHelper('');
-    }
-  };
-
-
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (mode === 'email' && isEmailCooldownActive) {
-      return;
-    }
-
-    if (isSignup && formData.password !== formData.confirmPassword) {
-      setPasswordHelper('Passwords must match!');
-      return;
-    }
-
-    if (mode === 'email') {
-      setIsEmailCooldownActive(true);
-      if (cooldownTimeoutRef.current !== null) {
-        window.clearTimeout(cooldownTimeoutRef.current);
-      }
-      cooldownTimeoutRef.current = window.setTimeout(() => {
-        setIsEmailCooldownActive(false);
-        cooldownTimeoutRef.current = null;
-      }, 5000);
-    }
-
-    setIsSubmitting(true);
-    try {
-      await onSubmit(formData);
-    } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("An unexpected error occurred");
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
+    setError(null);
+    if (needsConfirmation && data.password !== data.confirmPassword) { setError("Passwords must match."); return; }
+    if (needsConfirmation && (data.password.length < 12 || strength < 3)) { setError("Choose a stronger password with at least 12 characters."); return; }
+    setSubmitting(true);
+    try { await onSubmit(data); } catch (requestError) { setError(requestError instanceof Error ? requestError.message : "Something went wrong. Please try again."); } finally { setSubmitting(false); }
   };
 
-  const createPasswordSlotProps = (
-    isVisible: boolean,
-    setIsVisible: React.Dispatch<React.SetStateAction<boolean>>
-  ) => ({
-    input: {
-      endAdornment: (
-        <InputAdornment position="end">
-          <IconButton
-            onClick={() => setIsVisible((previous) => !previous)}
-            onMouseDown={(event) => event.preventDefault()}
-            edge="end"
-            aria-label={isVisible ? "Hide password" : "Show password"}
-          >
-            {isVisible ? <VisibilityOff /> : <Visibility />}
-          </IconButton>
-        </InputAdornment>
-      ),
-    },
-  });
-  
+  const passwordAdornment = (shown: boolean, toggle: () => void) => ({ input: { endAdornment: <InputAdornment position="end"><IconButton onClick={toggle} edge="end" aria-label={shown ? "Hide password" : "Show password"}>{shown ? <VisibilityOff /> : <Visibility />}</IconButton></InputAdornment> } });
 
   return (
-    <Box>
-      {error && (
-        <Alert
-          severity="error"
-          onClose={() => setError(null)}
-          sx={{
-            position: 'fixed',
-            top: 80,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: (theme) => theme.zIndex.snackbar,
-            minWidth: 360,
-            maxWidth: 700,
-            boxShadow: 6,
-          }}
-        >
-          {error}
-        </Alert>
-    )}
-
-
-      <Box
-        sx={{
-          minHeight: "calc(100dvh / var(--app-scale, 1))",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          width: "100%",
-          px: 2,
-        }}
-      >
-        <Paper
-          component="form"
-          onSubmit={handleSubmit}
-          elevation={3}
-          sx={{ width: "100%", maxWidth: { xs: "100%", sm: 600 }, p: 4 }}
-        >
-          <Stack spacing={3}>
-              <Typography variant="h4" component="h1" sx={{ textAlign: "center" }}>
-                  {isSignup ? "Create Account" : "Log In"}
-              </Typography>
-          {isSignup && (
-            <>
-              <TextField
-                label="First Name"
-                value={formData.firstName}
-                onChange={handleChange("firstName")}
-                fullWidth
-                required
-              />
-
-              <TextField
-                label="Last Name"
-                value={formData.lastName}
-                onChange={handleChange("lastName")}
-                fullWidth
-                required
-              />
-
-              <TextField
-                label="Verified Email"
-                value={signupEmail ?? ""}
-                fullWidth
-                InputProps={{
-                  readOnly: true,
-                }}
-                helperText="This email was verified and cannot be changed."
-              />
-            </>
-          )}
-          {!isSignup && (
-            <TextField
-              label="Purdue Email"
-              type="email"
-              value={formData.email}
-              onChange={handleChange("email")}
-              fullWidth
-              required
-            />
-          )}
-          {mode !== "email" && (
-              <TextField
-                label="Password"
-                type={showPassword ? "text" : "password"}
-                value={formData.password}
-                onChange={isSignup ? handlePasswordSignupChange : handleChange("password")}
-                fullWidth
-                required
-                onCopy={(event) => event.preventDefault()}
-                onCut={(event) => event.preventDefault()}
-                slotProps={createPasswordSlotProps(showPassword, setShowPassword)}
-              />
-          )}
-            {isSignup && (
-              <TextField
-                label="Confirm Password"
-                type={showConfirmPassword ? "text" : "password"}
-                value={formData.confirmPassword ?? ""}
-                onChange={handleConfirmPasswordChange}
-                fullWidth 
-                required
-                onCopy={(event) => event.preventDefault()}
-                onCut={(event) => event.preventDefault()}
-                slotProps={createPasswordSlotProps(showConfirmPassword, setShowConfirmPassword)}
-              />
-            )}
-            {isSignup && passwordHelper && (
-              <Typography color="error">
-                {passwordHelper}
-              </Typography>
-            )}
-            {isSignup && (
-              <FormHelperText>
-                Please enter your name and password to create an account.
-              </FormHelperText>
-            )}
-            {(mode === "email") && (
-              <FormHelperText>
-                Please enter your email to begin.
-              </FormHelperText>
-            )}
-            {(!isSignup && mode !== "email") && (
-              <FormHelperText>
-                Please enter your email and password to log in.
-              </FormHelperText>
-            )}
-            <Button
-              type="submit"
-              variant="contained"
-              size="large"
-              fullWidth
-              disabled={isSubmitting || (mode === 'email' && isEmailCooldownActive)}
-            >
-              {
-                mode === "email" ? "Verify Email" : (isSignup ? "Sign Up" : "Log In")
-              }
-            </Button>
-            <Typography variant="body2" sx={{ textAlign: "center" }}>
-              {isSignup ? "By signing up, you agree to our terms and conditions." : "Forgot your password?"}
-            </Typography>
-              {isSignup ? (
-                <Typography variant="body2" sx={{ textAlign: "center" }}>
-                  Already have an account? <Link to="/login">Log in</Link>.
-                </Typography>
-              ) : (
-                <Typography variant="body2" sx={{ textAlign: "center" }}>
-                  Don't have an account? <Link to="/email">Create one</Link>.
-                </Typography>
-              )}
+    <Box sx={{ minHeight: "calc(100dvh / var(--app-scale, 1))", display: "grid", placeItems: "center", p: 2.5, background: "linear-gradient(135deg, #e9f2fb 0%, #f8fafc 55%, #e7f1fc 100%)" }}>
+      <Box sx={{ width: "100%", maxWidth: 1040, display: "grid", gridTemplateColumns: { xs: "1fr", md: "0.85fr 1.15fr" }, borderRadius: 4, overflow: "hidden", boxShadow: "0 24px 70px rgba(15, 23, 42, 0.14)" }}>
+        <Box sx={{ display: { xs: "none", md: "flex" }, flexDirection: "column", justifyContent: "space-between", p: 5, color: "white", background: "linear-gradient(145deg, #123a70, #1769c2)" }}>
+          <Typography variant="h6" sx={{ fontWeight: 900 }}>BIDC Safety Hub</Typography>
+          <Box><VerifiedUserOutlined sx={{ fontSize: 52, opacity: 0.9 }} /><Typography variant="h3" sx={{ mt: 2, fontWeight: 900, lineHeight: 1.1 }}>Safer spaces start with clear records.</Typography><Typography sx={{ mt: 2, color: "rgba(255,255,255,.75)", lineHeight: 1.7 }}>One secure account for training, certifications, and lab access.</Typography></Box>
+          <Typography variant="caption" sx={{ color: "rgba(255,255,255,.65)" }}>Secure account access</Typography>
+        </Box>
+        <Paper component="form" onSubmit={submit} elevation={0} square sx={{ p: { xs: 3, sm: 5 }, bgcolor: "rgba(255,255,255,.98)" }}>
+          <Stack spacing={2.25}>
+            <Box><Chip label={details.eyebrow} size="small" color="primary" variant="outlined" sx={{ mb: 2, fontWeight: 800 }} /><Typography component="h1" variant="h4" sx={{ fontWeight: 900, color: "#111827", letterSpacing: -0.5 }}>{details.title}</Typography><Typography color="text.secondary" sx={{ mt: 1, lineHeight: 1.65 }}>{details.body}</Typography></Box>
+            {error && <Alert severity="error" onClose={() => setError(null)}>{error}</Alert>}
+            {mode === "signup" && <Stack direction={{ xs: "column", sm: "row" }} spacing={2}><TextField label="First name" value={data.firstName} onChange={change("firstName")} required fullWidth autoComplete="given-name" /><TextField label="Last name" value={data.lastName} onChange={change("lastName")} required fullWidth autoComplete="family-name" /></Stack>}
+            {mode === "signup" ? <TextField label="Verified email" value={signupEmail ?? ""} fullWidth slotProps={{ input: { readOnly: true } }} helperText="Verified through your email link." /> : mode !== "reset" && <TextField label="Email address" type="email" value={data.email} onChange={change("email")} required fullWidth autoComplete="email" />}
+            {needsPassword && <TextField label={mode === "reset" ? "New password" : "Password"} type={visible ? "text" : "password"} value={data.password} onChange={change("password")} required fullWidth autoComplete={mode === "login" ? "current-password" : "new-password"} slotProps={passwordAdornment(visible, () => setVisible((v) => !v))} />}
+            {needsConfirmation && <><TextField label="Confirm password" type={confirmVisible ? "text" : "password"} value={data.confirmPassword} onChange={change("confirmPassword")} required fullWidth autoComplete="new-password" slotProps={passwordAdornment(confirmVisible, () => setConfirmVisible((v) => !v))} /><Box><LinearProgress variant="determinate" value={(strength + 1) * 20} color={strength >= 3 ? "success" : "primary"} sx={{ borderRadius: 99, height: 6 }} /><Typography variant="caption" color="text.secondary">Password strength: {data.password ? ["Very weak", "Weak", "Fair", "Strong", "Very strong"][strength] : "enter a password"}</Typography></Box></>}
+            <Button type="submit" variant="contained" size="large" disabled={submitting} sx={{ py: 1.4, borderRadius: 2, textTransform: "none", fontWeight: 850, boxShadow: "none" }}>{submitting ? "Please wait…" : details.button}</Button>
+            {mode === "login" && <Stack direction="row" sx={{ justifyContent: "space-between" }}><Link to="/email">Create account</Link><Link to="/forgot-password">Forgot password?</Link></Stack>}
+            {(mode === "email" || mode === "forgot") && <Typography variant="body2" sx={{ textAlign: "center" }}><Link to="/login">Back to login</Link></Typography>}
+            {(mode === "signup" || mode === "reset") && <Typography variant="body2" sx={{ textAlign: "center" }}>Already have access? <Link to="/login">Log in</Link></Typography>}
           </Stack>
         </Paper>
       </Box>
     </Box>
   );
-};
-
-export default AuthForm;
-
+}

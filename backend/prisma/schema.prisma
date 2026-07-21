@@ -48,10 +48,24 @@ model EmailVerificationToken {
   id        String   @id @default(cuid())
   email     String   @unique
   tokenHash String   @unique
+  requestTokenHash String? @unique
   verifiedAt DateTime?
   expiresAt DateTime
   createdAt DateTime @default(now())
 
+  @@index([expiresAt])
+}
+
+model PasswordResetToken {
+  id               String   @id @default(cuid())
+  email            String
+  tokenHash        String   @unique
+  requestTokenHash String   @unique
+  verifiedAt       DateTime?
+  expiresAt        DateTime
+  createdAt        DateTime @default(now())
+
+  @@index([email])
   @@index([expiresAt])
 }
 
@@ -216,6 +230,5 @@ enum CertificationHistoryAction {
   EXPIRED
   DEACTIVATED
 }
-
 
 

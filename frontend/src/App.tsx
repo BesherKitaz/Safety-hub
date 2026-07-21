@@ -19,6 +19,8 @@ import LabManagement from './views/LabManagement.tsx'
 import ViewTraining from './views/ManageLabTabs/ViewTraining.tsx'
 import EmailForm from './views/EmailForm'
 import VerifyEmail from './views/VerifyEmail'
+import ForgotPassword from './views/ForgotPassword'
+import ResetPassword from './views/ResetPassword'
 import HeaderContext from './contexts/HeaderContext.tsx';
 import Layout from './Layout';
 
@@ -72,6 +74,8 @@ function App() {
             <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
           </Routes>
         </BrowserRouter>
       </DrawerContext.Provider>

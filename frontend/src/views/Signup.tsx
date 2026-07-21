@@ -1,17 +1,8 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import AuthForm, { type AuthFormData } from '../components/AuthForm.tsx';
-import { ZxcvbnFactory } from '@zxcvbn-ts/core';
-import * as commonPackage from '@zxcvbn-ts/language-common';
 import api from '../lib/api';
 import axios from 'axios';
-
-const options = {
-  dictionary: {
-    ...commonPackage.dictionary,
-  },
-  graphs: commonPackage.adjacencyGraphs,
-};
 
 type ApiErrorResponse = {
   error: {
@@ -24,6 +15,7 @@ const Signup = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const verifiedEmail = searchParams.get('email')?.trim() ?? '';
+  const verificationToken = searchParams.get('requestToken')?.trim() || searchParams.get('linkToken')?.trim() || '';
 
   useEffect(() => {
     if (localStorage.getItem('token')) {
@@ -31,30 +23,17 @@ const Signup = () => {
       return;
     }
 
-    if (!verifiedEmail) {
+    if (!verifiedEmail || !verificationToken) {
       navigate('/email', { replace: true });
     }
-  }, [navigate, verifiedEmail]);
+  }, [navigate, verifiedEmail, verificationToken]);
 
   const handleSignup = async (data: AuthFormData) => {
-    const password = data.password;
-    const passwordChecker = new ZxcvbnFactory(options);
-    const result = passwordChecker.check(password);
-    const resultDetails = {
-      valid: password.length >= 12 && result.score >= 3,
-      score: result.score,
-      warning: result.feedback.warning,
-      suggestions: result.feedback.suggestions,
-    };
-
-    if (!resultDetails.valid) {
-      throw new Error(`Password is too weak: try ${resultDetails.suggestions.join(' ')}`);
-    }
-
     try {
       await api.post('/api/user/signup', {
         ...data,
         email: verifiedEmail,
+        verificationToken,
       });
       navigate('/login', { replace: true });
     } catch (error) {

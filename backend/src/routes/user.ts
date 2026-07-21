@@ -16,6 +16,11 @@ import {
   validateSignupData,
   sendVerificationEmail,
   verifyEmailAddress,
+  getEmailVerificationStatus,
+  sendPasswordResetEmail,
+  verifyPasswordReset,
+  getPasswordResetStatus,
+  resetPassword,
   AppError,
 } from '../controllers/userControllers';
 
@@ -42,6 +47,7 @@ router.post("/send-email", async (req, res) => {
       data: {
         email: result.email,
         previewUrl: result.previewUrl,
+        requestToken: result.requestToken,
       },
     });
   } catch (error) {
@@ -51,6 +57,16 @@ router.post("/send-email", async (req, res) => {
       code: 'EMAIL_VERIFICATION_FAILED',
       message: 'Error sending verification email',
     });
+  }
+});
+
+router.get('/email-verification/status', async (req, res) => {
+  try {
+    const requestToken = String(req.query.requestToken ?? '').trim();
+    if (!requestToken) return sendError(res, new AppError(400, 'TOKEN_REQUIRED', 'Verification request token is required'));
+    return res.json({ message: 'Verification status fetched successfully', data: await getEmailVerificationStatus(requestToken) });
+  } catch (error) {
+    return sendError(res, error, { statusCode: 400, code: 'EMAIL_VERIFICATION_STATUS_FAILED', message: 'Unable to check verification status' });
   }
 });
 
@@ -77,6 +93,50 @@ router.get('/verify-email', async (req, res) => {
       code: 'EMAIL_VERIFICATION_FAILED',
       message: 'Error verifying email',
     });
+  }
+});
+
+router.post('/password-reset/request', async (req, res) => {
+  try {
+    const email = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
+    if (!email) return sendError(res, new AppError(400, 'EMAIL_REQUIRED', 'Email is required'));
+    const result = await sendPasswordResetEmail(email);
+    return res.json({ message: result.message, data: { requestToken: result.requestToken } });
+  } catch (error) {
+    return sendError(res, error, { statusCode: 500, code: 'PASSWORD_RESET_REQUEST_FAILED', message: 'Unable to start password reset' });
+  }
+});
+
+router.get('/password-reset/confirm', async (req, res) => {
+  try {
+    const token = String(req.query.token ?? '').trim();
+    if (!token) return sendError(res, new AppError(400, 'TOKEN_REQUIRED', 'Password reset token is required'));
+    const result = await verifyPasswordReset(token);
+    return res.json({ message: 'Password reset link verified', data: result });
+  } catch (error) {
+    return sendError(res, error, { statusCode: 400, code: 'PASSWORD_RESET_CONFIRM_FAILED', message: 'Unable to verify password reset link' });
+  }
+});
+
+router.get('/password-reset/status', async (req, res) => {
+  try {
+    const requestToken = String(req.query.requestToken ?? '').trim();
+    if (!requestToken) return sendError(res, new AppError(400, 'TOKEN_REQUIRED', 'Password reset request token is required'));
+    return res.json({ message: 'Password reset status fetched successfully', data: await getPasswordResetStatus(requestToken) });
+  } catch (error) {
+    return sendError(res, error, { statusCode: 400, code: 'PASSWORD_RESET_STATUS_FAILED', message: 'Unable to check password reset status' });
+  }
+});
+
+router.post('/password-reset/complete', async (req, res) => {
+  try {
+    const credential = typeof req.body?.credential === 'string' ? req.body.credential.trim() : '';
+    const password = typeof req.body?.password === 'string' ? req.body.password : '';
+    if (!credential || !password) return sendError(res, new AppError(400, 'RESET_DATA_REQUIRED', 'Reset credential and password are required'));
+    await resetPassword(credential, password);
+    return res.json({ message: 'Password reset successfully' });
+  } catch (error) {
+    return sendError(res, error, { statusCode: 400, code: 'PASSWORD_RESET_FAILED', message: 'Unable to reset password' });
   }
 });
 

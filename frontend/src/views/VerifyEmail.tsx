@@ -1,112 +1,31 @@
-import { useEffect, useState } from 'react';
-import { Alert, Box, Button, Paper, Stack, Typography } from '@mui/material';
-import { Link as RouterLink, useNavigate, useSearchParams } from 'react-router-dom';
-import api from '../lib/api';
-import axios from 'axios';
+import { useEffect, useState } from "react";
+import { Alert, Box, CircularProgress, Paper, Stack, Typography } from "@mui/material";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import axios from "axios";
+import api from "../lib/api";
 
-type VerifyState = 'loading' | 'success' | 'error';
-
-const VerifyEmail = () => {
+export default function VerifyEmail() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const token = searchParams.get('token');
-  const [state, setState] = useState<VerifyState>('loading');
-  const [message, setMessage] = useState('Verifying your email...');
-
+  const [params] = useSearchParams();
+  const token = params.get("token") ?? "";
+  const reset = params.get("purpose") === "reset";
+  const [error, setError] = useState<string | null>(token ? null : "The verification token is missing.");
   useEffect(() => {
-    if (!token) {
-      setState('error');
-      setMessage('Verification token is missing.');
-      return;
-    }
-
-    let isMounted = true;
-    let redirectTimer: ReturnType<typeof window.setTimeout> | undefined;
-
-    const verify = async () => {
+    if (!token) return;
+    let active = true;
+    const confirm = async () => {
       try {
-        const response = await api.get('/api/user/verify-email', {
-          params: { token },
-        });
-
-        if (!isMounted) {
-          return;
-        }
-
-        setState('success');
-        const verifiedEmail = response.data?.data?.email ?? '';
-        setMessage(response.data?.message ?? 'Email verified successfully. Redirecting to signup...');
-
-        redirectTimer = window.setTimeout(() => {
-          navigate(`/signup?email=${encodeURIComponent(verifiedEmail)}`, { replace: true });
-        }, 1000);
-      } catch (error) {
-        if (!isMounted) {
-          return;
-        }
-
-        if (axios.isAxiosError(error)) {
-          const apiMessage = error.response?.data?.error?.message;
-          setMessage(apiMessage ?? 'We could not verify this email.');
-        } else {
-          setMessage('We could not verify this email.');
-        }
-
-        setState('error');
+        const endpoint = reset ? "/api/user/password-reset/confirm" : "/api/user/verify-email";
+        const response = await api.get(endpoint, { params: { token } });
+        if (!active) return;
+        if (reset) navigate(`/reset-password?credential=${encodeURIComponent(token)}`, { replace: true });
+        else navigate(`/signup?email=${encodeURIComponent(response.data.data.email)}&linkToken=${encodeURIComponent(token)}`, { replace: true });
+      } catch (requestError) {
+        if (active) setError(axios.isAxiosError(requestError) ? requestError.response?.data?.error?.message ?? "This link is invalid or expired." : "This link is invalid or expired.");
       }
     };
-
-    verify();
-
-    return () => {
-      isMounted = false;
-      if (redirectTimer) {
-        window.clearTimeout(redirectTimer);
-      }
-    };
-  }, [navigate, token]);
-
-  return (
-    <Box
-      sx={{
-        minHeight: '100dvh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        px: 2,
-        py: 4,
-      }}
-    >
-      <Paper sx={{ width: '100%', maxWidth: 560, p: 4 }} elevation={3}>
-        <Stack spacing={3}>
-          <Typography variant="h4" component="h1" sx={{ textAlign: 'center' }}>
-            Email Verification
-          </Typography>
-
-          {state === 'loading' && (
-            <Alert severity="info">Verifying your email address now.</Alert>
-          )}
-
-          {state === 'success' && (
-            <Alert severity="success">{message}</Alert>
-          )}
-
-          {state === 'error' && (
-            <Alert severity="error">{message}</Alert>
-          )}
-
-          <Stack spacing={2}>
-            <Button component={RouterLink} to="/login" variant="contained" size="large" fullWidth>
-              Return to login
-            </Button>
-            <Button component={RouterLink} to="/email" variant="outlined" size="large" fullWidth>
-              Start over
-            </Button>
-          </Stack>
-        </Stack>
-      </Paper>
-    </Box>
-  );
-};
-
-export default VerifyEmail;
+    confirm();
+    return () => { active = false; };
+  }, [navigate, reset, token]);
+  return <Box sx={{ minHeight: "calc(100dvh / var(--app-scale, 1))", display: "grid", placeItems: "center", p: 2.5, background: "linear-gradient(135deg, #e9f2fb, #f8fafc)" }}><Paper elevation={0} sx={{ width: "100%", maxWidth: 520, p: 5, borderRadius: 4, textAlign: "center", boxShadow: "0 24px 70px rgba(15,23,42,.13)" }}><Stack spacing={2.5} sx={{ alignItems: "center" }}>{error ? <Alert severity="error" sx={{ width: "100%" }}>{error}</Alert> : <><CircularProgress /><Typography variant="h5" sx={{ fontWeight: 900 }}>Confirming your secure link…</Typography><Typography color="text.secondary">You’ll be redirected automatically.</Typography></>}</Stack></Paper></Box>;
+}

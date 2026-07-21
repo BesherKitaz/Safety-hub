@@ -1,54 +1,30 @@
-
-import React, { useEffect } from 'react';
-import { useNavigate } from 'react-router'
-import AuthForm from '../components/AuthForm.tsx';
-
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import AuthForm, { type AuthFormData } from "../components/AuthForm";
 import api from "../lib/api";
 
-import type { AuthFormData } from '../components/AuthForm.tsx'
+type LoginResponse = { token: string; role: string; id: string };
 
-type LoginResponse = {
-  token: string;
-  role: string;
-  id: string;
-};
-
-const Login = () => {
+export default function Login() {
   const navigate = useNavigate();
-
-  if (localStorage.getItem('token')) {
-    navigate('/')
-  }
-
-
-  useEffect(() => {
+  useEffect(() => { 
     if (localStorage.getItem("token")) {
+      window.location.reload();
       navigate("/", { replace: true });
     }
   }, [navigate]);
-
-  
-  const handleLogin = async (data: AuthFormData) => {
-  
-    try{ 
-      const response = await  api.post<LoginResponse>('/api/user/login', data);
-      console.log("Login response:", response.data);
-      const token = response.data.token;
-      const userRole = response.data.role; 
-      const userId = response.data.id;
-
-      localStorage.setItem("token", token);
-      localStorage.setItem("userRole", userRole);
-      localStorage.setItem("userId", userId);
-
+  const login = async (data: AuthFormData) => {
+    try {
+      const response = await api.post<LoginResponse>("/api/user/login", { email: data.email, password: data.password });
+      localStorage.setItem("token", response.data.token);
+      localStorage.setItem("userRole", response.data.role);
+      localStorage.setItem("userId", response.data.id);
       window.location.reload();
+      navigate("/", { replace: true });
     } catch (error) {
-      console.error("Error logging in:", error);
+      throw new Error(axios.isAxiosError(error) ? error.response?.data?.error?.message ?? "Unable to log in." : "Unable to log in.", { cause: error });
     }
   };
-
-
-  return <AuthForm mode="login" onSubmit={handleLogin} />;
-};
-
-export default Login;
+  return <AuthForm mode="login" onSubmit={login} />;
+}

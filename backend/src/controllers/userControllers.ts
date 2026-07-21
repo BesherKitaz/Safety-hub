@@ -16,6 +16,7 @@ type User = {
     lastName: string;
     email: string;
     password: string;
+    verificationToken: string;
 }
 
 type CertificationsByLab = {
@@ -42,6 +43,7 @@ const options = {
 };
 
 const VERIFICATION_TOKEN_TTL_MS = 1000 * 60 * 60 * 24;
+const PASSWORD_RESET_TOKEN_TTL_MS = 1000 * 60 * 30;
 
 const getFrontendBaseUrl = () => {
     return (process.env.FRONTEND_URL ?? 'http://localhost:3000').replace(/\/$/, '');
@@ -61,8 +63,11 @@ const getVerifiedEmailRecord = async (email: string) => {
     });
 };
 
-const requireVerifiedEmail = async (email: string) => {
-    const verifiedEmail = await getVerifiedEmailRecord(normalizeEmail(email));
+const requireVerifiedEmail = async (email: string, requestToken: string) => {
+    const credentialHash = requestToken ? hashToken(requestToken) : '';
+    const verifiedEmail = requestToken ? await prisma.emailVerificationToken.findFirst({
+        where: { email: normalizeEmail(email), OR: [{ requestTokenHash: credentialHash }, { tokenHash: credentialHash }], verifiedAt: { not: null }, expiresAt: { gt: new Date() } },
+    }) : null;
 
     if (!verifiedEmail) {
         throw new AppError(403, 'EMAIL_NOT_VERIFIED', 'Please verify your email before creating an account');
@@ -83,7 +88,9 @@ const sendVerificationEmail = async (email: string) => {
     }
 
     const rawToken = crypto.randomBytes(32).toString('hex');
+    const requestToken = crypto.randomBytes(32).toString('hex');
     const tokenHash = hashToken(rawToken);
+    const requestTokenHash = hashToken(requestToken);
     const expiresAt = new Date(Date.now() + VERIFICATION_TOKEN_TTL_MS);
     const verificationUrl = `${getFrontendBaseUrl()}/verify-email?token=${rawToken}`;
 
@@ -91,12 +98,14 @@ const sendVerificationEmail = async (email: string) => {
         where: { email: normalizedEmail },
         update: {
             tokenHash,
+            requestTokenHash,
             expiresAt,
             verifiedAt: null,
         },
         create: {
             email: normalizedEmail,
             tokenHash,
+            requestTokenHash,
             expiresAt,
         },
     });
@@ -120,9 +129,19 @@ const sendVerificationEmail = async (email: string) => {
         email: normalizedEmail,
         message: 'Verification email sent successfully',
         previewUrl: result.previewUrl,
+        requestToken,
     };
 };
 
+const getEmailVerificationStatus = async (requestToken: string) => {
+    const record = await prisma.emailVerificationToken.findUnique({
+        where: { requestTokenHash: hashToken(requestToken) },
+    });
+    if (!record || record.expiresAt.getTime() < Date.now()) {
+        throw new AppError(400, 'VERIFICATION_EXPIRED', 'This verification request is invalid or expired');
+    }
+    return { verified: Boolean(record.verifiedAt), email: record.verifiedAt ? record.email : undefined };
+};
 const verifyEmailAddress = async (token: string) => {
     const tokenHash = hashToken(token);
     const verificationRecord = await prisma.emailVerificationToken.findUnique({
@@ -152,6 +171,64 @@ const verifyEmailAddress = async (token: string) => {
         email: updatedRecord.email,
         message: 'Email verified successfully',
     };
+};
+
+const sendPasswordResetEmail = async (email: string) => {
+    const normalizedEmail = normalizeEmail(email);
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const requestToken = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + PASSWORD_RESET_TOKEN_TTL_MS);
+
+    await prisma.passwordResetToken.deleteMany({ where: { email: normalizedEmail } });
+    const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+    await prisma.passwordResetToken.create({
+        data: { email: normalizedEmail, tokenHash: hashToken(rawToken), requestTokenHash: hashToken(requestToken), expiresAt },
+    });
+    if (user) {
+        const resetUrl = `${getFrontendBaseUrl()}/verify-email?purpose=reset&token=${rawToken}`;
+        await sendEmail({
+            to: normalizedEmail,
+            subject: 'Reset your SafetyHub password',
+            text: `Reset your password by opening this link: ${resetUrl}`,
+            html: `<h2>SafetyHub</h2><p>We received a request to reset your password.</p><p><a href="${resetUrl}">Reset password</a></p><p>This link expires in 30 minutes.</p>`,
+        });
+    }
+    return { requestToken, message: 'If an account exists for that email, a reset link has been sent.' };
+};
+
+const verifyPasswordReset = async (token: string) => {
+    const record = await prisma.passwordResetToken.findUnique({ where: { tokenHash: hashToken(token) } });
+    if (!record || record.expiresAt.getTime() < Date.now()) {
+        throw new AppError(400, 'PASSWORD_RESET_EXPIRED', 'This password reset link is invalid or expired');
+    }
+    if (!record.verifiedAt) {
+        await prisma.passwordResetToken.update({ where: { id: record.id }, data: { verifiedAt: new Date() } });
+    }
+    return { email: record.email };
+};
+
+const getPasswordResetStatus = async (requestToken: string) => {
+    const record = await prisma.passwordResetToken.findUnique({ where: { requestTokenHash: hashToken(requestToken) } });
+    if (!record || record.expiresAt.getTime() < Date.now()) {
+        throw new AppError(400, 'PASSWORD_RESET_EXPIRED', 'This password reset request is invalid or expired');
+    }
+    return { verified: Boolean(record.verifiedAt) };
+};
+
+const resetPassword = async (credential: string, password: string) => {
+    const credentialHash = hashToken(credential);
+    const record = await prisma.passwordResetToken.findFirst({
+        where: { OR: [{ tokenHash: credentialHash }, { requestTokenHash: credentialHash }] },
+    });
+    if (!record || !record.verifiedAt || record.expiresAt.getTime() < Date.now()) {
+        throw new AppError(400, 'PASSWORD_RESET_NOT_VERIFIED', 'Verify your reset link before choosing a new password');
+    }
+    const strength = checkPasswordStrength(password, [record.email]);
+    if (!strength.valid) throw new AppError(400, 'WEAK_PASSWORD', 'Password does not meet strength requirements');
+    await prisma.$transaction([
+        prisma.user.update({ where: { email: record.email }, data: { passwordHash: await bcrypt.hash(password, 10) } }),
+        prisma.passwordResetToken.deleteMany({ where: { email: record.email } }),
+    ]);
 };
 
 const getUserDataById = async (id: string) => {
@@ -359,7 +436,7 @@ function checkPasswordStrength(
 const createUser = async (userData: User) => {
   try {
     const normalizedEmail = normalizeEmail(userData.email);
-    await requireVerifiedEmail(normalizedEmail);
+    await requireVerifiedEmail(normalizedEmail, userData.verificationToken);
 
     const existingUser = await prisma.user.findUnique({
       where: {
@@ -411,9 +488,10 @@ const createUser = async (userData: User) => {
 };
 
 const login = async (email: string, password: string) => {
+    const normalizedEmail = normalizeEmail(email);
     const user = await prisma.user.findUnique({
         where: {
-            email: email
+            email: normalizedEmail
         }
     });
     if (!user) {
@@ -453,7 +531,7 @@ const login = async (email: string, password: string) => {
 const getUserIdByEmail = async (email: string) => {
     try {
         const user = await prisma.user.findUnique({
-            where: { email },
+            where: { email: normalizeEmail(email) },
             select: { id: true }
         });
         if (!user) {
@@ -529,7 +607,7 @@ const validateSignupData = async (userData: { email?: string; password?: string;
 }
 
 
-export { AppError, getUserDataById, getUserProfileById, getUserNameDatabyId, createUser, login, userSearch, getTabularUsers, getUserRoleById, getUserIdByEmail, checkPasswordStrength, validateSignupData, sendVerificationEmail, verifyEmailAddress };
+export { AppError, getUserDataById, getUserProfileById, getUserNameDatabyId, createUser, login, userSearch, getTabularUsers, getUserRoleById, getUserIdByEmail, checkPasswordStrength, validateSignupData, sendVerificationEmail, verifyEmailAddress, getEmailVerificationStatus, sendPasswordResetEmail, verifyPasswordReset, getPasswordResetStatus, resetPassword };
 
 
 
