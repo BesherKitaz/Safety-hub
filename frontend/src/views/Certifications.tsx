@@ -1,5 +1,5 @@
 import React, {useState, useEffect} from 'react'
-import { Link as RouterLink } from 'react-router-dom'
+import { Link as RouterLink, useSearchParams } from 'react-router-dom'
 
 import { Typography, Box, Paper, Button, Stack } from '@mui/material'
 import FilterAltOffOutlined from '@mui/icons-material/FilterAltOffOutlined'
@@ -91,13 +91,15 @@ const columns: GridColDef[] = [
 
 
 const Certifications = () => {
+    const [searchParams] = useSearchParams();
+    const initialSearch = searchParams.get('search') ?? '';
     const [rows, setRows] = useState([]);
     const [filters, setFilters] = useState({
       holder: '', // not currently used
       issuedBy: '',  // not currently used
       issuedAt: '', // not currently used
       status: true,  // used; true for viewing active certifications, false for viewing revoked certifications
-      search: '',  // Value from search bar
+      search: initialSearch,  // Value from search bar
     });
     const [totalRows, setTotalRows] = useState(0);
     const [paginationModel, setPaginationModel] = useState({
@@ -196,6 +198,7 @@ const Certifications = () => {
         <Box sx={{ maxWidth: 720, px: { xs: 2, sm: 4 } }}>
             <Box sx={{ mb: 2 }}>
             <SearchBox
+                initialValue={initialSearch}
                 onSearch={(value: string) => {
                   setFilters(prev => ({
                     ...prev,
@@ -227,4 +230,3 @@ const Certifications = () => {
 };
 
 export default Certifications;
-

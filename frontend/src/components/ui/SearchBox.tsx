@@ -11,6 +11,7 @@ import type { KeyboardEvent } from "react";
 type SearchBoxProps = {
   placeholder?: string;
   buttonLabel?: string;
+  initialValue?: string;
   onSearch?: (query: string) => void;
 };
 
@@ -19,9 +20,10 @@ type SearchBoxProps = {
 const SearchBox = ({
   placeholder = "Search for Certifications",
   buttonLabel = "Search",
+  initialValue = "",
   onSearch,
 }: SearchBoxProps) => {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialValue);
 
   const handleSearch = () => {
     onSearch?.(query.trim());

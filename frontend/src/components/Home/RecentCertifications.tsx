@@ -1,204 +1,101 @@
-import { Box, Typography, Paper } from "@mui/material"
-import AddIcon from "@mui/icons-material/Add";
-import { useState, useEffect } from 'react'
-import api from "../../lib/api.js";
-import { useNavigate, useLocation } from 'react-router-dom'
+import { Alert, Box, Button, Chip, Paper, Skeleton, Stack, Typography } from "@mui/material";
+import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
+import WorkspacePremiumOutlinedIcon from "@mui/icons-material/WorkspacePremiumOutlined";
+import { useEffect, useState } from "react";
+import axios from "axios";
+import api from "../../lib/api";
+import { Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
 
 type CertificationType = {
   id: string;
-  level: string;
-  notes: string | null;
+  level: string | number;
   issuedAt: string;
-  updatedAt: string;
-  trainingNode: {
-    id: string;
-    name: string;
-    lab: {
-      id: string;
-      name: string;
-    };
-  };        
-  issuedTo: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-  };
-  issuedBy: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-  };
+  trainingNode: { id: string; name: string; lab: { id: string; name: string } };
+  issuedTo: { id: string; firstName: string; lastName: string; email: string };
 };
 
-type CertificationProps = {
-    certification: CertificationType;
-    viewCertification: (certification: CertificationType) => void;
+const levelLabel = (level: string | number) => {
+  const value = String(level).replace("LEVEL_", "");
+  return `Level ${value}`;
 };
 
-const levels = {
-    LEVEL_1: "Level 1",
-    LEVEL_2: "Level 2",
-    LEVEL_3: "Level 3",
-    LEVEL_4: "Level 4",
-    LEVEL_5: "Level 5",
-}
+const getErrorMessage = (error: unknown) => {
+  if (axios.isAxiosError<{ error?: { message?: string }; message?: string }>(error)) {
+    return error.response?.data?.error?.message ?? error.response?.data?.message ?? "Recent certifications could not be loaded.";
+  }
+  return "Recent certifications could not be loaded.";
+};
 
-/* A single certification item */
-function Certification({ certification, viewCertification }: CertificationProps) {
-
-    return (
-
-        <Paper
-            key={certification.id}
-            elevation={0}
-            onClick={() => viewCertification(certification)}
-            sx={{
-            borderRadius: 3,
-            border: "1px solid #e5e7eb",
-            backgroundColor: "#ffffff",
-            overflow: "hidden",
-            textAlign: "center",
-            padding: 2,
-            cursor: "pointer",
-            p: 3,
-            "&:hover": {
-                borderColor: "#93c5fd",
-                boxShadow: "0 10px 24px rgba(37, 99, 235, 0.08)",
-                transform: "translateY(-1px)",
-            },
-            "&:focus-visible": {
-                outline: "2px solid #2563eb",
-                outlineOffset: 2,
-            },
-
-            }}
-        >
-            <Typography variant="h5" sx={{ mb: 2, fontWeight: "bold" }}>{certification.trainingNode.lab.name}</Typography>
-            <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}> To: {certification.issuedTo.firstName} {certification.issuedTo.lastName}</Typography>
-            <Typography variant="body2" sx={{ mb: 1 }}> {levels[certification.level as keyof typeof levels]}</Typography>
-            <Typography variant="body2" sx={{ mb: 1 }}> Issued at: {new Date(certification.issuedAt).toLocaleDateString()}</Typography>
-
-        </Paper>
-
-    )
-}
-
-/* Most recent 5 certifications view (Part of Home page) */
 export default function RecentCertifications() {
-    const [recentCertifications, setRecentCertifications] = useState<CertificationType[]>([]);
-    const navigate = useNavigate();
-    const location = useLocation();
+  const [items, setItems] = useState<CertificationType[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
 
-    const viewCertification = (certification: CertificationType) => {
-        navigate(`/certifications/${certification.id}`, {
-                state: { from: location.pathname } // Pass the current location as state so it can go back where it came from
-        });
+  useEffect(() => {
+    let mounted = true;
+    const fetchRecent = async () => {
+      try {
+        const response = await api.get("/api/certifications/recent");
+        if (mounted) { setItems(response.data.data ?? []); setError(null); }
+      } catch (requestError) {
+        if (mounted) setError(getErrorMessage(requestError));
+      } finally {
+        if (mounted) setLoading(false);
+      }
     };
+    fetchRecent();
+    const interval = window.setInterval(fetchRecent, 300000);
+    window.addEventListener("focus", fetchRecent);
+    return () => { mounted = false; window.clearInterval(interval); window.removeEventListener("focus", fetchRecent); };
+  }, []);
 
-    const addCertification = () => {
-        navigate('/certifications/add',
-            { state: {from: location.pathname} }
-        ); // Pass the current location as state so it can go back where it came from
-    };
-
-    useEffect(() => {
-        // Fetch recent certifications every 5 minutes
-        const fetchRecentCertifications = async () => {
-            try {
-                const response = await api.get('/api/certifications/recent', {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    }
-                });
-                setRecentCertifications(response.data.data);
-            }
-            catch (error) {
-                console.error("Error fetching recent certifications:", error);
-            }
-        };
-        fetchRecentCertifications();
-            const interval = setInterval(() => {
-            fetchRecentCertifications();
-        }, 300000);
-        
-        window.addEventListener("focus", fetchRecentCertifications);
-        return () => clearInterval(interval);
-    }, []);
-
-    return (    
-        <Box sx={{ mx: "auto", width: "100%", mb: 6 }}>
-            <Typography
-                variant="h4"
-                sx={{
-                maxWidth: 1200,
-                mx: "auto",
-                mb: 4,
-                }}
-            >
-                Recent Certifications
-            </Typography>
-
-            <Box
-                sx={{
-                maxWidth: 1400, 
-                mx: "auto",
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
-                gap: 2,
-                width: "100%",
-                }}
-            >
-                {recentCertifications.map((certification) => (
-                <Certification key={certification.id} certification={certification} viewCertification={viewCertification} />
-                ))}
-                {/* Add certification box */}
-            <Paper
-                component="button"
-                type="button"
-                elevation={0}
-                onClick={addCertification}
-                aria-label="Add certification"
-                sx={{
-                borderRadius: 3,
-                border: "1px solid #e5e7eb",
-                backgroundColor: "#ffffff",
-                overflow: "hidden",
-                textAlign: "center",
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "center",
-                alignItems: "center",
-                cursor: "pointer",
-                width: "100%",
-                padding: 0,
-                appearance: "none",
-                transition: "border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease",
-                "&:hover": {
-                    borderColor: "#93c5fd",
-                    boxShadow: "0 10px 24px rgba(37, 99, 235, 0.08)",
-                    transform: "translateY(-1px)",
-                },
-                "&:focus-visible": {
-                    outline: "2px solid #2563eb",
-                    outlineOffset: 2,
-                },
-                }}
-            >
-                <AddIcon sx={{ fontSize: 40, color: "#2563eb" }} />
-                <Typography variant="body2" sx={{ mb: 1 }} >Add Certification</Typography>
-            </Paper>
-            </Box>
+  return (
+    <Box component="section" aria-labelledby="recent-heading">
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ mb: 2, alignItems: { sm: "end" }, justifyContent: "space-between" }}>
+        <Box>
+          <Typography id="recent-heading" variant="h5" sx={{ fontWeight: 900, color: "#111827" }}>Recent certifications</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>The latest certification activity across all labs.</Typography>
         </Box>
-    );
+        <Button component={RouterLink} to="/certifications" endIcon={<ArrowForwardIcon />} sx={{ textTransform: "none", fontWeight: 800, alignSelf: { xs: "flex-start", sm: "auto" } }}>View all</Button>
+      </Stack>
+
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      <Paper elevation={0} sx={{ border: "1px solid #dbe4ee", borderRadius: 3, overflow: "hidden", bgcolor: "rgba(255,255,255,0.96)" }}>
+        {loading ? (
+          <Stack spacing={1} sx={{ p: 2.5 }}><Skeleton height={54} /><Skeleton height={54} /><Skeleton height={54} /></Stack>
+        ) : items.length === 0 ? (
+          <Box sx={{ py: 6, px: 3, textAlign: "center" }}>
+            <WorkspacePremiumOutlinedIcon sx={{ fontSize: 42, color: "text.disabled" }} />
+            <Typography variant="h6" sx={{ mt: 1, fontWeight: 800 }}>No certifications yet</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>Newly issued certifications will appear here.</Typography>
+          </Box>
+        ) : items.map((certification, index) => (
+          <Box
+            component="button"
+            type="button"
+            key={certification.id}
+            onClick={() => navigate(`/certifications/${certification.id}`, { state: { from: location.pathname } })}
+            sx={{
+              width: "100%", display: "grid", gridTemplateColumns: { xs: "1fr auto", md: "1.3fr 1fr auto auto" }, gap: { xs: 1, md: 2 },
+              alignItems: "center", textAlign: "left", p: 2.25, border: 0, borderBottom: index === items.length - 1 ? 0 : "1px solid #e5e7eb",
+              bgcolor: "transparent", cursor: "pointer", font: "inherit", color: "inherit", "&:hover": { bgcolor: "#f8fbff" }, "&:focus-visible": { outline: "2px solid #2563eb", outlineOffset: -2 },
+            }}
+          >
+            <Box>
+              <Typography sx={{ fontWeight: 850, color: "#111827" }}>{certification.issuedTo.firstName} {certification.issuedTo.lastName}</Typography>
+              <Typography variant="body2" color="text.secondary" noWrap>{certification.issuedTo.email}</Typography>
+            </Box>
+            <Box sx={{ display: { xs: "none", md: "block" } }}>
+              <Typography variant="body2" sx={{ fontWeight: 750 }}>{certification.trainingNode.name}</Typography>
+              <Typography variant="caption" color="text.secondary">{certification.trainingNode.lab.name}</Typography>
+            </Box>
+            <Chip label={levelLabel(certification.level)} size="small" sx={{ fontWeight: 750, bgcolor: "#eaf3ff", color: "#1d4ed8" }} />
+            <Typography variant="body2" color="text.secondary" sx={{ display: { xs: "none", sm: "block" }, minWidth: 100, textAlign: "right" }}>{new Date(certification.issuedAt).toLocaleDateString()}</Typography>
+          </Box>
+        ))}
+      </Paper>
+    </Box>
+  );
 }
-
-
-
-
-
-
-
-
-
