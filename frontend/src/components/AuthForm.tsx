@@ -1,5 +1,5 @@
 // src/components/AuthForm.tsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 // MUI Imports
 import {
@@ -54,6 +54,9 @@ const AuthForm = ({ mode, onSubmit, signupEmail }: AuthFormProps) => {
   const [ passwordHelper, setPasswordHelper ] = useState<string>('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isEmailCooldownActive, setIsEmailCooldownActive] = useState(false);
+  const cooldownTimeoutRef = useRef<number | null>(null);
   const isSignup = mode === "signup";
 
   const [formData, setFormData] = useState<AuthFormData>({
@@ -73,6 +76,14 @@ const AuthForm = ({ mode, onSubmit, signupEmail }: AuthFormProps) => {
       }));
     }
   }, [isSignup, signupEmail]);
+
+  useEffect(() => {
+    return () => {
+      if (cooldownTimeoutRef.current !== null) {
+        window.clearTimeout(cooldownTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleChange = (field: keyof AuthFormData) => (
     event: React.ChangeEvent<HTMLInputElement>
@@ -125,10 +136,27 @@ const AuthForm = ({ mode, onSubmit, signupEmail }: AuthFormProps) => {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (mode === 'email' && isEmailCooldownActive) {
+      return;
+    }
+
     if (isSignup && formData.password !== formData.confirmPassword) {
       setPasswordHelper('Passwords must match!');
       return;
     }
+
+    if (mode === 'email') {
+      setIsEmailCooldownActive(true);
+      if (cooldownTimeoutRef.current !== null) {
+        window.clearTimeout(cooldownTimeoutRef.current);
+      }
+      cooldownTimeoutRef.current = window.setTimeout(() => {
+        setIsEmailCooldownActive(false);
+        cooldownTimeoutRef.current = null;
+      }, 5000);
+    }
+
+    setIsSubmitting(true);
     try {
       await onSubmit(formData);
     } catch (err) {
@@ -137,6 +165,8 @@ const AuthForm = ({ mode, onSubmit, signupEmail }: AuthFormProps) => {
       } else {
         setError("An unexpected error occurred");
       }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -288,7 +318,13 @@ const AuthForm = ({ mode, onSubmit, signupEmail }: AuthFormProps) => {
                 Please enter your email and password to log in.
               </FormHelperText>
             )}
-            <Button type="submit" variant="contained" size="large" fullWidth>
+            <Button
+              type="submit"
+              variant="contained"
+              size="large"
+              fullWidth
+              disabled={isSubmitting || (mode === 'email' && isEmailCooldownActive)}
+            >
               {
                 mode === "email" ? "Verify Email" : (isSignup ? "Sign Up" : "Log In")
               }

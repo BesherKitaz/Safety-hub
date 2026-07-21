@@ -111,6 +111,7 @@ const buildFlowElements = (trainingNode: TrainingNodeRelationshipResponse) => {
   ];
   const edges: FlowEdge[] = [];
   const seenNodeIds = new Set<string>([trainingNode.id]);
+  const seenEdgeIds = new Set<string>();
 
   const addNode = (node: TrainingNodeReference, position: { x: number; y: number }) => {
     if (seenNodeIds.has(node.id)) {
@@ -127,6 +128,21 @@ const buildFlowElements = (trainingNode: TrainingNodeRelationshipResponse) => {
     });
   };
 
+  const addEdge = (source: string, target: string) => {
+    const edgeId = `${source}-${target}`;
+
+    if (seenEdgeIds.has(edgeId)) {
+      return;
+    }
+
+    seenEdgeIds.add(edgeId);
+    edges.push({
+      id: edgeId,
+      source,
+      target,
+    });
+  };
+
   normalizeList(trainingNode.parentEdges).forEach((edge, index) => {
     const parentNode = edge.parent;
     if (!parentNode) {
@@ -134,10 +150,24 @@ const buildFlowElements = (trainingNode: TrainingNodeRelationshipResponse) => {
     }
 
     addNode(parentNode, { x: -260 + index * 220, y: -180 });
-    edges.push({
-      id: `${parentNode.id}-${trainingNode.id}`,
-      source: parentNode.id,
-      target: trainingNode.id,
+
+    addEdge(parentNode.id, trainingNode.id);
+
+    const siblingEdges = normalizeList(parentNode.childEdges);
+
+    siblingEdges.forEach((siblingEdge, siblingIndex) => {
+      const siblingNode = siblingEdge.child;
+
+      if (!siblingNode || siblingNode.id === trainingNode.id) {
+        return;
+      }
+
+      const siblingOffset = siblingIndex - Math.floor(siblingEdges.length / 2);
+      addNode(siblingNode, {
+        x: -260 + index * 220 + siblingOffset * 180,
+        y: -20,
+      });
+      addEdge(parentNode.id, siblingNode.id);
     });
   });
 
@@ -148,11 +178,7 @@ const buildFlowElements = (trainingNode: TrainingNodeRelationshipResponse) => {
     }
 
     addNode(childNode, { x: -260 + index * 220, y: 180 });
-    edges.push({
-      id: `${trainingNode.id}-${childNode.id}`,
-      source: trainingNode.id,
-      target: childNode.id,
-    });
+    addEdge(trainingNode.id, childNode.id);
   });
 
   return { nodes, edges };
