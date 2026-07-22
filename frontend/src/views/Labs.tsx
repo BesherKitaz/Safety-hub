@@ -8,6 +8,7 @@ import FilterAltOffOutlined from '@mui/icons-material/FilterAltOffOutlined';
 
 import GradientBox from '../components/ui/GradientBox';
 import api from '../lib/api';
+import { currentResourcePermissions } from '../util/resourcePermissions';
 import LabCard from './ManageLabTabs/components/LabCard';
 import LabFormModal, { type LabFormValues } from './ManageLabTabs/components/LabFormModal';
 import type { LabDetail } from './ManageLabTabs/commons/types';
@@ -36,6 +37,7 @@ const normalizeLabs = (payload: unknown): LabDetail[] => {
 };
 
 const Labs = () => {
+  const permissions = currentResourcePermissions();
   const [labs, setLabs] = useState<LabDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -94,12 +96,12 @@ const Labs = () => {
         py: 0,
       }}
     >
-      <LabFormModal
+      {permissions.canCreateLab && <LabFormModal
         open={createModalOpen}
         mode="create"
         onClose={() => setCreateModalOpen(false)}
         onSubmit={handleCreateSubmit}
-      />
+      />}
 
       <Box sx={{ maxWidth: 1320, mx: 'auto', px: { xs: 2, md: 4 }, py: { xs: 3, md: 5 } }}>
         <Box
@@ -153,7 +155,7 @@ const Labs = () => {
                 Deactivated Labs
               </Button>
 
-              <Button
+              {permissions.canCreateLab && <Button
                 variant="contained"
                 startIcon={<AddIcon />}
                 onClick={() => setCreateModalOpen(true)}
@@ -165,7 +167,7 @@ const Labs = () => {
                 }}
               >
                 Create Lab
-              </Button>
+              </Button>}
             </Stack>
           </Stack>
 
@@ -272,5 +274,3 @@ const Labs = () => {
 };
 
 export default Labs;
-
-

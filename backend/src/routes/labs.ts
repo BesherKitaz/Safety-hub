@@ -15,8 +15,8 @@ import {
   activateLab,
   AppError,
 } from "../controllers/labsControllers"
-import { isUserAdmin } from "../util/checkRoles";
 import { sendError } from '../middleware/errorHandler';
+import { authorizeRoles, LAB_MANAGER_ROLES, RESOURCE_READER_ROLES } from '../middleware/resourceAuthorization';
 
 const router = Router();
 
@@ -25,7 +25,7 @@ router.use(authMiddleware);
 const handleLabError = (res: any, error: unknown, fallback: string) =>
   sendError(res, error, { statusCode: 500, code: 'LAB_REQUEST_FAILED', message: fallback });
 
-router.get("/", authMiddleware, async (req: AuthRequest, res) => {
+router.get("/", authorizeRoles(...RESOURCE_READER_ROLES), async (req: AuthRequest, res) => {
   try {
     const labs = await getLabs();
     res.json({
@@ -37,7 +37,7 @@ router.get("/", authMiddleware, async (req: AuthRequest, res) => {
   }
 });
 
-router.get("/listings", authMiddleware, async (req: AuthRequest, res) => {
+router.get("/listings", authorizeRoles(...RESOURCE_READER_ROLES), async (req: AuthRequest, res) => {
   try {
     const labs = await getLabsNamesAndIds();
     res.json({
@@ -49,7 +49,7 @@ router.get("/listings", authMiddleware, async (req: AuthRequest, res) => {
   }
 });
 
-router.get("/deactivated", authMiddleware, async (req: AuthRequest, res) => {
+router.get("/deactivated", authorizeRoles(...RESOURCE_READER_ROLES), async (req: AuthRequest, res) => {
   try {
     const labs = await getDeactivatedLabs();
     res.json({
@@ -61,12 +61,7 @@ router.get("/deactivated", authMiddleware, async (req: AuthRequest, res) => {
   }
 });
 
-router.post("/create", authMiddleware, async (req: AuthRequest, res) => {
-  const userId = req.user!.userId;
-  if (!(await isUserAdmin(userId))) {
-    return sendError(res, new AppError(403, 'FORBIDDEN', 'Access denied. Admin privileges required.'));
-  }
-
+router.post("/create", authorizeRoles(...LAB_MANAGER_ROLES), async (req: AuthRequest, res) => {
   try {
     const createdLab = await createLab(req.body);
     res.status(201).json({
@@ -78,12 +73,7 @@ router.post("/create", authMiddleware, async (req: AuthRequest, res) => {
   }
 });
 
-router.put("/update/:labId", authMiddleware, async (req: AuthRequest, res) => {
-  const userId = req.user!.userId;
-  if (!(await isUserAdmin(userId))) {
-    return sendError(res, new AppError(403, 'FORBIDDEN', 'Access denied. Admin privileges required.'));
-  }
-
+router.put("/update/:labId", authorizeRoles(...LAB_MANAGER_ROLES), async (req: AuthRequest, res) => {
   try {
     const { labId: rawLabId } = req.params;
     const labId = rawLabId ?? '';
@@ -97,12 +87,7 @@ router.put("/update/:labId", authMiddleware, async (req: AuthRequest, res) => {
   }
 });
 
-router.patch("/:labId/deactivate", authMiddleware, async (req: AuthRequest, res) => {
-  const userId = req.user!.userId;
-  if (!(await isUserAdmin(userId))) {
-    return sendError(res, new AppError(403, 'FORBIDDEN', 'Access denied. Admin privileges required.'));
-  }
-
+router.patch("/:labId/deactivate", authorizeRoles(...LAB_MANAGER_ROLES), async (req: AuthRequest, res) => {
   try {
     const { labId: rawLabId } = req.params;
     const labId = rawLabId ?? '';
@@ -116,12 +101,7 @@ router.patch("/:labId/deactivate", authMiddleware, async (req: AuthRequest, res)
   }
 });
 
-router.patch("/:labId/activate", authMiddleware, async (req: AuthRequest, res) => {
-  const userId = req.user!.userId;
-  if (!(await isUserAdmin(userId))) {
-    return sendError(res, new AppError(403, 'FORBIDDEN', 'Access denied. Admin privileges required.'));
-  }
-
+router.patch("/:labId/activate", authorizeRoles(...LAB_MANAGER_ROLES), async (req: AuthRequest, res) => {
   try {
     const { labId: rawLabId } = req.params;
     const labId = rawLabId ?? '';
@@ -135,7 +115,7 @@ router.patch("/:labId/activate", authMiddleware, async (req: AuthRequest, res) =
   }
 });
 
-router.get("/:labId", authMiddleware, async (req: AuthRequest, res) => {
+router.get("/:labId", authorizeRoles(...RESOURCE_READER_ROLES), async (req: AuthRequest, res) => {
   try {
     const { labId } = req.params;
     if (!labId) {
@@ -154,7 +134,7 @@ router.get("/:labId", authMiddleware, async (req: AuthRequest, res) => {
   }
 });
 
-router.get("/:labId/tools", authMiddleware, async (req: AuthRequest, res) => {
+router.get("/:labId/tools", authorizeRoles(...RESOURCE_READER_ROLES), async (req: AuthRequest, res) => {
   try {
     const { labId } = req.params;
     if (!labId) {
@@ -170,7 +150,7 @@ router.get("/:labId/tools", authMiddleware, async (req: AuthRequest, res) => {
   }
 });
 
-router.get("/:labId/trainingNodes", authMiddleware, async (req: AuthRequest, res) => {
+router.get("/:labId/trainingNodes", authorizeRoles(...RESOURCE_READER_ROLES), async (req: AuthRequest, res) => {
   try {
     const { labId } = req.params;
     if (!labId) {

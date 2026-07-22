@@ -67,9 +67,6 @@ const columns: GridColDef[] = [
           <Button variant="contained" color="primary" component={RouterLink} to={`/certifications/${params.row.id}`}>
             View
           </Button>
-          <Button variant="contained" sx={{ backgroundColor: 'green', '&:hover': { backgroundColor: 'darkred' } }}>
-            Unrevoke
-          </Button>
         </Box>
         )
       }

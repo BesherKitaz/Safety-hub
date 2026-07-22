@@ -4,9 +4,9 @@ import { authMiddleware } from '../middleware/auth'
 import type { AuthRequest } from "../middleware/auth"
 import { getToolsofLab, getToolNamesAndIdsByLabs, updateTool, createTool, deactivateTool, activateTool } from '../controllers/toolsControllers';
 import { AppError } from '../controllers/labsControllers';
-import { isUserAdmin } from '../util/checkRoles'
 import prisma from '../lib/prisma';
 import { sendError } from '../middleware/errorHandler';
+import { authorizeRoles, RESOURCE_MANAGER_ROLES, RESOURCE_READER_ROLES } from '../middleware/resourceAuthorization';
 
 const router = Router();
 
@@ -15,7 +15,7 @@ router.use(authMiddleware);
 const handleToolError = (res: any, error: unknown, fallback: string) =>
     sendError(res, error, { statusCode: 500, code: 'TOOL_REQUEST_FAILED', message: fallback });
 
-router.get('/', async (req: AuthRequest, res) => {
+router.get('/', authorizeRoles(...RESOURCE_READER_ROLES), async (req: AuthRequest, res) => {
     const { labId } = req.query;
     if (!labId) {
         return sendError(res, new AppError(400, 'LAB_ID_REQUIRED', 'Missing labId parameter'));
@@ -32,12 +32,7 @@ router.get('/', async (req: AuthRequest, res) => {
     }
 });
 
-router.get('/listings', async (req: AuthRequest, res) => {
-    const userId: string = req.user!.userId;
-    if (!(await isUserAdmin(userId))) {
-        return sendError(res, new AppError(401, 'UNAUTHORIZED', 'Unauthorized'));
-    }
-
+router.get('/listings', authorizeRoles(...RESOURCE_READER_ROLES), async (req: AuthRequest, res) => {
     const { labId } = req.query;
     if (!labId) {
         return sendError(res, new AppError(400, 'LAB_ID_REQUIRED', 'Missing labId parameter'));
@@ -54,18 +49,13 @@ router.get('/listings', async (req: AuthRequest, res) => {
     }
 });
 
-router.put('/update/:toolId', async (req: AuthRequest, res) => {
+router.put('/update/:toolId', authorizeRoles(...RESOURCE_MANAGER_ROLES), async (req: AuthRequest, res) => {
     const { toolId } = req.params;
     const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
     const description = typeof req.body?.description === 'string' ? req.body.description : undefined;
 
     if (!toolId || !name) {
         return sendError(res, new AppError(400, 'MISSING_REQUIRED_PARAMETERS', 'Missing required parameters'));
-    }
-
-    const userId: string = req.user!.userId;
-    if (!(await isUserAdmin(userId))) {
-        return sendError(res, new AppError(403, 'FORBIDDEN', 'Access denied. Admin privileges required.'));
     }
 
     try {
@@ -79,15 +69,10 @@ router.put('/update/:toolId', async (req: AuthRequest, res) => {
     }
 });
 
-router.patch('/:toolId/deactivate', async (req: AuthRequest, res) => {
+router.patch('/:toolId/deactivate', authorizeRoles(...RESOURCE_MANAGER_ROLES), async (req: AuthRequest, res) => {
     const { toolId } = req.params;
     if (!toolId) {
         return sendError(res, new AppError(400, 'TOOL_ID_REQUIRED', 'Missing toolId parameter'));
-    }
-
-    const userId: string = req.user!.userId;
-    if (!(await isUserAdmin(userId))) {
-        return sendError(res, new AppError(403, 'FORBIDDEN', 'Access denied. Admin privileges required.'));
     }
 
     try {
@@ -101,15 +86,10 @@ router.patch('/:toolId/deactivate', async (req: AuthRequest, res) => {
     }
 });
 
-router.patch('/:toolId/activate', async (req: AuthRequest, res) => {
+router.patch('/:toolId/activate', authorizeRoles(...RESOURCE_MANAGER_ROLES), async (req: AuthRequest, res) => {
     const { toolId } = req.params;
     if (!toolId) {
         return sendError(res, new AppError(400, 'TOOL_ID_REQUIRED', 'Missing toolId parameter'));
-    }
-
-    const userId: string = req.user!.userId;
-    if (!(await isUserAdmin(userId))) {
-        return sendError(res, new AppError(403, 'FORBIDDEN', 'Access denied. Admin privileges required.'));
     }
 
     try {
@@ -123,7 +103,7 @@ router.patch('/:toolId/activate', async (req: AuthRequest, res) => {
     }
 });
 
-router.get('/updated/:toolId', async (req: AuthRequest, res) => {
+router.get('/updated/:toolId', authorizeRoles(...RESOURCE_READER_ROLES), async (req: AuthRequest, res) => {
     const { toolId } = req.params;
     if (!toolId) {
         return sendError(res, new AppError(400, 'TOOL_ID_REQUIRED', 'Missing toolId parameter'));
@@ -149,18 +129,13 @@ router.get('/updated/:toolId', async (req: AuthRequest, res) => {
     });
 });
 
-router.post('/create', async (req: AuthRequest, res) => {
+router.post('/create', authorizeRoles(...RESOURCE_MANAGER_ROLES), async (req: AuthRequest, res) => {
     const labId = typeof req.body?.labId === 'string' ? req.body.labId : '';
     const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
     const description = typeof req.body?.description === 'string' ? req.body.description : undefined;
 
     if (!labId || !name) {
         return sendError(res, new AppError(400, 'MISSING_REQUIRED_PARAMETERS', 'Missing required parameters'));
-    }
-
-    const userId: string = req.user!.userId;
-    if (!(await isUserAdmin(userId))) {
-        return sendError(res, new AppError(403, 'FORBIDDEN', 'Access denied. Admin privileges required.'));
     }
 
     try {

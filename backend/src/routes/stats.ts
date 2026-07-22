@@ -4,13 +4,14 @@ import type { AuthRequest } from "../middleware/auth"
 
 import collectStats from "../controllers/statsControllers"
 import { sendError } from '../middleware/errorHandler';
+import { authorizeRoles, RESOURCE_READER_ROLES } from '../middleware/resourceAuthorization';
 
 const router = Router();
 
 router.use(authMiddleware);
 
 
-router.get('/', async (req: AuthRequest, res) => {
+router.get('/', authorizeRoles(...RESOURCE_READER_ROLES), async (req: AuthRequest, res) => {
     // Your stats logic here
     try {
         const stats = await collectStats();

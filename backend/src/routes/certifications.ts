@@ -15,6 +15,13 @@ import {
   updateCertification,
 } from '../controllers/certificationsControllers';
 import { sendError } from '../middleware/errorHandler';
+import {
+  authorizeCertificationIssuance,
+  authorizeCertificationRead,
+  authorizeRoles,
+  RESOURCE_MANAGER_ROLES,
+  RESOURCE_READER_ROLES,
+} from '../middleware/resourceAuthorization';
 
 const router = Router();
 
@@ -23,20 +30,7 @@ router.use(authMiddleware);
 const handleCertificationError = (res: any, error: unknown, fallback: string) =>
   sendError(res, error, { statusCode: 500, code: 'CERTIFICATION_REQUEST_FAILED', message: fallback });
 
-const requireAdmin = (req: AuthRequest, res: any) => {
-  if (req.user?.role !== 'ADMIN' && req.user?.role !== 'STAFF') {
-    sendError(res, new AppError(403, 'FORBIDDEN', 'Access denied. Admin privileges required.'));
-    return false;
-  }
-
-  return true;
-};
-
-router.get('/tabular/total-rows', authMiddleware, async (req: AuthRequest, res) => {
-  if (req.user?.role !== 'ADMIN' && req.user?.role !== 'STAFF') {
-    return sendError(res, new AppError(403, 'FORBIDDEN', 'Access denied. Admin privileges required.'));
-  }
-
+router.get('/tabular/total-rows', authorizeRoles(...RESOURCE_READER_ROLES), async (req: AuthRequest, res) => {
   try {
     const totalRows = await prisma.certification.count({
       where: {
@@ -53,7 +47,7 @@ router.get('/tabular/total-rows', authMiddleware, async (req: AuthRequest, res) 
   }
 });
 
-router.get('/tabular', authMiddleware, async (req, res) => {
+router.get('/tabular', authorizeRoles(...RESOURCE_READER_ROLES), async (req, res) => {
   try {
     const page = Number(req.query.page) || 1;
     const pageSize = Number(req.query.pageSize) || 10;
@@ -71,7 +65,7 @@ router.get('/tabular', authMiddleware, async (req, res) => {
 });
 
 
-router.get('/recent', authMiddleware, async (req, res) => {
+router.get('/recent', authorizeRoles(...RESOURCE_READER_ROLES), async (req, res) => {
   try {
     const certifications = await getRecentCertifications();
     return res.json({
@@ -83,7 +77,7 @@ router.get('/recent', authMiddleware, async (req, res) => {
   }
 });
 
-router.get('/:id/history/:historyId', authMiddleware, async (req: AuthRequest<{ id: string; historyId: string }>, res) => {
+router.get('/:id/history/:historyId', authorizeCertificationRead, async (req: AuthRequest<{ id: string; historyId: string }>, res) => {
   try {
     const result = await getCertificationHistoryEntryById(req.params.id, req.params.historyId);
     return res.json({
@@ -95,7 +89,7 @@ router.get('/:id/history/:historyId', authMiddleware, async (req: AuthRequest<{ 
   }
 });
 
-router.get('/:id/history', authMiddleware, async (req: AuthRequest<{ id: string }>, res) => {
+router.get('/:id/history', authorizeCertificationRead, async (req: AuthRequest<{ id: string }>, res) => {
   try {
     const result = await getCertificationHistoryById(req.params.id);
     return res.json({
@@ -107,7 +101,7 @@ router.get('/:id/history', authMiddleware, async (req: AuthRequest<{ id: string 
   }
 });
 
-router.get('/:id', authMiddleware, async (req: AuthRequest<{ id: string }>, res) => {
+router.get('/:id', authorizeCertificationRead, async (req: AuthRequest<{ id: string }>, res) => {
   try {
     const certificationId = req.params.id;
     if (!certificationId) {
@@ -128,7 +122,7 @@ router.get('/:id', authMiddleware, async (req: AuthRequest<{ id: string }>, res)
   }
 });
 
-router.post('/add', authMiddleware, async (req: AuthRequest, res) => {
+router.post('/add', authorizeCertificationIssuance, async (req: AuthRequest, res) => {
   const certification = req.body;
   const issuedById = req.user?.userId;
 
@@ -152,11 +146,7 @@ router.post('/add', authMiddleware, async (req: AuthRequest, res) => {
   }
 });
 
-router.put('/:id', authMiddleware, async (req: AuthRequest<{ id: string }>, res) => {
-  if (!requireAdmin(req, res)) {
-    return;
-  }
-
+router.put('/:id', authorizeRoles(...RESOURCE_MANAGER_ROLES), async (req: AuthRequest<{ id: string }>, res) => {
   try {
     const updatedCertification = await updateCertification(req.params.id, req.body, req.user!.userId);
     return res.json({
@@ -168,11 +158,7 @@ router.put('/:id', authMiddleware, async (req: AuthRequest<{ id: string }>, res)
   }
 });
 
-router.put('/:id/revoke', authMiddleware, async (req: AuthRequest<{ id: string }>, res) => {
-  if (!requireAdmin(req, res)) {
-    return;
-  }
-
+router.put('/:id/revoke', authorizeRoles(...RESOURCE_MANAGER_ROLES), async (req: AuthRequest<{ id: string }>, res) => {
   try {
     const updatedCertification = await revokeCertification(req.params.id, req.user!.userId);
     return res.json({
@@ -184,11 +170,7 @@ router.put('/:id/revoke', authMiddleware, async (req: AuthRequest<{ id: string }
   }
 });
 
-router.put('/:id/unrevoke', authMiddleware, async (req: AuthRequest<{ id: string }>, res) => {
-  if (!requireAdmin(req, res)) {
-    return;
-  }
-
+router.put('/:id/unrevoke', authorizeRoles(...RESOURCE_MANAGER_ROLES), async (req: AuthRequest<{ id: string }>, res) => {
   try {
     const updatedCertification = await unrevokeCertification(req.params.id, req.user!.userId);
     return res.json({

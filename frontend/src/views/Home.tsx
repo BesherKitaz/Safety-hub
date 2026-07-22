@@ -25,6 +25,7 @@ const Home = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (localStorage.getItem('userRole') === 'STUDENT') { navigate('/user', { replace: true }); return; }
     if (!isLoggedIn()) { navigate("/login", { replace: true }); return; }
     let mounted = true;
     api.get("/api/user/name")

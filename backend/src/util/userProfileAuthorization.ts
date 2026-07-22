@@ -27,7 +27,7 @@ export const getProfileMutationPermissions = (
   const actorIsStaff = actor.role === 'STAFF';
   const staffCanManageTarget = actorIsStaff && !self && staffManageableRoles.includes(target.role);
 
-  let agreement = false;
+  let agreement = self;
   if (actorIsAdmin) agreement = true;
   else if (actorIsStaff) agreement = self || staffCanManageTarget;
   else if (!self && actor.role === 'MENTOR') agreement = ['MENTOR', 'STUDENT'].includes(target.role);

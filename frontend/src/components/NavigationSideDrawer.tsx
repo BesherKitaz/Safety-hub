@@ -177,7 +177,7 @@ const NavigationSidePanelComponent = () => {
 
           if (id === "manage-labs") {
             const userRole = localStorage.getItem("userRole");
-            if (userRole !== "ADMIN" && userRole !== "STAFF") {
+            if (userRole !== "ADMIN" && userRole !== "STAFF" && userRole !== "MENTOR" && userRole !== "SUPERVISOR") {
               return null; // Skip rendering this item for non-admin users
             }
           }

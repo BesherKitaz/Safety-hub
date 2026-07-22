@@ -45,11 +45,11 @@ type TrainingNode = {
 
 
 type Certification = {
+  id: string;
   trainingNode: TrainingNode;
   level: number;
   issuedAt: string;
-  instructor: string;
-  credentialId: string;
+  issuedBy: { id: string; firstName: string; lastName: string };
   status: string;
 };
 
@@ -298,7 +298,7 @@ const CertificationCard = ({ certification, accent }: CertificationCardProps) =>
             {certification.trainingNode.name}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Credential {certification.credentialId}
+            Credential {certification.id}
           </Typography>
         </Box>
         <Chip
@@ -322,7 +322,7 @@ const CertificationCard = ({ certification, accent }: CertificationCardProps) =>
           size="small"
           variant="outlined"
           icon={<SchoolOutlined fontSize="small" />}
-          label={certification.instructor}
+          label={`${certification.issuedBy.firstName} ${certification.issuedBy.lastName}`}
         />
         <Chip
           size="small"
@@ -336,6 +336,9 @@ const CertificationCard = ({ certification, accent }: CertificationCardProps) =>
             fontWeight: 700,
           }}
         />
+        <Button component={Link} to={`/certifications/${certification.id}`} size="small" variant="outlined">
+          View certification
+        </Button>
       </Stack>
     </Stack>
   </Box>
@@ -458,7 +461,7 @@ const LabSection = ({ group }: { group: CertsGroupedByLab }) => {
           >
             {group.certifications.map((certification) => (
               <CertificationCard
-                key={certification.credentialId}
+                key={certification.id}
                 certification={certification}
                 accent={accent}
               />
@@ -528,10 +531,19 @@ const Profile = () => {
   console.log(
     JSON.stringify(userData.certsGroupedByLab, null, 2)
   );
-  const allCertifications: Certification[] = []
-  userData.certsGroupedByLab.flatMap(lab => lab.certifications)
+  const allCertifications = userData.certsGroupedByLab.flatMap(lab => lab.certifications)
   const totalCertifications = allCertifications.length;
   const labsCertifiedIn = userData.certsGroupedByLab.length;
+  const isOwnProfile = localStorage.getItem('userId') === userData.id;
+  const completeOwnAgreement = async () => {
+    try {
+      const response = await api.put(`/api/user/profile/${userData.id}`, { isUserAgreementComplete: true });
+      setUserData((current) => current ? { ...current, ...response.data.data } : current);
+    } catch (requestError) {
+      console.error('Error completing user agreement:', requestError);
+      setError(true);
+    }
+  };
   const highestLevel = allCertifications.reduce(
     (maxLevel, certification) => Math.max(maxLevel, certification.level),
     0,
@@ -727,9 +739,11 @@ const Profile = () => {
                 <Button component={Link} state={{ from: location.pathname + location.search }} to={`/user/${userData.id}/edit`} variant="contained" size="large" sx={{ px: 3 }}>
                   Edit profile
                 </Button>
-                <Button variant="outlined" size="large" sx={{ px: 3 }}>
-                  Send User Agreement
-                </Button>
+                {!userData.isUserAgreementComplete && (
+                  <Button variant="outlined" size="large" sx={{ px: 3 }} onClick={isOwnProfile ? completeOwnAgreement : undefined}>
+                    {isOwnProfile ? 'Complete User Agreement' : 'Send User Agreement'}
+                  </Button>
+                )}
               </Stack>
             </Stack>
 
@@ -882,5 +896,3 @@ const Profile = () => {
 };
 
 export default Profile;
-
-

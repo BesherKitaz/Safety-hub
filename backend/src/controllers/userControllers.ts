@@ -372,6 +372,7 @@ const getTabularUsers = async (page: number, pageSize: number, filters: { search
                 isUserAgreementComplete: true,
                 userAgreementSource: true,
                 createdAt: true,
+                isActive: true
             },
             orderBy: {
                 createdAt: 'desc',
@@ -439,6 +440,9 @@ const updateUserProfile = async (actorId: string, targetId: string, input: Profi
             data.role = value;
         } else if (field === 'isActive' || field === 'isUserAgreementComplete') {
             if (typeof value !== 'boolean') throw new AppError(400, 'INVALID_BOOLEAN', `${field} must be a boolean`);
+            if (field === 'isUserAgreementComplete' && actor.id === target.id && value !== true) {
+                throw new AppError(403, 'AGREEMENT_SELF_REVOCATION_FORBIDDEN', 'Users may complete but not revoke their own agreement.');
+            }
             data[field] = value;
         } else if (field === 'graduationYear') {
             const maxYear = new Date().getFullYear() + 10;
@@ -457,7 +461,9 @@ const updateUserProfile = async (actorId: string, targetId: string, input: Profi
         if (duplicate) throw new AppError(409, 'EMAIL_IN_USE', 'A user with this email already exists');
     }
     if ('isUserAgreementComplete' in data) {
-        data.userAgreementSource = data.isUserAgreementComplete ? `Administrative update by ${actor.role} (${actor.id})` : null;
+        data.userAgreementSource = data.isUserAgreementComplete
+            ? actor.id === target.id ? `Self-completed by ${actor.role} (${actor.id})` : `Administrative update by ${actor.role} (${actor.id})`
+            : null;
     }
     const [updated] = await prisma.$transaction([
         prisma.user.update({

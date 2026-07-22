@@ -1,4 +1,4 @@
-import { Route, Routes, BrowserRouter } from 'react-router-dom';
+import { Navigate, Route, Routes, BrowserRouter } from 'react-router-dom';
 import Home from './views/Home.tsx';
 import Profile from './views/ViewProfile.tsx';
 
@@ -32,6 +32,12 @@ type Header = {
   actions: React.ReactNode;
 };
 
+const RequireRole = ({ roles, children }: { roles: string[]; children: React.ReactNode }) =>
+  roles.includes(localStorage.getItem('userRole') ?? '') ? children : <Navigate to="/user" replace />;
+
+const operationalRoles = ['ADMIN', 'STAFF', 'SUPERVISOR', 'MENTOR'];
+const managerRoles = ['ADMIN', 'STAFF'];
+
 function App() {
   const [header, setHeader] = useState<Header>({
       title: "",
@@ -51,23 +57,23 @@ function App() {
               <Route path="/" element={<Home />} />
               <Route path="/user" element={<Profile />} />
               <Route path="/user/:id" element={<Profile />} />
-              <Route path="/certifications" element={<Certifications />} />
-              <Route path="/users" element={<Users />} />
-              <Route path="/lab-management" element={<Lab />} />
-              <Route path="/lab-management/deactivated" element={<DeactivatedLabs />} />
+              <Route path="/certifications" element={<RequireRole roles={operationalRoles}><Certifications /></RequireRole>} />
+              <Route path="/users" element={<RequireRole roles={managerRoles}><Users /></RequireRole>} />
+              <Route path="/lab-management" element={<RequireRole roles={operationalRoles}><Lab /></RequireRole>} />
+              <Route path="/lab-management/deactivated" element={<RequireRole roles={operationalRoles}><DeactivatedLabs /></RequireRole>} />
     
               <Route path="/user/:id/edit" element={<EditProfile mode="edit" />} />
               <Route path="/user/create" element={<EditProfile mode="create" />} />
-              <Route path="/certifications/add" element={<AddCertification />} />
-              <Route path="/certifications/:certificationId/edit" element={<AddCertification />} />
+              <Route path="/certifications/add" element={<RequireRole roles={operationalRoles}><AddCertification /></RequireRole>} />
+              <Route path="/certifications/:certificationId/edit" element={<RequireRole roles={managerRoles}><AddCertification /></RequireRole>} />
               <Route path="/certifications/:id" element={<CertificationView />} />
               <Route path="/certifications/:id/history" element={<CertificationHistory />} />
               <Route path="/certifications/:id/history/:historyId" element={<CertificationHistory />} />
-              <Route path="/lab-management/lab/:labId" element={<LabManagement />} />
-              <Route path="/lab-management/lab/add" element={<AddLab />} />
-              <Route path="/lab-management/training/add" element={<TrainingForm mode="create" />} />
-              <Route path="/lab-management/lab/:labId/training/:trainingId/edit" element={<TrainingForm mode="edit" />} />
-              <Route path="/lab-management/lab/:labId/training/:trainingId" element={<ViewTraining />} />
+              <Route path="/lab-management/lab/:labId" element={<RequireRole roles={operationalRoles}><LabManagement /></RequireRole>} />
+              <Route path="/lab-management/lab/add" element={<RequireRole roles={['ADMIN']}><AddLab /></RequireRole>} />
+              <Route path="/lab-management/training/add" element={<RequireRole roles={managerRoles}><TrainingForm mode="create" /></RequireRole>} />
+              <Route path="/lab-management/lab/:labId/training/:trainingId/edit" element={<RequireRole roles={managerRoles}><TrainingForm mode="edit" /></RequireRole>} />
+              <Route path="/lab-management/lab/:labId/training/:trainingId" element={<RequireRole roles={operationalRoles}><ViewTraining /></RequireRole>} />
             </Route>
 
             <Route path="/email" element={<EmailForm />} /> 

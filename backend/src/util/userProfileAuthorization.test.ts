@@ -13,9 +13,15 @@ test('students and supervisors can edit only their own basic fields', () => {
   assert.equal(permissions('STUDENT', 'STUDENT', true).identity, false);
 });
 
+test('every role can complete its own user agreement', () => {
+  for (const role of ['ADMIN', 'STAFF', 'SUPERVISOR', 'MENTOR', 'STUDENT'] as const) {
+    assert.equal(permissions(role, role, true).agreement, true);
+  }
+});
+
 test('mentor and supervisor agreement exceptions are applied only to other permitted users', () => {
   assert.equal(permissions('MENTOR', 'MENTOR').agreement, true);
-  assert.equal(permissions('MENTOR', 'MENTOR', true).agreement, false);
+  assert.equal(permissions('MENTOR', 'MENTOR', true).agreement, true);
   assert.equal(permissions('SUPERVISOR', 'MENTOR').agreement, true);
   assert.equal(permissions('SUPERVISOR', 'STAFF').agreement, false);
 });

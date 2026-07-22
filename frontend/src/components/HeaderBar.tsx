@@ -7,12 +7,14 @@ import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import DrawerContext from "../contexts/DrawerContext";
 import NavButton from "./ui/navButton";
+import { currentResourcePermissions } from '../util/resourcePermissions';
 
 const Navbar = ({ sx }: { sx?: React.CSSProperties }) => {
   const navigate = useNavigate();
   const drawer = useContext(DrawerContext);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const permissions = currentResourcePermissions();
 
   if (!drawer) {
     throw new Error("DrawerContext not found");
@@ -62,7 +64,7 @@ const Navbar = ({ sx }: { sx?: React.CSSProperties }) => {
         >
           BIDC Safety Hub
         </Typography>
-        <NavButton label="Certify a Student" color="" to="/certifications/add" /> 
+        {permissions.canIssueCertification && <NavButton label="Certify a Student" color="" to="/certifications/add" />}
         <NavButton label="Log out" color="" onClick={logout} />
       </Toolbar>
     </AppBar>

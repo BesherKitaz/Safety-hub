@@ -41,7 +41,7 @@ const actions: DashboardAction[] = [
     description: "Maintain labs, tools, and training pathways.",
     to: "/lab-management",
     icon: ScienceOutlinedIcon,
-    roles: ["ADMIN", "STAFF"],
+    roles: ["ADMIN", "STAFF", "MENTOR", "SUPERVISOR"],
   },
 ];
 

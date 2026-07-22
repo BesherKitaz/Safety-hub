@@ -9,6 +9,7 @@ import GradientBox from '../components/ui/GradientBox';
 import api from '../lib/api';
 import LabCard from './ManageLabTabs/components/LabCard';
 import type { LabDetail } from './ManageLabTabs/commons/types';
+import { currentResourcePermissions } from '../util/resourcePermissions';
 
 const getErrorMessage = (error: unknown) => {
   if (axios.isAxiosError<{ message?: string; error?: string }>(error)) {
@@ -32,6 +33,7 @@ const normalizeLabs = (payload: unknown): LabDetail[] => {
 };
 
 const DeactivatedLabs = () => {
+  const permissions = currentResourcePermissions();
   const [labs, setLabs] = useState<LabDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -115,9 +117,11 @@ const DeactivatedLabs = () => {
               <LabCard
                 key={lab.id}
                 lab={lab}
-                actionLabel="Activate"
-                actionColor="success"
-                onAction={() => handleActivate(lab.id)}
+                {...(permissions.canEditLab ? {
+                  actionLabel: 'Activate',
+                  actionColor: 'success' as const,
+                  onAction: () => handleActivate(lab.id),
+                } : {})}
               />
             ))}
           </Box>

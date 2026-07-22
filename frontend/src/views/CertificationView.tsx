@@ -23,6 +23,7 @@ import {
 } from '@mui/icons-material';
 
 import api from '../lib/api.js';
+import { currentResourcePermissions } from '../util/resourcePermissions';
 import GradientBox from '../components/ui/GradientBox';
 
 type UserSummary = {
@@ -220,7 +221,8 @@ const CertificationView = () => {
     fetchCertification();
   }, [id]);
 
-  const isAdmin = localStorage.getItem('userRole') === 'ADMIN';
+  const permissions = currentResourcePermissions();
+  const isStudent = localStorage.getItem('userRole') === 'STUDENT';
   const isRevoked = certification?.status.toUpperCase() === 'REVOKED';
 
   const handleModify = () => {
@@ -410,13 +412,13 @@ const CertificationView = () => {
             </Box>
 
             <Stack direction="row" spacing={1.5} useFlexGap sx={{ flexWrap: 'wrap' }}>
-              <Button variant="contained" size="large" onClick={() => navigate('/certifications')}>
-                Back to certifications
+              <Button variant="contained" size="large" onClick={() => navigate(isStudent ? '/user' : '/certifications')}>
+                {isStudent ? 'Back to profile' : 'Back to certifications'}
               </Button>
               <Button variant="outlined" size="large" startIcon={<HistoryRounded />} onClick={() => navigate(`/certifications/${id}/history`)}>
                 View history
               </Button>
-              {isAdmin && (
+              {permissions.canEditCertification && (
                 <>
                   <Button variant="outlined" size="large" startIcon={<EditOutlined />} onClick={handleModify} disabled={actionLoading}>
                     Modify
@@ -475,9 +477,11 @@ const CertificationView = () => {
                 <FieldCard
                   label="Issued by"
                   value={
-                    <Link component={RouterLink} to={`/user/${certification.issuedBy.id}`} underline="hover" sx={{ fontWeight: 700 }}>
-                      {formatName(certification.issuedBy)}
-                    </Link>
+                    isStudent
+                      ? <Typography sx={{ fontWeight: 700 }}>{formatName(certification.issuedBy)}</Typography>
+                      : <Link component={RouterLink} to={`/user/${certification.issuedBy.id}`} underline="hover" sx={{ fontWeight: 700 }}>
+                          {formatName(certification.issuedBy)}
+                        </Link>
                   }
                   helper="Issuer recorded on the certification."
                 />
@@ -637,8 +641,6 @@ const CertificationView = () => {
 };
 
 export default CertificationView;
-
-
 
 
 

@@ -637,16 +637,12 @@ const validateCertificationProposal = async (
     }
   }
 
-  if (context.requestedLevel > 2 && context.issuerRole !== 'ADMIN') {
-    throw new AppError(403, 'INSUFFICIENT_PRIVILEGES', 'Only admins may issue level 3 certifications.');
-  }
-
-  if (context.requestedLevel > 1 && context.requestedLevel <= 2 && context.issuerRole !== 'ADMIN' && context.issuerRole !== 'SUPERVISOR') {
-    throw new AppError(403, 'INSUFFICIENT_PRIVILEGES', 'Only admins or supervisors may issue this certification level.');
-  }
-
-  if (context.requestedLevel === 1 && context.issuerRole !== 'ADMIN' && context.issuerRole !== 'STAFF' && context.issuerRole !== 'SUPERVISOR' && context.issuerRole !== 'MENTOR') {
+  if (!context.issuerRole || !['ADMIN', 'STAFF', 'SUPERVISOR', 'MENTOR'].includes(context.issuerRole)) {
     throw new AppError(403, 'INSUFFICIENT_PRIVILEGES', 'You do not have permission to issue this certification level.');
+  }
+
+  if (context.issuerRole === 'MENTOR' && context.requestedLevel === 3) {
+    throw new AppError(403, 'INSUFFICIENT_PRIVILEGES', 'Mentors can only issue Basic and Trust certifications.');
   }
 
   return context;
@@ -1111,4 +1107,3 @@ export {
   getCertificationHistoryEntryById,
   AppError,
 };
-

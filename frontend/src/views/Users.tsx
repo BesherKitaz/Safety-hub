@@ -43,6 +43,12 @@ const columns: GridColDef[] = [
     flex: 1,
   },
   {
+    field: 'isActive',
+    headerName: 'Active',
+    width: 150,
+    flex: 1,
+  },
+  {
     field: 'action',
     headerName: 'Action',
     minWidth: 200,
@@ -102,6 +108,7 @@ const Users = () => {
           isUserAgreementComplete: user.isUserAgreementComplete ? 'Yes' : 'No',
           userAgreementSource: user.userAgreementSource || 'N/A',
           id: user.id,
+          isActive: user.isActive ? 'Yes' : 'No',
           filters: filters,
         };
       });
@@ -117,14 +124,6 @@ const Users = () => {
 
     return (
     <GradientBox>
-      <Box sx={{ display: "flex", justifyContent: "flex-end", maxWidth: 1640, gap: 4, px: { xs: 2, sm: 4 }, mx: "auto", mt: 2, mb: 2 }}>
-        <Button variant="contained" color="primary" component={RouterLink} to="/user/create"> 
-          Create New User
-        </Button>
-        <Button variant="contained" color="primary" component={RouterLink} to="/user/create"> 
-          Send User Agreement
-        </Button>
-      </Box>
       <Box sx={{ maxWidth: 720, px: { xs: 2, sm: 4, }, mx: "auto", textAlign: "center" }}>
               <Typography variant="h3" component="h1" sx={{ fontWeight: 700, mb: 1, mt:1 } }>
                 Manage Users

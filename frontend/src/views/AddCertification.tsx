@@ -14,6 +14,7 @@ import axios from 'axios';
 import GradientBox from '../components/ui/GradientBox';
 import DropDownSearch from '../util/DropDownSearch';
 import api from '../lib/api';
+import { currentResourcePermissions } from '../util/resourcePermissions';
 
 type CertificationData = {
   selectedStudentId: string;
@@ -74,6 +75,7 @@ const levels: Record<string, string> = {
 };
 
 const CertificationForm = () => {
+  const permissions = currentResourcePermissions();
   const { certificationId } = useParams<{ certificationId?: string }>();
   const isEditMode = Boolean(certificationId);
 
@@ -293,7 +295,7 @@ const CertificationForm = () => {
               </TextField>
 
               <TextField select label="Level" value={formData.level} onChange={handleChange('level')} fullWidth required>
-                {Object.entries(levels).map(([level, label]) => (
+                {Object.entries(levels).filter(([level]) => level !== '3' || permissions.canIssueLevel3).map(([level, label]) => (
                   <MenuItem key={level} value={level}>
                     {label}
                   </MenuItem>

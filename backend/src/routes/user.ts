@@ -29,6 +29,8 @@ import { authMiddleware } from "../middleware/auth";
 import type { AuthRequest } from "../middleware/auth"
 import prisma from '../lib/prisma';
 import { sendError } from '../middleware/errorHandler';
+import { authorizeRoles, authorizeStudentSelf, RESOURCE_READER_ROLES } from '../middleware/resourceAuthorization';
+import { UserRole } from '@prisma/client';
 
 const router = Router();
 
@@ -220,7 +222,7 @@ router.get("/name", authMiddleware, async (req: AuthRequest, res) => {
     }
   });
 
-  router.get("/profile/:id", authMiddleware, async (req: AuthRequest<{ id: string }>, res) => {
+  router.get("/profile/:id", authMiddleware, authorizeStudentSelf('id'), async (req: AuthRequest<{ id: string }>, res) => {
     const userId = req.params.id;
     try {
       const data = await getUserProfileById(userId)
@@ -238,7 +240,7 @@ router.get("/name", authMiddleware, async (req: AuthRequest, res) => {
     }
   });
 
-  router.put("/profile/:id", authMiddleware, async (req: AuthRequest<{ id: string }>, res) => {
+  router.put("/profile/:id", authMiddleware, authorizeStudentSelf('id'), async (req: AuthRequest<{ id: string }>, res) => {
     try {
       const data = await updateUserProfile(req.user!.userId, req.params.id, req.body);
       return res.json({ message: 'User profile updated successfully', data });
@@ -251,7 +253,7 @@ router.get("/name", authMiddleware, async (req: AuthRequest, res) => {
     }
   });
 
-  router.get("/tabular/total-rows", authMiddleware, async (req: AuthRequest, res) => {
+  router.get("/tabular/total-rows", authMiddleware, authorizeRoles(UserRole.ADMIN, UserRole.STAFF), async (req: AuthRequest, res) => {
     try { 
       const totalRows = await prisma.user.count()
         res.json({
@@ -270,7 +272,7 @@ router.get("/name", authMiddleware, async (req: AuthRequest, res) => {
 
     
   // Get Users for the table of users page
-  router.get("/tabular", authMiddleware, async (req: AuthRequest, res) => {
+  router.get("/tabular", authMiddleware, authorizeRoles(UserRole.ADMIN, UserRole.STAFF), async (req: AuthRequest, res) => {
     try {
         const page = Number(req.query.page) || 1;
         const pageSize = Number(req.query.pageSize) || 10;
@@ -344,7 +346,7 @@ router.post("/login", async (req, res, next) => {
 })
 
   // Search Users Route
-  router.get("/search", authMiddleware, async (req, res) => {
+  router.get("/search", authMiddleware, authorizeRoles(...RESOURCE_READER_ROLES), async (req, res) => {
   const query = String(req.query.query ?? "").trim().toLocaleLowerCase();
   if (query.length < 2) {
     return res.json([]);

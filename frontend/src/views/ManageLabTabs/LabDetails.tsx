@@ -13,6 +13,7 @@ import LabFormModal, { type LabFormValues } from './components/LabFormModal';
 import { formatDateTime, safeText } from './commons/helperFunctions';
 import type { LabInfoTabProps } from './commons/types';
 import api from '../../lib/api';
+import { currentResourcePermissions } from '../../util/resourcePermissions';
 
 export const pageSurfaceSx = {
   p: { xs: 2.25, md: 3 },
@@ -175,6 +176,7 @@ const LabActions = ({ lab, onLabUpdated }: { lab: NonNullable<LabInfoTabProps['l
 
 const LabInfoTab = ({ lab, tools, trainingNodes, onLabUpdated }: LabInfoTabProps) => {
   const isActive = lab.isActive !== false;
+  const permissions = currentResourcePermissions();
 
   return (
     <Stack spacing={3}>
@@ -192,7 +194,7 @@ const LabInfoTab = ({ lab, tools, trainingNodes, onLabUpdated }: LabInfoTabProps
               accent="#7C3AED"
             />
 
-            <LabActions lab={lab} onLabUpdated={onLabUpdated} />
+            {permissions.canEditLab && <LabActions lab={lab} onLabUpdated={onLabUpdated} />}
           </Stack>
 
           {!isActive && (

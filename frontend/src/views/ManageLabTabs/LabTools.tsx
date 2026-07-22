@@ -6,6 +6,7 @@ import AddIcon from '@mui/icons-material/Add';
 import axios from 'axios';
 import { alpha } from '@mui/material/styles';
 import api from '../../lib/api';
+import { currentResourcePermissions } from '../../util/resourcePermissions';
 
 import type { LabTool, LabDetail, ToolSummary } from './commons/types';
 import { safeText, formatDateTime } from './commons/helperFunctions';
@@ -284,6 +285,7 @@ const resolveTrainingNodeLink = (tool: LabTool): ToolSummary | null => {
 
 
 const ToolCard = ({ tool, currentLab, onToolChanged }: ToolCardProps) => {
+  const permissions = currentResourcePermissions();
   const [toolData, setToolData] = useState<LabTool>(tool);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deactivateOpen, setDeactivateOpen] = useState(false);
@@ -440,7 +442,7 @@ const ToolCard = ({ tool, currentLab, onToolChanged }: ToolCardProps) => {
 
         <Divider />
 
-        <Box sx={{ p: 2 }}>
+        {permissions.canManageTools && <Box sx={{ p: 2 }}>
           <Stack
             direction={{ xs: 'column', sm: 'row' }}
             spacing={1.25}
@@ -485,13 +487,14 @@ const ToolCard = ({ tool, currentLab, onToolChanged }: ToolCardProps) => {
               </Button>
             )}
           </Stack>
-        </Box>
+        </Box>}
       </Paper>
     </>
   );
 };
 
 const ToolsTab = ({ lab, tools }: ToolsTabProps) => {
+  const permissions = currentResourcePermissions();
   const [toolList, setToolList] = useState<LabTool[]>(tools);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [showInactive, setShowInactive] = useState(false);
@@ -514,12 +517,12 @@ const ToolsTab = ({ lab, tools }: ToolsTabProps) => {
 
   return (
     <>
-      <ToolCreateModal
+      {permissions.canManageTools && <ToolCreateModal
         open={createModalOpen}
         onClose={handleCreateModalClose}
         onUpdate={handleToolListUpdate}
         labId={lab.id}
-      />
+      />}
       <Stack spacing={3}>
         <Stack
           direction={{ xs: 'column', sm: 'row' }}
@@ -547,7 +550,7 @@ const ToolsTab = ({ lab, tools }: ToolsTabProps) => {
               {showInactive ? 'Hide inactive tools' : 'Show inactive tools'}
             </Button>
 
-            <Button
+            {permissions.canManageTools && <Button
               variant="contained"
               startIcon={<AddIcon />}
               onClick={handleCreateModalOpen}
@@ -562,7 +565,7 @@ const ToolsTab = ({ lab, tools }: ToolsTabProps) => {
               }}
             >
               Add Tool
-            </Button>
+            </Button>}
           </Stack>
         </Stack>
 
@@ -616,8 +619,6 @@ const ToolsTab = ({ lab, tools }: ToolsTabProps) => {
 };
 
 export default ToolsTab;
-
-
 
 
 

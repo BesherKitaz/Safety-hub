@@ -7,7 +7,7 @@ import type { LabDetail } from '../commons/types';
 
 type LabCardProps = {
   lab: LabDetail;
-  actionLabel: string;
+  actionLabel?: string;
   actionHref?: string;
   onAction?: () => void | Promise<void>;
   actionColor?: 'primary' | 'error' | 'success' | 'inherit';
@@ -78,7 +78,7 @@ const LabCard = ({ lab, actionLabel, actionHref, onAction, actionColor = 'primar
         </Box>
       </Stack>
 
-      <Box
+      {actionLabel && <Box
         sx={{
           px: 2.5,
           py: 1.5,
@@ -119,7 +119,7 @@ const LabCard = ({ lab, actionLabel, actionHref, onAction, actionColor = 'primar
             {actionLabel}
           </Button>
         )}
-      </Box>
+      </Box>}
     </Paper>
   );
 };

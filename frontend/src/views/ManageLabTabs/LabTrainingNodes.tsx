@@ -12,6 +12,7 @@ import { safeText } from './commons/helperFunctions';
 import DetailField from './components/DetailField';
 import SectionHeader from './components/SectionHeader';
 import api from '../../lib/api';
+import { currentResourcePermissions } from '../../util/resourcePermissions';
 
 const trainingCardShellSx = {
   height: '100%',
@@ -39,6 +40,7 @@ type TrainingCardProps = {
 };
 
 const TrainingCard = ({ trainingNode, currentLab, onTrainingChanged }: TrainingCardProps) => {
+  const permissions = currentResourcePermissions();
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
   const [deactivateOpen, setDeactivateOpen] = useState(false);
@@ -166,7 +168,7 @@ const TrainingCard = ({ trainingNode, currentLab, onTrainingChanged }: TrainingC
                 >
                   View
                 </Button>
-                <Button
+                {permissions.canManageTrainingNodes && <Button
                   size="small"
                   variant="outlined"
                   startIcon={<EditOutlined fontSize="small" />}
@@ -175,8 +177,8 @@ const TrainingCard = ({ trainingNode, currentLab, onTrainingChanged }: TrainingC
                   sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 700 }}
                 >
                   Edit
-                </Button>
-                <Button
+                </Button>}
+                {permissions.canManageTrainingNodes && <Button
                   size="small"
                   variant="outlined"
                   color="error"
@@ -186,10 +188,10 @@ const TrainingCard = ({ trainingNode, currentLab, onTrainingChanged }: TrainingC
                   sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 700 }}
                 >
                   Deactivate
-                </Button>
+                </Button>}
               </Stack>
             ) : (
-              <Button
+              permissions.canManageTrainingNodes ? <Button
                 size="small"
                 variant="contained"
                 color="success"
@@ -199,7 +201,7 @@ const TrainingCard = ({ trainingNode, currentLab, onTrainingChanged }: TrainingC
                 sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 700 }}
               >
                 Activate
-              </Button>
+              </Button> : null
             )}
           </Stack>
         </Box>
@@ -209,6 +211,7 @@ const TrainingCard = ({ trainingNode, currentLab, onTrainingChanged }: TrainingC
 };
 
 const TrainingsTab = ({ lab, trainingNodes }: TrainingsTabProps) => {
+  const permissions = currentResourcePermissions();
   const navigate = useNavigate();
   const [trainingList, setTrainingList] = useState<TrainingNodeSummary[]>(trainingNodes);
   const [showInactive, setShowInactive] = useState(false);
@@ -239,7 +242,7 @@ const TrainingsTab = ({ lab, trainingNodes }: TrainingsTabProps) => {
         />
 
         <Stack direction="row" spacing={1.25} useFlexGap sx={{ flexWrap: 'wrap' }}>
-          <Button
+          {permissions.canManageTrainingNodes && <Button
             variant="outlined"
             onClick={() => setShowInactive((current) => !current)}
             sx={{
@@ -250,7 +253,7 @@ const TrainingsTab = ({ lab, trainingNodes }: TrainingsTabProps) => {
             }}
           >
             {showInactive ? 'Hide inactive trainings' : 'Show inactive trainings'}
-          </Button>
+          </Button>}
 
           <Button
             variant="contained"

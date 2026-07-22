@@ -158,6 +158,7 @@ const formatStatus = (status: string) => {
   }
 };
 
+// Returns the styles for a given action type, used for coloring action labels in the UI
 const getActionStyles = (action: string) => {
   switch (action.toUpperCase()) {
     case 'CREATED':
@@ -177,6 +178,7 @@ const getActionStyles = (action: string) => {
   }
 };
 
+// A reusable card component for displaying a labeled field with optional helper text
 const FieldCard = ({ label, value, helper }: { label: string; value: ReactNode; helper?: string }) => (
   <Box
     sx={{
@@ -309,7 +311,7 @@ const CertificationHistory = () => {
       </GradientBox>
     );
   }
-
+  // if there is any error or if the certification data is missing, show the error state
   if (error || !certification) {
     return (
       <GradientBox>
@@ -424,12 +426,6 @@ const CertificationHistory = () => {
             </Stack>
 
             <Stack spacing={3}>
-              <SnapshotPanel
-                eyebrow="After this change"
-                title="Certification data after this action"
-                certification={selectedHistory.certificationSnapshot}
-              />
-
               <Paper elevation={0} sx={{ p: { xs: 2.25, md: 3 }, borderRadius: 4, border: '1px solid', borderColor: alpha('#0F172A', 0.08), background: 'linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(248,250,252,0.88) 100%)', boxShadow: '0 18px 40px rgba(15, 23, 42, 0.08)' }}>
                 <Typography variant="overline" sx={{ color: '#7C3AED', fontWeight: 800, letterSpacing: 1.8 }}>Current record</Typography>
                 <Typography component="h2" sx={{ mt: 0.75, fontSize: 28, fontWeight: 800, lineHeight: 1.1 }}>Certification that exists now</Typography>
@@ -442,6 +438,11 @@ const CertificationHistory = () => {
                   <FieldCard label="Issued by" value={<Typography sx={{ fontWeight: 700 }}>{formatPerson(certification.issuedBy)}</Typography>} />
                 </Stack>
               </Paper>
+                <SnapshotPanel
+                eyebrow="After this change"
+                title="Certification data after this action"
+                certification={selectedHistory.certificationSnapshot}
+              />
             </Stack>
           </Box>
         ) : (
