@@ -1,9 +1,14 @@
 ﻿import { Box, Toolbar } from "@mui/material";
-import { Outlet } from "react-router-dom";
+import { Navigate, Outlet } from "react-router-dom";
 import NavigationMenuComponent from "./components/HeaderBar";
 import NavigationSidePanelComponent from "./components/NavigationSideDrawer";
+import { isLoggedIn } from "./util/isLoggedIn";
 
 export default function Layout() {
+  if (!isLoggedIn()) {
+    return <Navigate to="/login" replace />;
+  }
+
   return (
     <Box sx={{ minHeight: "100vh", width: "100%", position: "relative", overflowX: "hidden" }}>
       <NavigationMenuComponent />
