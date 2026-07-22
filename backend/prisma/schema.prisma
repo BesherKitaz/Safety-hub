@@ -41,6 +41,7 @@ model User {
   updatedAt DateTime @updatedAt
 
   isProfileComplete Boolean @default(false)
+  isActive Boolean @default(true)
 }
 
 
@@ -230,5 +231,4 @@ enum CertificationHistoryAction {
   EXPIRED
   DEACTIVATED
 }
-
 

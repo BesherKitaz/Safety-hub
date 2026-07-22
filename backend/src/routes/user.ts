@@ -21,6 +21,7 @@ import {
   verifyPasswordReset,
   getPasswordResetStatus,
   resetPassword,
+  updateUserProfile,
   AppError,
 } from '../controllers/userControllers';
 
@@ -233,6 +234,19 @@ router.get("/name", authMiddleware, async (req: AuthRequest, res) => {
         statusCode: 500,
         code: 'USER_FETCH_FAILED',
         message: 'Error fetching user profile',
+      });
+    }
+  });
+
+  router.put("/profile/:id", authMiddleware, async (req: AuthRequest<{ id: string }>, res) => {
+    try {
+      const data = await updateUserProfile(req.user!.userId, req.params.id, req.body);
+      return res.json({ message: 'User profile updated successfully', data });
+    } catch (error) {
+      return sendError(res, error, {
+        statusCode: 500,
+        code: 'USER_UPDATE_FAILED',
+        message: 'Error updating user profile',
       });
     }
   });

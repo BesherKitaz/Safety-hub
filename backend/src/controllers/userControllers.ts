@@ -10,6 +10,7 @@ import * as commonPackage from "@zxcvbn-ts/language-common";
 import { AppError } from '../middleware/errorHandler';
 import { sendEmail } from '../services/emailService';
 import path from 'path'
+import { EDITABLE_PROFILE_FIELDS, USER_ROLES, canMutateProfileField, getProfileMutationPermissions, type EditableProfileField, type UserRoleName } from '../util/userProfileAuthorization';
 
 type User = {
     firstName: string;
@@ -270,7 +271,13 @@ const getUserProfileById = async (id: string) => {
                 id: true,
                 createdAt: true,
                 userAgreementSource: true,
-                isUserAgreementComplete: true
+                isUserAgreementComplete: true,
+                graduationYear: true,
+                jobTitle: true,
+                department: true,
+                phoneNumber: true,
+                address: true,
+                isActive: true,
             }
         });
 
@@ -397,6 +404,71 @@ const getUserNameDatabyId = async (id: string) => {
     }
 };
 
+type ProfileUpdateInput = Partial<Record<EditableProfileField, unknown>>;
+
+const updateUserProfile = async (actorId: string, targetId: string, input: ProfileUpdateInput) => {
+    if (!input || typeof input !== 'object' || Array.isArray(input)) {
+        throw new AppError(400, 'INVALID_PROFILE_UPDATE', 'Profile update must be an object');
+    }
+    const fields = Object.keys(input);
+    const unsupported = fields.filter((field) => !(EDITABLE_PROFILE_FIELDS as readonly string[]).includes(field));
+    if (unsupported.length) throw new AppError(400, 'UNSUPPORTED_PROFILE_FIELDS', `Unsupported profile fields: ${unsupported.join(', ')}`);
+    if (!fields.length) throw new AppError(400, 'EMPTY_PROFILE_UPDATE', 'Provide at least one profile field to update');
+
+    const [actor, target] = await Promise.all([
+        prisma.user.findUnique({ where: { id: actorId }, select: { id: true, role: true } }),
+        prisma.user.findUnique({ where: { id: targetId }, select: { id: true, role: true } }),
+    ]);
+    if (!actor) throw new AppError(401, 'ACTOR_NOT_FOUND', 'Authenticated user no longer exists');
+    if (!target) throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
+
+    const permissions = getProfileMutationPermissions(
+        { id: actor.id, role: actor.role as UserRoleName },
+        { id: target.id, role: target.role as UserRoleName },
+    );
+    for (const field of fields as EditableProfileField[]) {
+        if (!canMutateProfileField(permissions, field)) throw new AppError(403, 'PROFILE_FIELD_FORBIDDEN', `You are not authorized to change ${field}`);
+    }
+
+    const data: Record<string, string | number | boolean | null> = {};
+    for (const field of fields as EditableProfileField[]) {
+        const value = input[field];
+        if (field === 'role') {
+            if (typeof value !== 'string' || !(USER_ROLES as readonly string[]).includes(value)) throw new AppError(400, 'INVALID_ROLE', 'Role is invalid');
+            if (!permissions.assignableRoles.includes(value as UserRoleName)) throw new AppError(403, 'ROLE_ASSIGNMENT_FORBIDDEN', `You cannot assign the ${value} role`);
+            data.role = value;
+        } else if (field === 'isActive' || field === 'isUserAgreementComplete') {
+            if (typeof value !== 'boolean') throw new AppError(400, 'INVALID_BOOLEAN', `${field} must be a boolean`);
+            data[field] = value;
+        } else if (field === 'graduationYear') {
+            const maxYear = new Date().getFullYear() + 10;
+            if (value !== null && (typeof value !== 'number' || !Number.isInteger(value) || value < 1900 || value > maxYear)) throw new AppError(400, 'INVALID_GRADUATION_YEAR', `Graduation year must be between 1900 and ${maxYear}`);
+            data.graduationYear = value;
+        } else {
+            if (value !== null && typeof value !== 'string') throw new AppError(400, 'INVALID_PROFILE_VALUE', `${field} must be a string or null`);
+            const normalized = typeof value === 'string' ? value.trim() : null;
+            if (['firstName', 'lastName', 'email'].includes(field) && !normalized) throw new AppError(400, 'REQUIRED_IDENTITY_FIELD', `${field} cannot be empty`);
+            if (field === 'email' && normalized && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) throw new AppError(400, 'INVALID_EMAIL', 'Email address is invalid');
+            data[field] = field === 'email' && normalized ? normalized.toLowerCase() : normalized;
+        }
+    }
+    if ('email' in data) {
+        const duplicate = await prisma.user.findFirst({ where: { email: data.email as string, id: { not: targetId } }, select: { id: true } });
+        if (duplicate) throw new AppError(409, 'EMAIL_IN_USE', 'A user with this email already exists');
+    }
+    if ('isUserAgreementComplete' in data) {
+        data.userAgreementSource = data.isUserAgreementComplete ? `Administrative update by ${actor.role} (${actor.id})` : null;
+    }
+    const [updated] = await prisma.$transaction([
+        prisma.user.update({
+            where: { id: targetId },
+            data,
+            select: { id: true, firstName: true, lastName: true, email: true, role: true, graduationYear: true, jobTitle: true, department: true, phoneNumber: true, address: true, isActive: true, isUserAgreementComplete: true, userAgreementSource: true },
+        }),
+    ]);
+    return updated;
+};
+
 const userSearch = async (query: string) => {
     console.log("Search query:", query);
     const users = await prisma.user.findMany({
@@ -497,6 +569,7 @@ const login = async (email: string, password: string) => {
     if (!user) {
         throw new AppError(401, 'INVALID_CREDENTIALS', 'Invalid email or password');
     }
+    if (!user.isActive) throw new AppError(403, 'ACCOUNT_DEACTIVATED', 'This account has been deactivated. Contact an administrator for help.');
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
         throw new AppError(401, 'INVALID_CREDENTIALS', 'Invalid email or password');    
@@ -607,7 +680,7 @@ const validateSignupData = async (userData: { email?: string; password?: string;
 }
 
 
-export { AppError, getUserDataById, getUserProfileById, getUserNameDatabyId, createUser, login, userSearch, getTabularUsers, getUserRoleById, getUserIdByEmail, checkPasswordStrength, validateSignupData, sendVerificationEmail, verifyEmailAddress, getEmailVerificationStatus, sendPasswordResetEmail, verifyPasswordReset, getPasswordResetStatus, resetPassword };
+export { AppError, getUserDataById, getUserProfileById, getUserNameDatabyId, createUser, login, userSearch, getTabularUsers, getUserRoleById, getUserIdByEmail, checkPasswordStrength, validateSignupData, sendVerificationEmail, verifyEmailAddress, getEmailVerificationStatus, sendPasswordResetEmail, verifyPasswordReset, getPasswordResetStatus, resetPassword, updateUserProfile };
 
 
 
