@@ -19,8 +19,13 @@ export default function ForgotPassword() {
     const check = async () => {
       try {
         const response = await api.get("/api/user/password-reset/status", { params: { requestToken } });
-        if (active && response.data.data.verified) navigate(`/reset-password?credential=${encodeURIComponent(requestToken)}`, { replace: true });
-      } catch (requestError) { if (active) setError(message(requestError)); }
+        if (active && response.data.data.verified) 
+          navigate(`/reset-password?credential=${encodeURIComponent(requestToken)}`, { replace: true });
+      } catch (requestError) { 
+        if (active) {
+           setError(message(requestError)); 
+        }
+      }
     };
     check();
     const interval = window.setInterval(check, 2500);

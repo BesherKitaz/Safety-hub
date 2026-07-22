@@ -20,8 +20,8 @@ export default function Login() {
       localStorage.setItem("token", response.data.token);
       localStorage.setItem("userRole", response.data.role);
       localStorage.setItem("userId", response.data.id);
-      window.location.reload();
       navigate("/", { replace: true });
+      window.location.reload();
     } catch (error) {
       throw new Error(axios.isAxiosError(error) ? error.response?.data?.error?.message ?? "Unable to log in." : "Unable to log in.", { cause: error });
     }
