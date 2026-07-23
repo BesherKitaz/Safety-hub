@@ -64,8 +64,10 @@ const Navbar = ({ sx }: { sx?: React.CSSProperties }) => {
         >
           BIDC Safety Hub
         </Typography>
-        {permissions.canIssueCertification && <NavButton label="Certify a Student" color="" to="/certifications/add" />}
-        <NavButton label="Log out" color="" onClick={logout} />
+        {permissions.canIssueCertification && <NavButton label={isMobile ? "Certify" : "Certify a Student"} color="" to="/certifications/add" />}
+        {!isMobile && (
+          <NavButton label="Log out" color="" onClick={logout} />
+        )}
       </Toolbar>
     </AppBar>
   );
