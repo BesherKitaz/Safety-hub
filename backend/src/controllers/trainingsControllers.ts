@@ -23,6 +23,7 @@ const getTrainingsofLab = async (labId: string) => {
     });
 };
 
+
 const getTrainingNamesAndIdsByLab = async (labId: string) => {
     return prismaAny.trainingNode.findMany({
         where: {
@@ -35,6 +36,7 @@ const getTrainingNamesAndIdsByLab = async (labId: string) => {
         },
     });
 };
+
 
 const hasPath = async (startNodeId: string, targetNodeId: string): Promise<boolean> => {
   const visited = new Set<string>();

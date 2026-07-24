@@ -32,6 +32,8 @@ type Lab = {
 type Training = {
   id: string;
   name: string;
+  eligibleLevel: number;
+  isAuthorized: boolean;
 };
 
 type Student = {
@@ -58,6 +60,23 @@ type CertificationDetailResponse = {
 
 type LocationState = {
   from?: string;
+};
+
+type ApiErrorResponse = {
+  error?: {
+    message?: string;
+  };
+  message?: string;
+};
+
+const getApiErrorMessage = (error: unknown, fallback: string) => {
+  if (!axios.isAxiosError<ApiErrorResponse>(error)) {
+    return fallback;
+  }
+
+  return error.response?.data?.error?.message
+    ?? error.response?.data?.message
+    ?? fallback;
 };
 
 const initialCertificationData: CertificationData = {
@@ -112,15 +131,16 @@ const CertificationForm = () => {
     }
   };
 
-  const fetchTrainings = async (labId: string) => {
+  const fetchTrainings = async (labId: string, studentId?: string) => {
     if (!labId) {
       setTrainings([]);
       return;
     }
 
     try {
-      const response = await api.get('/api/trainings', { params: { labId } });
-      setTrainings(Array.isArray(response.data.data) ? response.data.data : []);
+      const response = await api.get('/api/trainings', { params: { labId, studentId } });
+      console.log('Trainings response:', response.data.data.trainings); 
+      setTrainings(Array.isArray(response.data.data.trainings) ? response.data.data.trainings : []);
     } catch (error) {
       console.error('Error fetching trainings:', error);
       setTrainings([]);
@@ -145,11 +165,11 @@ const CertificationForm = () => {
 
   useEffect(() => {
     if (formData.labId) {
-      fetchTrainings(formData.labId);
+      fetchTrainings(formData.labId, formData.selectedStudentId);
     } else {
       setTrainings([]);
     }
-  }, [formData.labId]);
+  }, [formData.labId, formData.selectedStudentId]);
 
   useEffect(() => {
     const fetchCertification = async () => {
@@ -171,11 +191,7 @@ const CertificationForm = () => {
         });
         setSelectedStudent(certification.issuedTo);
       } catch (error) {
-        if (axios.isAxiosError(error)) {
-          setErrorMessage(error.response?.data?.message ?? 'Failed to load certification.');
-        } else {
-          setErrorMessage('Failed to load certification.');
-        }
+        setErrorMessage(getApiErrorMessage(error, 'Failed to load certification.'));
       } finally {
         setLoadingCertification(false);
       }
@@ -212,12 +228,7 @@ const CertificationForm = () => {
       goBack();
     } catch (error) {
       console.error('Error saving certification:', error);
-
-      if (axios.isAxiosError(error)) {
-        setErrorMessage(error.response?.data?.message ?? error.message);
-      } else {
-        setErrorMessage('Something went wrong while saving the certification.');
-      }
+      setErrorMessage(getApiErrorMessage(error, 'Something went wrong while saving the certification.'));
     }
   };
 
@@ -273,6 +284,26 @@ const CertificationForm = () => {
 
           <Box sx={{ p: { xs: 2, md: 3 } }}>
             <Stack spacing={2}>
+              {isEditMode ? (
+                <TextField
+                  label="Student"
+                  value={selectedStudent ? `${selectedStudent.firstName} ${selectedStudent.lastName} (${selectedStudent.email})` : ''}
+                  fullWidth
+                  disabled
+                />
+              ) : (
+                <DropDownSearch<Student>
+                  label="Search student"
+                  fetchOptions={fetchUsers}
+                  getOptionLabel={(student) => `${student.firstName} ${student.lastName} (${student.email})`}
+                  onChange={(student) => {
+                    setFormData((current) => ({
+                      ...current,
+                      selectedStudentId: student?.id ?? '',
+                    }));
+                  }}
+                />
+              )}
               <TextField select label="lab" value={formData.labId} onChange={handleChange('labId')} fullWidth required>
                 {labs && labs.length > 0 && <MenuItem value="">Select a lab</MenuItem>}
                 {labs && labs.length === 0 && <MenuItem value="">No labs found</MenuItem>}
@@ -302,26 +333,6 @@ const CertificationForm = () => {
                 ))}
               </TextField>
 
-              {isEditMode ? (
-                <TextField
-                  label="Student"
-                  value={selectedStudent ? `${selectedStudent.firstName} ${selectedStudent.lastName} (${selectedStudent.email})` : ''}
-                  fullWidth
-                  disabled
-                />
-              ) : (
-                <DropDownSearch<Student>
-                  label="Search student"
-                  fetchOptions={fetchUsers}
-                  getOptionLabel={(student) => `${student.firstName} ${student.lastName} (${student.email})`}
-                  onChange={(student) => {
-                    setFormData((current) => ({
-                      ...current,
-                      selectedStudentId: student?.id ?? '',
-                    }));
-                  }}
-                />
-              )}
 
               <TextField label="Notes" value={formData.notes} onChange={handleChange('notes')} fullWidth multiline minRows={4} />
             </Stack>
@@ -333,27 +344,6 @@ const CertificationForm = () => {
             )}
 
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 3 }}>
-              <Button
-                type="button"
-                variant="contained"
-                onClick={goBack}
-                sx={{
-                  flex: 1,
-                  borderRadius: 999,
-                  textTransform: 'none',
-                  fontWeight: 700,
-                  py: 1.2,
-                  backgroundColor: '#dc2626',
-                  boxShadow: 'none',
-                  '&:hover': {
-                    backgroundColor: '#b91c1c',
-                    boxShadow: 'none',
-                  },
-                }}
-              >
-                Cancel
-              </Button>
-
               <Button
                 type="submit"
                 variant="contained"
@@ -373,6 +363,26 @@ const CertificationForm = () => {
                 }}
               >
                 {isEditMode ? 'Save Changes' : 'Certify'}
+              </Button>
+              <Button
+                type="button"
+                variant="contained"
+                onClick={goBack}
+                sx={{
+                  flex: 1,
+                  borderRadius: 999,
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  py: 1.2,
+                  backgroundColor: '#dc2626',
+                  boxShadow: 'none',
+                  '&:hover': {
+                    backgroundColor: '#b91c1c',
+                    boxShadow: 'none',
+                  },
+                }}
+              >
+                Cancel
               </Button>
             </Stack>
           </Box>

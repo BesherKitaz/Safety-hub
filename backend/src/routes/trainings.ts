@@ -4,6 +4,7 @@ import type { AuthRequest } from '../middleware/auth';
 import { getTrainingsofLab, getTrainingNamesAndIdsByLab, addTraining, AppError, getTrainingById, updateTraining, deactivateTraining, activateTraining } from '../controllers/trainingsControllers';
 import { sendError } from '../middleware/errorHandler';
 import { authorizeRoles, RESOURCE_MANAGER_ROLES, RESOURCE_READER_ROLES } from '../middleware/resourceAuthorization';
+import { getTrainingNamesAndIdsByLabForStudent } from '../controllers/certificationsControllers';
 
 const router = Router();
 
@@ -13,13 +14,13 @@ const handleTrainingError = (res: any, error: unknown, fallback: string) =>
     sendError(res, error, { statusCode: 500, code: 'TRAINING_REQUEST_FAILED', message: fallback });
 
 router.get('/', authorizeRoles(...RESOURCE_READER_ROLES), async (req: AuthRequest, res) => {
-    const { labId } = req.query;
+    const { labId, studentId } = req.query;
     if (!labId) {
         return sendError(res, new AppError(400, 'LAB_ID_REQUIRED', 'Missing labId parameter'));
     }
 
     try {
-        const trainings = await getTrainingsofLab(labId as string);
+        const trainings = await getTrainingNamesAndIdsByLabForStudent(labId as string, studentId as string);
         res.json({
             data: trainings,
             message: 'Trainings fetched successfully',
@@ -28,6 +29,7 @@ router.get('/', authorizeRoles(...RESOURCE_READER_ROLES), async (req: AuthReques
         handleTrainingError(res, error, 'Failed to fetch trainings');
     }
 });
+
 
 router.get('/listings', authorizeRoles(...RESOURCE_READER_ROLES), async (req: AuthRequest, res) => {
     const { labId } = req.query;
@@ -130,3 +132,4 @@ router.patch('/:trainingId/activate', authorizeRoles(...RESOURCE_MANAGER_ROLES),
 });
 
 export default router;
+

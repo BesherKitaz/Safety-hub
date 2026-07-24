@@ -26,11 +26,15 @@ import Layout from './Layout';
 
 import { useState } from 'react';
 import DrawerContext from './contexts/DrawerContext.ts';
+import { isLoggedIn } from './util/isLoggedIn.ts';
 
 type Header = {
   title: string;
   actions: React.ReactNode;
 };
+
+const RequireAuth = ({ children }: { children: React.ReactNode }) =>
+  isLoggedIn() ? children : <Navigate to="/login" replace />;
 
 const RequireRole = ({ roles, children }: { roles: string[]; children: React.ReactNode }) =>
   roles.includes(localStorage.getItem('userRole') ?? '') ? children : <Navigate to="/user" replace />;
@@ -53,7 +57,7 @@ function App() {
       <DrawerContext.Provider value={{ mobileOpen, setMobileOpen }}>
         <BrowserRouter>
           <Routes>
-            <Route element={<Layout />}>
+            <Route element={<RequireAuth><Layout /></RequireAuth>}>
               <Route path="/" element={<Home />} />
               <Route path="/user" element={<Profile />} />
               <Route path="/user/:id" element={<Profile />} />
@@ -82,6 +86,7 @@ function App() {
             <Route path="/signup" element={<Signup />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="*" element={<Navigate to={isLoggedIn() ? "/" : "/login"} replace />} />
           </Routes>
         </BrowserRouter>
       </DrawerContext.Provider>

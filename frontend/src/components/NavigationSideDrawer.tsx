@@ -16,6 +16,7 @@ import { useContext, useState } from "react";
 import DrawerContext from "../contexts/DrawerContext";
 
 
+// Navigation items for the side drawer. Modify by adding items to the list
 const navItems = [
   { id: 'home', label: 'Home', to: '/', icon: <HomeIcon /> },
   { id: 'certifications', label: 'Certifications', to: '/certifications', icon: <WorkspacePremiumIcon /> },
@@ -184,7 +185,7 @@ const NavigationSidePanelComponent = () => {
 
           if (id === "manage-members") {
             const userRole = localStorage.getItem("userRole");
-            if (userRole !== "ADMIN" && userRole !== "STAFF") {
+            if (userRole !== "ADMIN" && userRole !== "STAFF" && userRole !== "MENTOR" && userRole !== "SUPERVISOR") {
               return null; // Skip rendering this item for non-admin users
             }
           }
@@ -192,7 +193,7 @@ const NavigationSidePanelComponent = () => {
           if (id === "certifications") {
             const userRole = localStorage.getItem("userRole");
             if (userRole !== "ADMIN" && userRole !== "STAFF" && userRole !== "MENTOR" && userRole !== "SUPERVISOR") {
-              return null; // Skip rendering this item for non-admin users
+              return null; // Skip rendering this item for non-staff or mentor users
             }
           }
 

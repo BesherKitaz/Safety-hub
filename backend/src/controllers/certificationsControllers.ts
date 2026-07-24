@@ -1069,6 +1069,153 @@ const getCertificationHistoryById = async (certificationId: string) => {
   };
 };
 
+
+// getting training options for when issuing a certificaiton
+const hasCertificationAtLevel = (
+  trainingId: string,
+  requiredLevel: number,
+  studentCertifications: { id: string; trainingNode: { id: string }; level: number;}[]
+) =>
+  studentCertifications.some(
+    (cert) =>
+      cert.trainingNode.id === trainingId &&
+      cert.level === requiredLevel
+  );
+
+
+const allChildrenCertifiedAtLevel = (
+  training: {id: string; name?: string; childEdges: {child: {id: string; }}[]; parentEdges: {parent: {id: string; }}[];},
+  requiredLevel: number,
+  studentCertifications: { id: string; trainingNode: { id: string }; level: number;}[]
+) =>
+  training.childEdges.length === 0 ||
+  training.childEdges.every((childEdge) =>
+    hasCertificationAtLevel(childEdge.child.id, requiredLevel, studentCertifications)
+  );
+
+
+const getTrainingNamesAndIdsByLabForStudent = async (labId: string, studentId: string) => {
+  try {
+    if (!labId?.trim()) {
+      throw new AppError(400, 'LAB_ID_REQUIRED', 'Lab ID is required.');
+    }
+
+    if (!studentId?.trim()) {
+      throw new AppError(400, 'STUDENT_ID_REQUIRED', 'Student ID is required.');
+    }
+
+    const studentCertifications = await prisma.certification.findMany({
+      where: {
+        issuedToId: studentId,
+        status: 'ACTIVE',
+        trainingNode: {
+          labId: labId,
+      },
+      },
+      select: {
+        id: true,
+        trainingNode: {
+          select: {
+            id: true,
+          },
+        },
+        level: true,
+      },
+    });
+
+    const trainings = await prisma.trainingNode.findMany({
+      where: {
+        labId: labId,
+        isActive: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        parentEdges: {
+          select: {
+            parent: {
+              select: {
+                id: true,
+              }
+            },
+          }
+        },
+        childEdges: {
+          select: {
+            child: {
+              select: {
+                id: true,
+              }
+            }
+          }
+        }
+      },
+    });
+    
+    const trainingOptions = trainings.map((training) => {
+      const isRootTraining = training.parentEdges.length === 0;
+
+      const hasCertifiedParent = training.parentEdges.some((parentEdge) =>
+        studentCertifications.some(
+          (cert) => cert.trainingNode.id === parentEdge.parent.id
+        )
+      );
+
+      const hasAnyCertification = studentCertifications.some(
+        (cert) => cert.trainingNode.id === training.id
+      );
+
+      const eligibleForLevel2 =
+        hasCertificationAtLevel(training.id, 1, studentCertifications) &&
+        allChildrenCertifiedAtLevel(training, 2, studentCertifications);
+
+      const eligibleForLevel3 =
+        hasCertificationAtLevel(training.id, 2, studentCertifications) &&
+        allChildrenCertifiedAtLevel(training, 3, studentCertifications);
+
+      const isAuthorized = hasCertificationAtLevel(
+        training.id,
+        3,
+        studentCertifications
+      );
+
+      let eligibleLevel: 1 | 2 | 3 | null = null;
+
+      if (eligibleForLevel3) {
+        eligibleLevel = 3;
+      } else if (eligibleForLevel2) {
+        eligibleLevel = 2;
+      } else if (
+        !hasAnyCertification &&
+        (hasCertifiedParent || isRootTraining)
+      ) {
+        eligibleLevel = 1;
+      }
+
+      return {
+        ...training,
+        eligibleLevel,
+        isAuthorized,
+      };
+    });
+    
+    const response = {
+      trainings: trainingOptions.map(
+        ({ parentEdges, childEdges, ...trainingOption }) => trainingOption
+      ),
+    };
+    
+    return response;
+
+  } catch (error) {
+    console.error('Error fetching training names and IDs for student:', error);
+    throw new AppError(500, 'INTERNAL_SERVER_ERROR', 'An error occurred while fetching training names and IDs for the student.');
+  }
+}
+
+
+
+
 const getCertificationHistoryEntryById = async (certificationId: string, historyId: string) => {
   if (!certificationId?.trim()) {
     throw new AppError(400, 'CERTIFICATION_ID_REQUIRED', 'Certification ID is required.');
@@ -1105,5 +1252,6 @@ export {
   getCertificationById,
   getCertificationHistoryById,
   getCertificationHistoryEntryById,
+  getTrainingNamesAndIdsByLabForStudent,
   AppError,
 };

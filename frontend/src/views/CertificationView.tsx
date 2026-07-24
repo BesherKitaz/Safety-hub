@@ -32,6 +32,23 @@ type UserSummary = {
   lastName: string;
 };
 
+type ApiErrorResponse = {
+  error?: {
+    message?: string;
+  };
+  message?: string;
+};
+
+const getActionErrorMessage = (error: unknown, fallback: string) => {
+  if (!axios.isAxiosError<ApiErrorResponse>(error)) {
+    return fallback;
+  }
+
+  return error.response?.data?.error?.message
+    ?? error.response?.data?.message
+    ?? fallback;
+};
+
 type LabSummary = {
   id: string;
   name: string;
@@ -247,11 +264,7 @@ const CertificationView = () => {
       await api.put(`/api/certifications/${id}/revoke`);
       window.location.reload();
     } catch (requestError) {
-      if (axios.isAxiosError(requestError)) {
-        setActionError(requestError.response?.data?.message ?? 'Failed to revoke certification.');
-      } else {
-        setActionError('Failed to revoke certification.');
-      }
+      setActionError(getActionErrorMessage(requestError, 'Failed to revoke certification.'));
     } finally {
       setActionLoading(false);
     }
@@ -267,11 +280,7 @@ const CertificationView = () => {
       await api.put(`/api/certifications/${id}/unrevoke`);
       window.location.reload();
     } catch (requestError) {
-      if (axios.isAxiosError(requestError)) {
-        setActionError(`Failed to unrevoke certification. ${requestError.response?.data?.code}`);
-      } else {
-        setActionError('Failed to unrevoke certification.');
-      }
+      setActionError(getActionErrorMessage(requestError, 'Failed to unrevoke certification.'));
     } finally {
       setActionLoading(false);
     }
@@ -641,7 +650,6 @@ const CertificationView = () => {
 };
 
 export default CertificationView;
-
 
 
 
