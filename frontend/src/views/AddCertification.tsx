@@ -8,7 +8,18 @@ import {
   Stack,
   TextField,
   Typography,
+  ListItemIcon,
+  ListItemText,
 } from '@mui/material';
+
+import {
+  CheckCircle,
+} from "@mui/icons-material";
+
+import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
+import VerifiedOutlinedIcon from "@mui/icons-material/VerifiedOutlined";
+
+
 import axios from 'axios';
 
 import GradientBox from '../components/ui/GradientBox';
@@ -32,7 +43,7 @@ type Lab = {
 type Training = {
   id: string;
   name: string;
-  eligibleLevel: number;
+  eligibleLevel: 1 | 2 | 3 | null;
   isAuthorized: boolean;
 };
 
@@ -131,6 +142,20 @@ const CertificationForm = () => {
     }
   };
 
+
+  const getTrainingStatus = (training: Training) => {
+    if (training.isAuthorized) {
+      return 1; // Completed
+    }
+
+    if (training.eligibleLevel !== null) {
+      return 0; // Selectable
+    }
+
+    return 2; // Prerequisites missing
+  };
+
+
   const fetchTrainings = async (labId: string, studentId?: string) => {
     if (!labId) {
       setTrainings([]);
@@ -139,8 +164,18 @@ const CertificationForm = () => {
 
     try {
       const response = await api.get('/api/trainings', { params: { labId, studentId } });
-      console.log('Trainings response:', response.data.data.trainings); 
-      setTrainings(Array.isArray(response.data.data.trainings) ? response.data.data.trainings : []);
+        const sortedTrainings = [...response.data.data.trainings].sort((a, b) => {
+          const statusDifference =
+            getTrainingStatus(a) - getTrainingStatus(b);
+
+          if (statusDifference !== 0) {
+            return statusDifference;
+          }
+
+          return a.name.localeCompare(b.name);
+        });
+  
+      setTrainings(Array.isArray(sortedTrainings) ? sortedTrainings : []);
     } catch (error) {
       console.error('Error fetching trainings:', error);
       setTrainings([]);
@@ -314,16 +349,88 @@ const CertificationForm = () => {
                 ))}
               </TextField>
 
-              <TextField select label="Training" value={formData.trainingId} onChange={handleChange('trainingId')} fullWidth required>
-                {trainings.length > 0 && <MenuItem value="">Select a training</MenuItem>}
-                {trainings.length === 0 && !formData.labId && <MenuItem value="">No lab selected</MenuItem>}
-                {trainings.length === 0 && formData.labId && <MenuItem value="">No trainings found for this lab</MenuItem>}
-                {trainings.map((training) => (
-                  <MenuItem key={training.id} value={training.id}>
-                    {training.name}
-                  </MenuItem>
-                ))}
-              </TextField>
+<TextField
+  select
+  fullWidth
+  label="Training"
+  value={formData.trainingId}
+  onChange={handleChange('trainingId')}
+>
+  {[...trainings]
+    .sort((a, b) => {
+      const aSelectable =
+        a.eligibleLevel !== null && !a.isAuthorized;
+
+      const bSelectable =
+        b.eligibleLevel !== null && !b.isAuthorized;
+
+      if (aSelectable !== bSelectable) {
+        return aSelectable ? -1 : 1;
+      }
+
+      return a.name.localeCompare(b.name);
+    })
+    .map((training) => {
+      const isSelectable =
+        training.eligibleLevel !== null &&
+        !training.isAuthorized;
+
+      let helperText = "";
+
+      if (training.isAuthorized) {
+        helperText = "Student has completed all levels.";
+      } else if (training.eligibleLevel !== null) {
+        helperText = `Eligible for Level ${training.eligibleLevel}`;
+      } else {
+        helperText = "Student has not met the prerequisites.";
+      }
+
+      return (
+        <MenuItem
+          key={training.id}
+          value={training.id}
+          disabled={!isSelectable}
+          sx={{
+            alignItems: "flex-start",
+            py: 1.25,
+            "&.Mui-disabled": {
+              opacity: 0.7,
+            },
+          }}
+        >
+          <ListItemIcon sx={{ minWidth: 36, mt: 0.25 }}>
+            {training.isAuthorized ? (
+              <VerifiedOutlinedIcon
+                fontSize="small"
+                color="success"
+              />
+            ) : isSelectable ? (
+              <CheckCircle fontSize="small" color="success" />
+            ) : (
+              <LockOutlinedIcon fontSize="small" />
+            )}
+          </ListItemIcon>
+
+          <ListItemText
+            primary={training.name}
+            secondary={helperText}
+            slotProps={{
+              primary: {
+                sx: {
+                  fontWeight: isSelectable ? 600 : 400,
+                },
+              },
+              secondary: {
+                sx: {
+                  whiteSpace: "normal",
+                },
+              },
+            }}
+          />
+        </MenuItem>
+      );
+    })}
+</TextField>
 
               <TextField select label="Level" value={formData.level} onChange={handleChange('level')} fullWidth required>
                 {Object.entries(levels).filter(([level]) => level !== '3' || permissions.canIssueLevel3).map(([level, label]) => (
