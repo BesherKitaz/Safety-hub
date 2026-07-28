@@ -113,74 +113,104 @@ const users = [
 
 const labs = [
   {
-    name: "Chemistry Lab",
-    description: "Wet chemistry benches, reagent storage, and fume hood procedures.",
+    name: "Woodshop",
+    description: "Cutting, shaping, sanding, and safe use of common woodworking equipment.",
     tools: [
       {
-        name: "Fume Hood",
-        description: "Ventilated enclosure for volatile chemicals.",
+        name: "Table Saw",
+        description: "Primary cutting station for ripping and crosscutting lumber.",
       },
       {
-        name: "Analytical Balance",
-        description: "Precision scale for measuring small sample masses.",
+        name: "Router Table",
+        description: "Stationary routing setup for edges, grooves, and profiles.",
       },
       {
-        name: "Centrifuge",
-        description: "Separates samples at high speed for analysis.",
+        name: "Drum Sander",
+        description: "Finishing machine for smoothing and leveling wood surfaces.",
       },
     ],
   },
   {
-    name: "Biology Lab",
-    description: "Microscopy, sample preparation, and routine biological handling.",
+    name: "Metal Shop",
+    description: "Cutting, welding, drilling, and layout workflows for metal fabrication.",
     tools: [
       {
-        name: "Microscope",
-        description: "High-magnification inspection for specimens and slides.",
+        name: "MIG Welder",
+        description: "Wire-feed welding station for joining steel and aluminum.",
       },
       {
-        name: "Autoclave",
-        description: "Sterilizes lab equipment and materials with steam.",
+        name: "Sheet Metal Brake",
+        description: "Bending tool for forming precise metal angles and flanges.",
       },
       {
-        name: "Incubator",
-        description: "Maintains controlled temperature for cultures.",
+        name: "Metal Bandsaw",
+        description: "Cutoff saw for stock, tubing, and bar material.",
       },
     ],
   },
   {
-    name: "Electronics Lab",
-    description: "Low-voltage prototyping, soldering, and circuit testing workflows.",
+    name: "Fabrics",
+    description: "Sewing, cutting, pressing, and finishing textile and apparel projects.",
     tools: [
       {
-        name: "Soldering Station",
-        description: "Temperature-controlled station for PCB assembly.",
+        name: "Sewing Machine",
+        description: "Primary machine for stitching garments, repairs, and prototypes.",
       },
       {
-        name: "Oscilloscope",
-        description: "Visualizes voltage changes across electronic circuits.",
+        name: "Serger",
+        description: "Overlock machine for clean seams and edge finishing.",
       },
       {
-        name: "Bench Power Supply",
-        description: "Provides stable power for bench-top electronics work.",
+        name: "Heat Press",
+        description: "Applies heat and pressure for transfers, patches, and embellishments.",
+      },
+      {
+        name: "Fabric Cutter",
+        description: "Precision cutting tool for textiles, patterns, and trim pieces.",
       },
     ],
   },
   {
-    name: "Machine Shop",
-    description: "Metalworking, cutting, drilling, and general fabrication safety.",
+    name: "Blacksmithing",
+    description: "Forging, heating, shaping, and striking hot metal safely.",
     tools: [
       {
-        name: "Drill Press",
-        description: "Fixed drilling tool for precise vertical holes.",
+        name: "Forge",
+        description: "Heat source used to bring metal to forging temperature.",
       },
       {
-        name: "Bandsaw",
-        description: "Cuts stock material with a continuous blade.",
+        name: "Anvil",
+        description: "Primary forming surface for hammering and shaping metal.",
       },
       {
-        name: "Lathe",
-        description: "Shapes rotating stock for turning operations.",
+        name: "Power Hammer",
+        description: "Mechanical hammer for heavy forging and rapid stock reduction.",
+      },
+      {
+        name: "Quench Tank",
+        description: "Cooling station for hardening and heat treatment workflows.",
+      },
+    ],
+  },
+  {
+    name: "Advnaced Machines Lab",
+    description: "CNC machining, precision fabrication, and automated equipment workflows.",
+    tools: [
+      {
+        name: "CNC Mill",
+        description: "Computer-controlled mill for precise subtractive machining.",
+      },
+      {
+        name: "CNC Lathe",
+        description: "Automated turning machine for cylindrical parts and shafts.",
+      },
+      {
+        name: "Waterjet Cutter",
+        description: "High-pressure cutting system for metal, stone, and composite materials.",
+      },
+      {
+        name: "Surface Grinder",
+        description: "Finishing machine for flat, accurate, and highly smooth surfaces.",
       },
     ],
   },
