@@ -22,8 +22,11 @@ import {
   getPasswordResetStatus,
   resetPassword,
   updateUserProfile,
+  completeUserAgreement,
+  sendUserAgreementReminder,
   AppError,
 } from '../controllers/userControllers';
+import { createAgreementLink, deleteAgreementLink, listAgreementLinks, updateAgreementLink } from '../controllers/agreementControllers';
 
 import { authMiddleware } from "../middleware/auth";
 import type { AuthRequest } from "../middleware/auth"
@@ -250,6 +253,70 @@ router.get("/name", authMiddleware, async (req: AuthRequest, res) => {
         code: 'USER_UPDATE_FAILED',
         message: 'Error updating user profile',
       });
+    }
+  });
+
+  router.post("/profile/:id/agreement/complete", authMiddleware, authorizeStudentSelf('id'), async (req: AuthRequest<{ id: string }>, res) => {
+    try {
+      const data = await completeUserAgreement(req.user!.userId, req.params.id, req.body);
+      return res.json({ message: 'User agreement completed successfully', data });
+    } catch (error) {
+      return sendError(res, error, {
+        statusCode: 500,
+        code: 'AGREEMENT_COMPLETION_FAILED',
+        message: 'Error completing user agreement',
+      });
+    }
+  });
+
+  router.post(
+    "/profile/:id/agreement/reminder",
+    authMiddleware,
+    authorizeRoles(UserRole.ADMIN, UserRole.STAFF, UserRole.MENTOR, UserRole.SUPERVISOR),
+    async (req: AuthRequest<{ id: string }>, res) => {
+      try {
+        const data = await sendUserAgreementReminder(req.user!.userId, req.params.id);
+        return res.json({ message: 'Agreement reminder sent successfully', data });
+      } catch (error) {
+        return sendError(res, error, {
+          statusCode: 500,
+          code: 'AGREEMENT_REMINDER_FAILED',
+          message: 'Error sending agreement reminder',
+        });
+      }
+    },
+  );
+
+  router.get("/agreement-links", authMiddleware, async (_req, res) => {
+    try {
+      return res.json({ message: 'Agreement links', data: await listAgreementLinks() });
+    } catch (error) {
+      return sendError(res, error, { code: 'AGREEMENT_LINKS_FETCH_FAILED', message: 'Error fetching agreement links' });
+    }
+  });
+
+  router.post("/agreement-links", authMiddleware, authorizeRoles(UserRole.ADMIN), async (req, res) => {
+    try {
+      return res.status(201).json({ message: 'Agreement link created', data: await createAgreementLink(req.body) });
+    } catch (error) {
+      return sendError(res, error, { code: 'AGREEMENT_LINK_CREATE_FAILED', message: 'Error creating agreement link' });
+    }
+  });
+
+  router.put("/agreement-links/:linkId", authMiddleware, authorizeRoles(UserRole.ADMIN), async (req: AuthRequest<{ linkId: string }>, res) => {
+    try {
+      return res.json({ message: 'Agreement link updated', data: await updateAgreementLink(req.params.linkId, req.body) });
+    } catch (error) {
+      return sendError(res, error, { code: 'AGREEMENT_LINK_UPDATE_FAILED', message: 'Error updating agreement link' });
+    }
+  });
+
+  router.delete("/agreement-links/:linkId", authMiddleware, authorizeRoles(UserRole.ADMIN), async (req: AuthRequest<{ linkId: string }>, res) => {
+    try {
+      await deleteAgreementLink(req.params.linkId);
+      return res.status(204).send();
+    } catch (error) {
+      return sendError(res, error, { code: 'AGREEMENT_LINK_DELETE_FAILED', message: 'Error deleting agreement link' });
     }
   });
 

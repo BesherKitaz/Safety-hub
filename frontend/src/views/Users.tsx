@@ -1,11 +1,12 @@
-import React, {useState, useEffect} from 'react'
+import {useState, useEffect} from 'react'
 import { Link as RouterLink } from 'react-router-dom'
 
-import { Typography, Box, Paper, Button } from '@mui/material'
+import { Typography, Box, Paper, Button, Stack } from '@mui/material'
 import { DataGrid  } from '@mui/x-data-grid'
 import type { GridColDef } from '@mui/x-data-grid'
 import GradientBox from '../components/ui/GradientBox';
 import SearchBox from '../components/ui/SearchBox';
+import AgreementLinkManager from '../components/AgreementLinkManager';
 
 import api from '../lib/api'
 
@@ -77,6 +78,7 @@ const Users = () => {
     const [filters, setFilters] = useState({
       search: '',
     });
+    const [agreementManagerOpen, setAgreementManagerOpen] = useState(false);
 
 
     useEffect(() => {
@@ -124,10 +126,27 @@ const Users = () => {
 
     return (
     <GradientBox>
-      <Box sx={{ maxWidth: 720, px: { xs: 2, sm: 4, }, mx: "auto", textAlign: "center" }}>
-              <Typography variant="h3" component="h1" sx={{ fontWeight: 700, mb: 1, mt:1 } }>
-                Manage Users
-              </Typography>
+      <Stack direction="row" spacing={2} sx={{ mt: 3, mb: 2, justifyContent: 'flex-end', width: '80%',  px: { xs: 2, sm: 4 } }}>
+          {localStorage.getItem("userRole") === "ADMIN" && (
+            <Button 
+              variant="outlined" 
+              onClick={() => setAgreementManagerOpen(true)}
+              sx={{
+                borderRadius: 2,
+                textTransform: 'none',
+                fontWeight: 800,
+              }}
+            >
+              Manage agreement links
+            </Button>
+          )}
+      </Stack>
+      <Box sx={{ px: { xs: 2, sm: 4 }, display: "flex", alignItems: "center", justifyContent: "center", gap: 2 }}>
+        <Box sx={{ textAlign: "center" }}>
+          <Typography variant="h3" sx={{ fontWeight: 700, mb: 1, mt:1 } }>
+            Manage Users
+          </Typography>
+        </Box>
       </Box>
       <Box
       sx={{
@@ -167,6 +186,7 @@ const Users = () => {
             onPaginationModelChange={(model: { page: number; pageSize: number }) => {setPaginationModel(model)}}
           />  
         </Paper>
+        <AgreementLinkManager open={agreementManagerOpen} onClose={() => setAgreementManagerOpen(false)} />
       </GradientBox>
   );
 };

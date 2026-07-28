@@ -11,6 +11,7 @@ import { AppError } from '../middleware/errorHandler';
 import { sendEmail } from '../services/emailService';
 import path from 'path'
 import { EDITABLE_PROFILE_FIELDS, USER_ROLES, canMutateProfileField, getProfileMutationPermissions, type EditableProfileField, type UserRoleName } from '../util/userProfileAuthorization';
+import { validateSafetyHubAgreementCompletion } from '../util/agreementCompletion';
 
 type User = {
     firstName: string;
@@ -271,6 +272,9 @@ const getUserProfileById = async (id: string) => {
                 id: true,
                 createdAt: true,
                 userAgreementSource: true,
+                userAgreementCompletedAt: true,
+                userAgreementSignature: true,
+                userAgreementAcknowledgements: true,
                 isUserAgreementComplete: true,
                 graduationYear: true,
                 jobTitle: true,
@@ -438,11 +442,8 @@ const updateUserProfile = async (actorId: string, targetId: string, input: Profi
             if (typeof value !== 'string' || !(USER_ROLES as readonly string[]).includes(value)) throw new AppError(400, 'INVALID_ROLE', 'Role is invalid');
             if (!permissions.assignableRoles.includes(value as UserRoleName)) throw new AppError(403, 'ROLE_ASSIGNMENT_FORBIDDEN', `You cannot assign the ${value} role`);
             data.role = value;
-        } else if (field === 'isActive' || field === 'isUserAgreementComplete') {
+        } else if (field === 'isActive') {
             if (typeof value !== 'boolean') throw new AppError(400, 'INVALID_BOOLEAN', `${field} must be a boolean`);
-            if (field === 'isUserAgreementComplete' && actor.id === target.id && value !== true) {
-                throw new AppError(403, 'AGREEMENT_SELF_REVOCATION_FORBIDDEN', 'Users may complete but not revoke their own agreement.');
-            }
             data[field] = value;
         } else if (field === 'graduationYear') {
             const maxYear = new Date().getFullYear() + 10;
@@ -460,19 +461,77 @@ const updateUserProfile = async (actorId: string, targetId: string, input: Profi
         const duplicate = await prisma.user.findFirst({ where: { email: data.email as string, id: { not: targetId } }, select: { id: true } });
         if (duplicate) throw new AppError(409, 'EMAIL_IN_USE', 'A user with this email already exists');
     }
-    if ('isUserAgreementComplete' in data) {
-        data.userAgreementSource = data.isUserAgreementComplete
-            ? actor.id === target.id ? `Self-completed by ${actor.role} (${actor.id})` : `Administrative update by ${actor.role} (${actor.id})`
-            : null;
-    }
     const [updated] = await prisma.$transaction([
         prisma.user.update({
             where: { id: targetId },
             data,
-            select: { id: true, firstName: true, lastName: true, email: true, role: true, graduationYear: true, jobTitle: true, department: true, phoneNumber: true, address: true, isActive: true, isUserAgreementComplete: true, userAgreementSource: true },
+            select: { id: true, firstName: true, lastName: true, email: true, role: true, graduationYear: true, jobTitle: true, department: true, phoneNumber: true, address: true, isActive: true, isUserAgreementComplete: true, userAgreementSource: true, userAgreementCompletedAt: true, userAgreementSignature: true, userAgreementAcknowledgements: true },
         }),
     ]);
     return updated;
+};
+
+const completeUserAgreement = async (actorId: string, targetId: string, input: unknown) => {
+    if (actorId !== targetId) {
+        throw new AppError(403, 'AGREEMENT_COMPLETION_FORBIDDEN', 'Users may only sign their own agreement');
+    }
+
+    const { signatureName, signedDate, acknowledgedLinkIds } = validateSafetyHubAgreementCompletion(input);
+    const agreementLinks = await prisma.agreementLink.findMany({ orderBy: { createdAt: 'asc' } });
+    const requiredIds = new Set(agreementLinks.map((link) => link.id));
+    const submittedIds = new Set(acknowledgedLinkIds);
+    if (requiredIds.size !== submittedIds.size || [...requiredIds].some((id) => !submittedIds.has(id))) {
+        throw new AppError(400, 'AGREEMENT_ACKNOWLEDGEMENTS_REQUIRED', 'Every agreement must be acknowledged before completion');
+    }
+
+    return prisma.user.update({
+        where: { id: targetId },
+        data: {
+            isUserAgreementComplete: true,
+            userAgreementSource: 'Safety Hub',
+            userAgreementCompletedAt: signedDate,
+            userAgreementSignature: signatureName,
+            userAgreementAcknowledgements: agreementLinks.map((link) => ({
+                id: link.id,
+                title: link.title,
+                url: link.url,
+                displayText: link.displayText,
+            })),
+        },
+        select: {
+            id: true,
+            isUserAgreementComplete: true,
+            userAgreementSource: true,
+            userAgreementCompletedAt: true,
+            userAgreementSignature: true,
+            userAgreementAcknowledgements: true,
+        },
+    });
+};
+
+const sendUserAgreementReminder = async (actorId: string, targetId: string) => {
+    if (actorId === targetId) {
+        throw new AppError(400, 'AGREEMENT_REMINDER_SELF_FORBIDDEN', 'You cannot send an agreement reminder to yourself');
+    }
+
+    const target = await prisma.user.findUnique({
+        where: { id: targetId },
+        select: { email: true, firstName: true, isUserAgreementComplete: true },
+    });
+    if (!target) throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
+    if (target.isUserAgreementComplete) {
+        throw new AppError(400, 'AGREEMENT_ALREADY_COMPLETE', 'This user has already completed the agreement');
+    }
+
+    const profileUrl = `${getFrontendBaseUrl()}/user/${targetId}`;
+    await sendEmail({
+        to: target.email,
+        subject: 'Safety Hub user agreement reminder',
+        text: `Hello ${target.firstName}, please complete your BIDC user agreement in Safety Hub: ${profileUrl}`,
+        html: `<h2>Safety Hub</h2><p>Hello ${target.firstName},</p><p>Please complete your BIDC user agreement.</p><p><a href="${profileUrl}">Open your Safety Hub profile</a></p>`,
+    });
+
+    return { email: target.email };
 };
 
 const userSearch = async (query: string) => {
@@ -686,7 +745,7 @@ const validateSignupData = async (userData: { email?: string; password?: string;
 }
 
 
-export { AppError, getUserDataById, getUserProfileById, getUserNameDatabyId, createUser, login, userSearch, getTabularUsers, getUserRoleById, getUserIdByEmail, checkPasswordStrength, validateSignupData, sendVerificationEmail, verifyEmailAddress, getEmailVerificationStatus, sendPasswordResetEmail, verifyPasswordReset, getPasswordResetStatus, resetPassword, updateUserProfile };
+export { AppError, getUserDataById, getUserProfileById, getUserNameDatabyId, createUser, login, userSearch, getTabularUsers, getUserRoleById, getUserIdByEmail, checkPasswordStrength, validateSignupData, sendVerificationEmail, verifyEmailAddress, getEmailVerificationStatus, sendPasswordResetEmail, verifyPasswordReset, getPasswordResetStatus, resetPassword, updateUserProfile, completeUserAgreement, sendUserAgreementReminder };
 
 
 

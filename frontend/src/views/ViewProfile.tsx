@@ -6,11 +6,18 @@ import {
   Box,
   Button,
   ButtonBase,
+  Checkbox,
   Chip,
   Collapse,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   Paper,
+  Link as MuiLink,
   Stack,
+  TextField,
   Typography,
   Alert,
 } from "@mui/material";
@@ -29,6 +36,7 @@ import {
 
 
 import api from "../lib/api";
+import type { AgreementLink } from "../components/AgreementLinkManager";
 
 import GradientBox from "../components/ui/GradientBox";
 
@@ -103,7 +111,9 @@ type UserData  = {
   firstName: string,
   lastName: string,
   isUserAgreementComplete: boolean
-  userAgreementSource: string,
+  userAgreementSource: string | null,
+  userAgreementCompletedAt: string | null,
+  userAgreementSignature: string | null,
   createdAt: string,
   certsGroupedByLab: CertsGroupedByLab[]
 }
@@ -481,6 +491,16 @@ const Profile = () => {
   const [userData, setUserData] = useState<UserData| null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false)
+  const [agreementDialogOpen, setAgreementDialogOpen] = useState(false);
+  const [agreementSignature, setAgreementSignature] = useState("");
+  const [agreementSignedDate, setAgreementSignedDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [agreementError, setAgreementError] = useState("");
+  const [agreementSubmitting, setAgreementSubmitting] = useState(false);
+  const [agreementLinks, setAgreementLinks] = useState<AgreementLink[]>([]);
+  const [acknowledgedLinkIds, setAcknowledgedLinkIds] = useState<string[]>([]);
+  const [agreementLinksLoading, setAgreementLinksLoading] = useState(false);
+  const [reminderSubmitting, setReminderSubmitting] = useState(false);
+  const [reminderMessage, setReminderMessage] = useState("");
   const { id } = useParams<{ id?: string }>();
   const profileId = id?.trim();
   const location = useLocation();
@@ -536,12 +556,55 @@ const Profile = () => {
   const labsCertifiedIn = userData.certsGroupedByLab.length;
   const isOwnProfile = localStorage.getItem('userId') === userData.id;
   const completeOwnAgreement = async () => {
+    const signatureName = agreementSignature.trim();
+    if (!signatureName || !agreementSignedDate || acknowledgedLinkIds.length !== agreementLinks.length) {
+      setAgreementError("Open and acknowledge every agreement, then enter your signature name and signed date.");
+      return;
+    }
+
+    setAgreementSubmitting(true);
+    setAgreementError("");
     try {
-      const response = await api.put(`/api/user/profile/${userData.id}`, { isUserAgreementComplete: true });
+      const response = await api.post(`/api/user/profile/${userData.id}/agreement/complete`, {
+        signatureName,
+        signedDate: agreementSignedDate,
+        acknowledgedLinkIds,
+      });
       setUserData((current) => current ? { ...current, ...response.data.data } : current);
+      setAgreementDialogOpen(false);
     } catch (requestError) {
       console.error('Error completing user agreement:', requestError);
-      setError(true);
+      setAgreementError("The agreement could not be completed. Check your signature and signed date.");
+    } finally {
+      setAgreementSubmitting(false);
+    }
+  };
+  const openAgreementDialog = async () => {
+    setAgreementDialogOpen(true);
+    setAgreementLinksLoading(true);
+    setAgreementError("");
+    setAcknowledgedLinkIds([]);
+    try {
+      const response = await api.get("/api/user/agreement-links");
+      setAgreementLinks(response.data.data);
+    } catch (requestError) {
+      console.error("Error fetching agreement links:", requestError);
+      setAgreementError("The agreement links could not be loaded.");
+    } finally {
+      setAgreementLinksLoading(false);
+    }
+  };
+  const sendAgreementReminder = async () => {
+    setReminderSubmitting(true);
+    setReminderMessage("");
+    try {
+      await api.post(`/api/user/profile/${userData.id}/agreement/reminder`);
+      setReminderMessage(`Agreement reminder sent to ${userData.email}.`);
+    } catch (requestError) {
+      console.error("Error sending agreement reminder:", requestError);
+      setReminderMessage("The agreement reminder could not be sent.");
+    } finally {
+      setReminderSubmitting(false);
     }
   };
   const highestLevel = allCertifications.reduce(
@@ -740,11 +803,18 @@ const Profile = () => {
                   Edit profile
                 </Button>
                 {!userData.isUserAgreementComplete && (
-                  <Button variant="outlined" size="large" sx={{ px: 3 }} onClick={isOwnProfile ? completeOwnAgreement : undefined}>
-                    {isOwnProfile ? 'Complete User Agreement' : 'Send User Agreement'}
+                  <Button
+                    variant="outlined"
+                    size="large"
+                    sx={{ px: 3 }}
+                    onClick={isOwnProfile ? () => void openAgreementDialog() : () => void sendAgreementReminder()}
+                    disabled={reminderSubmitting}
+                  >
+                    {isOwnProfile ? 'Complete User Agreement' : reminderSubmitting ? 'Sending…' : 'Send agreement reminder'}
                   </Button>
                 )}
               </Stack>
+              {reminderMessage && <Alert severity={reminderMessage.startsWith("Agreement reminder sent") ? "success" : "error"}>{reminderMessage}</Alert>}
             </Stack>
 
             <Box
@@ -819,8 +889,8 @@ const Profile = () => {
               <Divider sx={{ my: 2.25 }} />
               <Stack spacing={1.5}>
                 <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.7 }}>
-                  The profile stores a boolean agreement flag, the source used to capture it, and the
-                  record creation date.
+                  The profile stores the completion status, source, signature, and signed date when
+                  the agreement is completed through Safety Hub.
                 </Typography>
                 <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
                   <Chip
@@ -847,7 +917,7 @@ const Profile = () => {
                   />
                   <Chip
                     icon={<CalendarMonthOutlined fontSize="small" />}
-                    label={formatDate(userData.createdAt)}
+                    label={userData.userAgreementCompletedAt ? formatDate(userData.userAgreementCompletedAt) : "No signed date"}
                     variant="outlined"
                     sx={{
                       borderColor: alpha("#D97706", 0.24),
@@ -856,6 +926,13 @@ const Profile = () => {
                       fontWeight: 700,
                     }}
                   />
+                  {userData.userAgreementSignature && (
+                    <Chip
+                      icon={<VerifiedRounded fontSize="small" />}
+                      label={`Signed by ${userData.userAgreementSignature}`}
+                      variant="outlined"
+                    />
+                  )}
                 </Stack>
               </Stack>
             </Paper>
@@ -891,6 +968,67 @@ const Profile = () => {
           </Paper>
         </Box>
       </Box>
+      <Dialog open={agreementDialogOpen} onClose={() => !agreementSubmitting && setAgreementDialogOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Complete user agreement</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              Review every agreement below and check each box to confirm your acknowledgement.
+            </Typography>
+            {agreementError && <Alert severity="error">{agreementError}</Alert>}
+            {agreementLinksLoading ? (
+              <Typography color="text.secondary">Loading agreements…</Typography>
+            ) : agreementLinks.length ? agreementLinks.map((link) => (
+              <Box key={link.id} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, p: 1.5 }}>
+                <Stack direction="row" spacing={1.5} sx={{ alignItems: "flex-start" }}>
+                  <Checkbox
+                    checked={acknowledgedLinkIds.includes(link.id)}
+                    onChange={(_, checked) => setAcknowledgedLinkIds((current) =>
+                      checked ? [...current, link.id] : current.filter((id) => id !== link.id))}
+                    slotProps={{ input: { "aria-label": `Acknowledge ${link.title}` } }}
+                  />
+                  <Box>
+                    <MuiLink href={link.url} target="_blank" rel="noopener noreferrer" sx={{ fontWeight: 800 }}>
+                      {link.title}
+                    </MuiLink>
+                    {link.displayText && <Typography variant="body2" color="text.secondary">{link.displayText}</Typography>}
+                  </Box>
+                </Stack>
+              </Box>
+            )) : (
+              <Alert severity="info">No agreement links are currently configured.</Alert>
+            )}
+            <Typography variant="body2" sx={{ fontWeight: 700 }}>
+              I confirm that I have read, understood and complete the user agreement for the Bechtel Design and Innovation Center at Purdue University School of Engineering Technology.
+            </Typography>
+            <TextField
+              autoFocus
+              required
+              label="Signature name"
+              value={agreementSignature}
+              onChange={(event) => setAgreementSignature(event.target.value)}
+            />
+            <TextField
+              required
+              label="Signed date"
+              type="date"
+              value={agreementSignedDate}
+              onChange={(event) => setAgreementSignedDate(event.target.value)}
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAgreementDialogOpen(false)} disabled={agreementSubmitting}>Cancel</Button>
+          <Button
+            onClick={completeOwnAgreement}
+            disabled={agreementSubmitting || agreementLinksLoading || acknowledgedLinkIds.length !== agreementLinks.length}
+            variant="contained"
+          >
+            {agreementSubmitting ? "Completing…" : "Complete agreement"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </GradientBox>
   );
 };

@@ -13,19 +13,6 @@ test('students and supervisors can edit only their own basic fields', () => {
   assert.equal(permissions('STUDENT', 'STUDENT', true).identity, false);
 });
 
-test('every role can complete its own user agreement', () => {
-  for (const role of ['ADMIN', 'STAFF', 'SUPERVISOR', 'MENTOR', 'STUDENT'] as const) {
-    assert.equal(permissions(role, role, true).agreement, true);
-  }
-});
-
-test('mentor and supervisor agreement exceptions are applied only to other permitted users', () => {
-  assert.equal(permissions('MENTOR', 'MENTOR').agreement, true);
-  assert.equal(permissions('MENTOR', 'MENTOR', true).agreement, true);
-  assert.equal(permissions('SUPERVISOR', 'MENTOR').agreement, true);
-  assert.equal(permissions('SUPERVISOR', 'STAFF').agreement, false);
-});
-
 test('staff can manage only student, mentor, and supervisor accounts', () => {
   for (const role of ['STUDENT', 'MENTOR', 'SUPERVISOR'] as const) {
     const result = permissions('STAFF', role);
@@ -47,6 +34,7 @@ test('immutable and secret fields are excluded from the update allowlist', () =>
   assert.equal((EDITABLE_PROFILE_FIELDS as readonly string[]).includes('passwordHash'), false);
   assert.equal((EDITABLE_PROFILE_FIELDS as readonly string[]).includes('createdAt'), false);
   assert.equal((EDITABLE_PROFILE_FIELDS as readonly string[]).includes('updatedAt'), false);
+  assert.equal((EDITABLE_PROFILE_FIELDS as readonly string[]).includes('isUserAgreementComplete'), false);
 });
 
 test('admins can manage every other account but never their own protected fields or status', () => {
