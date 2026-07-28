@@ -41,6 +41,7 @@ const RequireRole = ({ roles, children }: { roles: string[]; children: React.Rea
 
 const operationalRoles = ['ADMIN', 'STAFF', 'SUPERVISOR', 'MENTOR'];
 const managerRoles = ['ADMIN', 'STAFF'];
+const dashboardRoles = ['ADMIN', 'STAFF'];
 
 function App() {
   const [header, setHeader] = useState<Header>({
@@ -58,11 +59,11 @@ function App() {
         <BrowserRouter>
           <Routes>
             <Route element={<RequireAuth><Layout /></RequireAuth>}>
-              <Route path="/" element={<Home />} />
+              <Route path="/" element={<RequireRole roles={dashboardRoles}><Home /></RequireRole>} />
               <Route path="/user" element={<Profile />} />
               <Route path="/user/:id" element={<Profile />} />
               <Route path="/certifications" element={<RequireRole roles={operationalRoles}><Certifications /></RequireRole>} />
-              <Route path="/users" element={<RequireRole roles={managerRoles}><Users /></RequireRole>} />
+              <Route path="/users" element={<RequireRole roles={operationalRoles}><Users /></RequireRole>} />
               <Route path="/lab-management" element={<RequireRole roles={operationalRoles}><Lab /></RequireRole>} />
               <Route path="/lab-management/deactivated" element={<RequireRole roles={operationalRoles}><DeactivatedLabs /></RequireRole>} />
     

@@ -1,12 +1,13 @@
 import {useState, useEffect} from 'react'
 import { Link as RouterLink, useSearchParams } from 'react-router-dom'
 
-import { Typography, Box, Paper, Button, Stack } from '@mui/material'
+import { Typography, Box, Paper, Button, Stack, Chip, Pagination, useMediaQuery } from '@mui/material'
+import { useTheme } from '@mui/material/styles'
 import FilterAltOffOutlined from '@mui/icons-material/FilterAltOffOutlined'
 import { DataGrid  } from '@mui/x-data-grid'
 import type { GridColDef } from '@mui/x-data-grid'
 import GradientBox from '../components/ui/GradientBox';
-import SearchBox from '../components/ui/SearchBox';
+import SearchBox, { MANAGEMENT_SEARCH_DEBOUNCE_MS } from '../components/ui/SearchBox';
 
 import api from '../lib/api'
 
@@ -86,11 +87,23 @@ const columns: GridColDef[] = [
   },
 ];
 
+type CertificationRow = {
+  id: string;
+  holder: string;
+  issuedBy: string;
+  training: string;
+  trainingNode: { lab: { name: string } };
+  issuedTo: { id?: string; email: string };
+  level: string;
+  issuedAt: Date;
+  expiryDate: Date;
+  status: string;
+};
 
 const Certifications = () => {
     const [searchParams] = useSearchParams();
     const initialSearch = searchParams.get('search') ?? '';
-    const [rows, setRows] = useState([]);
+    const [rows, setRows] = useState<CertificationRow[]>([]);
     const [filters, setFilters] = useState({
       holder: '', // not currently used
       issuedBy: '',  // not currently used
@@ -103,6 +116,8 @@ const Certifications = () => {
       page: 0,
       pageSize: 25,
     });
+    const theme = useTheme();
+    const isSmallScreen = useMediaQuery(theme.breakpoints.down('sm'));
 
     // Fetch data and total rows whenever pagination model or filters change
     useEffect(() => {
@@ -120,7 +135,7 @@ const Certifications = () => {
           }),
         }
       });
-        const rowData = response.data.data.map((cert: any) => {
+        const rowData: CertificationRow[] = response.data.data.map((cert: any) => {
           const levelMapper: Record<number, string> = {
             1: 'Beginner',
             2: 'Intermediate',
@@ -149,7 +164,7 @@ const Certifications = () => {
 
     return (
     <GradientBox>
-      <Stack direction="row" spacing={2} sx={{ mt: 3, mb: 2, justifyContent: 'flex-end', width: '80%',  px: { xs: 2, sm: 4 } }}>
+      <Stack direction="row" spacing={2} sx={{ mt: 3, mb: 2, justifyContent: 'flex-end', width: { xs: '100%', sm: '80%' }, px: { xs: 2, sm: 4 } }}>
         <Button
           variant="outlined"
           onClick={() => {
@@ -176,7 +191,7 @@ const Certifications = () => {
       </Box>
       <Box
       sx={{
-          minHeight: "calc(35vh - 72px)",
+          minHeight: { xs: "auto", sm: "calc(35vh - 72px)" },
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -188,6 +203,7 @@ const Certifications = () => {
             <SearchBox
                 initialValue={initialSearch}
                 placeholder="Search by full name, email, training, or lab"
+                debounceMs={MANAGEMENT_SEARCH_DEBOUNCE_MS}
                 onSearch={(value: string) => {
                   setPaginationModel((current) => ({ ...current, page: 0 }));
                   setFilters(prev => ({
@@ -202,7 +218,51 @@ const Certifications = () => {
             </Typography>
           </Box>
         </Box>
-        <Paper  sx={{ height: 600, width: '100%' }}>
+        {isSmallScreen ? (
+          <Stack spacing={1.5} sx={{ px: 2, pb: 3 }}>
+            {rows.length === 0 ? (
+              <Paper elevation={0} sx={{ p: 3, textAlign: "center", border: "1px solid", borderColor: "divider" }}>
+                <Typography color="text.secondary">No certifications match this search.</Typography>
+              </Paper>
+            ) : rows.map((certification) => (
+              <Paper key={certification.id} elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider", borderRadius: 3 }}>
+                <Stack spacing={1.25}>
+                  <Box>
+                    <Typography sx={{ fontWeight: 850, color: "#111827" }}>{certification.holder}</Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: "anywhere" }}>
+                      {certification.issuedTo.email}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="body2" sx={{ fontWeight: 750 }}>{certification.training}</Typography>
+                    <Typography variant="caption" color="text.secondary">{certification.trainingNode.lab.name}</Typography>
+                  </Box>
+                  <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
+                    <Chip size="small" label={certification.level} color="primary" variant="outlined" />
+                    <Chip size="small" label={certification.status} />
+                    <Chip size="small" label={certification.issuedAt.toLocaleDateString()} variant="outlined" />
+                  </Stack>
+                  <Typography variant="caption" color="text.secondary">
+                    Issued by {certification.issuedBy}
+                  </Typography>
+                  <Button fullWidth variant="contained" component={RouterLink} to={`/certifications/${certification.id}`}>
+                    View certification
+                  </Button>
+                </Stack>
+              </Paper>
+            ))}
+            {totalRows > paginationModel.pageSize && (
+              <Pagination
+                count={Math.ceil(totalRows / paginationModel.pageSize)}
+                page={paginationModel.page + 1}
+                onChange={(_, page) => setPaginationModel((current) => ({ ...current, page: page - 1 }))}
+                color="primary"
+                sx={{ alignSelf: "center", pt: 1 }}
+              />
+            )}
+          </Stack>
+        ) : (
+        <Paper sx={{ height: 600, width: '100%' }}>
           <DataGrid
             rows={rows}
             columns={columns}
@@ -215,6 +275,7 @@ const Certifications = () => {
             onPaginationModelChange={(model: { page: number; pageSize: number }) => {setPaginationModel(model)}}
           />  
         </Paper>
+        )}
       </GradientBox>
   );
 };

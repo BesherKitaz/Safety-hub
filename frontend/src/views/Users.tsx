@@ -1,11 +1,12 @@
 import {useState, useEffect} from 'react'
 import { Link as RouterLink } from 'react-router-dom'
 
-import { Typography, Box, Paper, Button, Stack } from '@mui/material'
+import { Typography, Box, Paper, Button, Stack, Chip, Pagination, useMediaQuery } from '@mui/material'
+import { useTheme } from '@mui/material/styles'
 import { DataGrid  } from '@mui/x-data-grid'
 import type { GridColDef } from '@mui/x-data-grid'
 import GradientBox from '../components/ui/GradientBox';
-import SearchBox from '../components/ui/SearchBox';
+import SearchBox, { MANAGEMENT_SEARCH_DEBOUNCE_MS } from '../components/ui/SearchBox';
 import AgreementLinkManager from '../components/AgreementLinkManager';
 
 import api from '../lib/api'
@@ -67,9 +68,18 @@ const columns: GridColDef[] = [
  
 ];
 
+type UserRow = {
+  id: string;
+  fullName: string;
+  email: string;
+  role: string;
+  isUserAgreementComplete: string;
+  userAgreementSource: string;
+  isActive: string;
+};
 
 const Users = () => {
-    const [rows, setRows] = useState([]);
+    const [rows, setRows] = useState<UserRow[]>([]);
     const [totalRows, setTotalRows] = useState(0);
     const [paginationModel, setPaginationModel] = useState({
       page: 0,
@@ -79,6 +89,9 @@ const Users = () => {
       search: '',
     });
     const [agreementManagerOpen, setAgreementManagerOpen] = useState(false);
+    const theme = useTheme();
+    const isSmallScreen = useMediaQuery(theme.breakpoints.down('sm'));
+    const isDirectoryOnlyRole = ['MENTOR', 'SUPERVISOR'].includes(localStorage.getItem('userRole') ?? '');
 
 
     useEffect(() => {
@@ -91,7 +104,7 @@ const Users = () => {
           }
         });
         console.log("Fetched data:", response.data.data);
-      const rowData = response.data.data.map((user: any) => {
+      const rowData: UserRow[] = response.data.data.map((user: any) => {
         return {
           ...user,
           fullName: user.fullName,
@@ -100,7 +113,6 @@ const Users = () => {
           userAgreementSource: user.userAgreementSource || 'N/A',
           id: user.id,
           isActive: user.isActive ? 'Yes' : 'No',
-          filters: filters,
         };
       });
       setRows(rowData);
@@ -133,13 +145,13 @@ const Users = () => {
       <Box sx={{ px: { xs: 2, sm: 4 }, display: "flex", alignItems: "center", justifyContent: "center", gap: 2 }}>
         <Box sx={{ textAlign: "center" }}>
           <Typography variant="h3" sx={{ fontWeight: 700, mb: 1, mt:1 } }>
-            Manage Users
+            {isDirectoryOnlyRole ? 'Member Directory' : 'Manage Users'}
           </Typography>
         </Box>
       </Box>
       <Box
       sx={{
-          minHeight: "calc(35vh - 72px)",
+          minHeight: { xs: "auto", sm: "calc(35vh - 72px)" },
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -150,6 +162,7 @@ const Users = () => {
             <Box sx={{ mb: 2 }}>
             <SearchBox
               placeholder="Search by full name or email"
+              debounceMs={MANAGEMENT_SEARCH_DEBOUNCE_MS}
               onSearch={(value: string) => {
                                 setPaginationModel((current) => ({ ...current, page: 0 }));
                                 setFilters(prev => ({
@@ -164,7 +177,45 @@ const Users = () => {
             </Typography>
           </Box>
         </Box>
-        <Paper  sx={{ height: 600, width: '100%' }}>
+        {isSmallScreen ? (
+          <Stack spacing={1.5} sx={{ px: 2, pb: 3 }}>
+            {rows.length === 0 ? (
+              <Paper elevation={0} sx={{ p: 3, textAlign: "center", border: "1px solid", borderColor: "divider" }}>
+                <Typography color="text.secondary">No members match this search.</Typography>
+              </Paper>
+            ) : rows.map((user) => (
+              <Paper key={user.id} elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider", borderRadius: 3 }}>
+                <Stack spacing={1.25}>
+                  <Box>
+                    <Typography sx={{ fontWeight: 850, color: "#111827" }}>{user.fullName}</Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: "anywhere" }}>{user.email}</Typography>
+                  </Box>
+                  <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
+                    <Chip size="small" label={user.role} />
+                    <Chip
+                      size="small"
+                      color={user.isUserAgreementComplete === "Yes" ? "success" : "default"}
+                      label={user.isUserAgreementComplete === "Yes" ? "Agreement complete" : "Agreement pending"}
+                    />
+                  </Stack>
+                  <Button fullWidth variant="contained" component={RouterLink} to={`/user/${user.id}`}>
+                    View profile
+                  </Button>
+                </Stack>
+              </Paper>
+            ))}
+            {totalRows > paginationModel.pageSize && (
+              <Pagination
+                count={Math.ceil(totalRows / paginationModel.pageSize)}
+                page={paginationModel.page + 1}
+                onChange={(_, page) => setPaginationModel((current) => ({ ...current, page: page - 1 }))}
+                color="primary"
+                sx={{ alignSelf: "center", pt: 1 }}
+              />
+            )}
+          </Stack>
+        ) : (
+        <Paper sx={{ height: 600, width: '100%' }}>
           <DataGrid
             rows={rows}
             columns={columns}
@@ -175,8 +226,9 @@ const Users = () => {
             checkboxSelection
             sx={{ border: 0 }}
             onPaginationModelChange={(model: { page: number; pageSize: number }) => {setPaginationModel(model)}}
-          />  
+          />
         </Paper>
+        )}
         <AgreementLinkManager open={agreementManagerOpen} onClose={() => setAgreementManagerOpen(false)} />
       </GradientBox>
   );

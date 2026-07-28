@@ -12,6 +12,8 @@ import { sendEmail } from '../services/emailService';
 import path from 'path'
 import { EDITABLE_PROFILE_FIELDS, USER_ROLES, canMutateProfileField, getProfileMutationPermissions, type EditableProfileField, type UserRoleName } from '../util/userProfileAuthorization';
 import { validateSafetyHubAgreementCompletion } from '../util/agreementCompletion';
+import { directoryTargetRoles } from '../middleware/resourceAuthorization';
+import { UserRole } from '@prisma/client';
 
 type User = {
     firstName: string;
@@ -353,15 +355,26 @@ const getUserProfileById = async (id: string) => {
     }
 }
 
-const getTabularUsers = async (page: number, pageSize: number, filters: { search: string }) => {
+const getTabularUsers = async (
+    page: number,
+    pageSize: number,
+    filters: { search: string },
+    actorRole: UserRoleName,
+) => {
     try {
         const skip = (page - 1) * pageSize;
-        const where = filters.search ? {
-            OR: [
+        const searchWhere = filters.search
+          ? {
+              OR: [
                 { email: { contains: filters.search, mode: "insensitive" as const } },
                 { fullName: { contains: filters.search, mode: "insensitive" as const } },
-            ],
-        } : {};
+              ],
+            }
+          : {};
+        const targetRoles = directoryTargetRoles(actorRole as UserRole);
+        const where = targetRoles
+          ? { role: { in: targetRoles }, ...searchWhere }
+          : searchWhere;
         const [users, totalRows] = await prisma.$transaction([
           prisma.user.findMany({
             skip,

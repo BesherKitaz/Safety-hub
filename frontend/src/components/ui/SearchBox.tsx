@@ -16,6 +16,7 @@ type SearchBoxProps = {
   debounceMs?: number;
 };
 
+export const MANAGEMENT_SEARCH_DEBOUNCE_MS = 750;
 
 
 const SearchBox = ({
@@ -23,7 +24,7 @@ const SearchBox = ({
   buttonLabel = "Search",
   initialValue = "",
   onSearch,
-  debounceMs = 750,
+  debounceMs = MANAGEMENT_SEARCH_DEBOUNCE_MS,
 }: SearchBoxProps) => {
   const [query, setQuery] = useState(initialValue);
   const onSearchRef = useRef(onSearch);

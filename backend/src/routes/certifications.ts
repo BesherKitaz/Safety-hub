@@ -19,6 +19,7 @@ import {
   authorizeCertificationIssuance,
   authorizeCertificationRead,
   authorizeRoles,
+  DASHBOARD_ROLES,
   RESOURCE_MANAGER_ROLES,
   RESOURCE_READER_ROLES,
 } from '../middleware/resourceAuthorization';
@@ -66,7 +67,7 @@ router.get('/tabular', authorizeRoles(...RESOURCE_READER_ROLES), async (req, res
 });
 
 
-router.get('/recent', authorizeRoles(...RESOURCE_READER_ROLES), async (req, res) => {
+router.get('/recent', authorizeRoles(...DASHBOARD_ROLES), async (req, res) => {
   try {
     const certifications = await getRecentCertifications();
     return res.json({

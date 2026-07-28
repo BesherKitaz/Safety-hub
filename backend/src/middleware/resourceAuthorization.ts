@@ -14,6 +14,18 @@ export const RESOURCE_READER_ROLES: UserRole[] = [
 
 export const RESOURCE_MANAGER_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.STAFF];
 export const LAB_MANAGER_ROLES: UserRole[] = [UserRole.ADMIN];
+export const DASHBOARD_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.STAFF];
+export const USER_DIRECTORY_ROLES: UserRole[] = [
+  UserRole.ADMIN,
+  UserRole.STAFF,
+  UserRole.SUPERVISOR,
+  UserRole.MENTOR,
+];
+
+export const directoryTargetRoles = (actorRole: UserRole): UserRole[] | undefined =>
+  actorRole === UserRole.MENTOR || actorRole === UserRole.SUPERVISOR
+    ? [UserRole.STUDENT, UserRole.MENTOR, UserRole.SUPERVISOR]
+    : undefined;
 
 export const canIssueCertification = (role: UserRole, level: number) =>
   RESOURCE_READER_ROLES.includes(role) && (role !== UserRole.MENTOR || level <= 2);

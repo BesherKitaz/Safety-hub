@@ -32,8 +32,9 @@ import { authMiddleware } from "../middleware/auth";
 import type { AuthRequest } from "../middleware/auth"
 import prisma from '../lib/prisma';
 import { sendError } from '../middleware/errorHandler';
-import { authorizeRoles, authorizeStudentSelf, RESOURCE_READER_ROLES } from '../middleware/resourceAuthorization';
+import { authorizeRoles, authorizeStudentSelf, RESOURCE_READER_ROLES, USER_DIRECTORY_ROLES } from '../middleware/resourceAuthorization';
 import { UserRole } from '@prisma/client';
+import type { UserRoleName } from '../util/userProfileAuthorization';
 
 const router = Router();
 
@@ -272,7 +273,7 @@ router.get("/name", authMiddleware, async (req: AuthRequest, res) => {
   router.post(
     "/profile/:id/agreement/reminder",
     authMiddleware,
-    authorizeRoles(UserRole.ADMIN, UserRole.STAFF, UserRole.MENTOR, UserRole.SUPERVISOR),
+    authorizeRoles(...USER_DIRECTORY_ROLES),
     async (req: AuthRequest<{ id: string }>, res) => {
       try {
         const data = await sendUserAgreementReminder(req.user!.userId, req.params.id);
@@ -339,12 +340,16 @@ router.get("/name", authMiddleware, async (req: AuthRequest, res) => {
 
     
   // Get Users for the table of users page
-  router.get("/tabular", authMiddleware, authorizeRoles(UserRole.ADMIN, UserRole.STAFF), async (req: AuthRequest, res) => {
+  router.get(
+    "/tabular",
+    authMiddleware,
+    authorizeRoles(UserRole.ADMIN, UserRole.STAFF, UserRole.MENTOR, UserRole.SUPERVISOR),
+    async (req: AuthRequest, res) => {
     try {
         const page = Number(req.query.page) || 1;
         const pageSize = Number(req.query.pageSize) || 10;
         const search = String(req.query.search ?? "").trim().toLocaleLowerCase();
-        const result = await getTabularUsers(page, pageSize, { search });
+        const result = await getTabularUsers(page, pageSize, { search }, req.user!.role as UserRoleName);
         res.json({
             message: "Recent users fetched successfully",
             data: result.users,
@@ -359,7 +364,8 @@ router.get("/name", authMiddleware, async (req: AuthRequest, res) => {
         message: 'Error fetching tabular users data',
       });
     }
-  });
+    },
+  );
 
   
 // Create User Route

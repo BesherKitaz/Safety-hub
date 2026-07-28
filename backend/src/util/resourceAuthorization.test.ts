@@ -5,6 +5,8 @@ import { UserRole } from '@prisma/client';
 
 import {
   LAB_MANAGER_ROLES,
+  DASHBOARD_ROLES,
+  USER_DIRECTORY_ROLES,
   RESOURCE_MANAGER_ROLES,
   RESOURCE_READER_ROLES,
   authorizeCertificationIssuance,
@@ -13,6 +15,7 @@ import {
   canIssueCertification,
   canReadCertification,
   canManageCertifications,
+  directoryTargetRoles,
 } from '../middleware/resourceAuthorization';
 import { AppError } from '../middleware/errorHandler';
 
@@ -25,6 +28,21 @@ test('all operational roles can read managed resources', () => {
 
 test('only admins manage labs', () => {
   assert.deepEqual(LAB_MANAGER_ROLES, [UserRole.ADMIN]);
+});
+
+test('only admins and staff can access dashboard data', () => {
+  assert.equal(DASHBOARD_ROLES.includes(UserRole.MENTOR), false);
+  assert.equal(DASHBOARD_ROLES.includes(UserRole.SUPERVISOR), false);
+  assert.deepEqual(DASHBOARD_ROLES, [UserRole.ADMIN, UserRole.STAFF]);
+});
+
+test('mentors and supervisors receive a student, mentor, and supervisor directory', () => {
+  assert.deepEqual(USER_DIRECTORY_ROLES, operationalRoles);
+  const visibleRoles = [UserRole.STUDENT, UserRole.MENTOR, UserRole.SUPERVISOR];
+  assert.deepEqual(directoryTargetRoles(UserRole.MENTOR), visibleRoles);
+  assert.deepEqual(directoryTargetRoles(UserRole.SUPERVISOR), visibleRoles);
+  assert.equal(directoryTargetRoles(UserRole.ADMIN), undefined);
+  assert.equal(directoryTargetRoles(UserRole.STAFF), undefined);
 });
 
 test('admins and staff manage tools, training nodes, relationships, and certification records', () => {

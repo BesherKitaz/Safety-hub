@@ -170,7 +170,7 @@ const NavigationSidePanelComponent = () => {
 
             if (id === "home") {
             const userRole = localStorage.getItem("userRole");
-            if (userRole !== "ADMIN" && userRole !== "STAFF" && userRole !== "SUPERVISOR") {
+            if (userRole !== "ADMIN" && userRole !== "STAFF") {
               return null; // Skip rendering this item for non-admin users
             }
           }
@@ -223,7 +223,11 @@ const NavigationSidePanelComponent = () => {
               to={to}
               key={to}
               icon={icon}
-              primary={label}
+              primary={
+                id === "manage-members" && ["MENTOR", "SUPERVISOR"].includes(localStorage.getItem("userRole") ?? "")
+                  ? "Member Directory"
+                  : label
+              }
               expanded={expanded}
               onSelect={handleSelect}
             />
