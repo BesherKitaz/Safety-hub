@@ -1,4 +1,5 @@
 import prisma from '../lib/prisma'
+import { getReportingPeriodStarts } from '../util/reportingPeriods';
 
 
 
@@ -10,9 +11,7 @@ import prisma from '../lib/prisma'
 
 const collectStats = async () => {
     
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
+    const { startOfMonth } = getReportingPeriodStarts();
 
 
     const totalStudents = await prisma.user.count({

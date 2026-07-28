@@ -73,9 +73,12 @@ const LabManagement = () => {
       }
 
       try {
-        const labDetails = await api.get(`/api/labs/${encodeURIComponent(labId)}`);
-        const labTools = await api.get(`/api/labs/${encodeURIComponent(labId)}/tools`);
-        const labTrainings = await api.get(`/api/labs/${encodeURIComponent(labId)}/trainingNodes`);
+        const [labDetails, labTools, labTrainings, labCertificationStats] = await Promise.all([
+          api.get(`/api/labs/${encodeURIComponent(labId)}`),
+          api.get(`/api/labs/${encodeURIComponent(labId)}/tools`),
+          api.get(`/api/labs/${encodeURIComponent(labId)}/trainingNodes`),
+          api.get(`/api/labs/${encodeURIComponent(labId)}/certification-stats`),
+        ]);
 
         const labDetailsPayload = labDetails.data?.data as LabDetail | null | undefined;
         if (!labDetailsPayload) {
@@ -86,6 +89,10 @@ const LabManagement = () => {
           ...labDetailsPayload,
           tools: (labTools.data?.data as LabTool[] | null | undefined) ?? [],
           trainingNodes: (labTrainings.data?.data as TrainingNodeSummary[] | null | undefined) ?? [],
+          certificationStats: labCertificationStats.data?.data ?? {
+            certificationsThisMonth: 0,
+            certificationsThisWeek: 0,
+          },
         };
 
         if (active) {
@@ -212,6 +219,14 @@ const LabManagement = () => {
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
                     <Typography variant="body2" color="text.secondary">Trainings</Typography>
                     <Typography variant="body2" sx={{ fontWeight: 800, textAlign: 'right' }}>{trainingNodes.length}</Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
+                    <Typography variant="body2" color="text.secondary">Issued this month</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 800, textAlign: 'right' }}>{labData.certificationStats?.certificationsThisMonth ?? 0}</Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
+                    <Typography variant="body2" color="text.secondary">Issued this week</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 800, textAlign: 'right' }}>{labData.certificationStats?.certificationsThisWeek ?? 0}</Typography>
                   </Box>
                 </Stack>
               </Stack>

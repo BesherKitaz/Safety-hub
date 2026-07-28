@@ -266,6 +266,16 @@ const LabInfoTab = ({ lab, tools, trainingNodes, onLabUpdated }: LabInfoTabProps
               value={<Typography sx={{ fontWeight: 800, fontSize: 28 }}>{trainingNodes.length}</Typography>}
               helper="Training nodes already attached to this lab in the current response."
             />
+            <DetailField
+              label="Certifications issued this month"
+              value={<Typography sx={{ fontWeight: 800, fontSize: 28 }}>{lab.certificationStats?.certificationsThisMonth ?? 0}</Typography>}
+              helper="Certifications issued since the first day of this month through training nodes in this lab."
+            />
+            <DetailField
+              label="Certifications issued this week"
+              value={<Typography sx={{ fontWeight: 800, fontSize: 28 }}>{lab.certificationStats?.certificationsThisWeek ?? 0}</Typography>}
+              helper="Certifications issued since Sunday through training nodes in this lab."
+            />
           </Box>
         </Stack>
       </Paper>

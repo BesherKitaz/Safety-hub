@@ -9,6 +9,7 @@ import {
   getLabById,
   getToolsByLabId,
   getTrainingNodesByLabId,
+  getLabCertificationStats,
   createLab,
   updateLab,
   deactivateLab,
@@ -147,6 +148,19 @@ router.get("/:labId/tools", authorizeRoles(...RESOURCE_READER_ROLES), async (req
     });
   } catch (error) {
     handleLabError(res, error, "Internal server error");
+  }
+});
+
+router.get("/:labId/certification-stats", authorizeRoles(...RESOURCE_READER_ROLES), async (req: AuthRequest, res) => {
+  try {
+    const { labId } = req.params;
+    if (!labId) return sendError(res, new AppError(400, 'LAB_ID_REQUIRED', 'Lab ID is required'));
+    return res.json({
+      message: "Lab certification statistics fetched successfully",
+      data: await getLabCertificationStats(labId),
+    });
+  } catch (error) {
+    handleLabError(res, error, "Failed to fetch lab certification statistics");
   }
 });
 

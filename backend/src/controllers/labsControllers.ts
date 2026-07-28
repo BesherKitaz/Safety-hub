@@ -1,5 +1,6 @@
 import prisma from '../lib/prisma'
 import { AppError } from '../middleware/errorHandler';
+import { getReportingPeriodStarts } from '../util/reportingPeriods';
 const prismaAny = prisma as any
 
 class LabIdRequiredError extends AppError {
@@ -171,6 +172,26 @@ const getToolsByLabId = async (labId: string) => {
     }
 }
 
+const getLabCertificationStats = async (labId: string) => {
+    if (!labId) throw new LabIdRequiredError();
+
+    const lab = await prismaAny.lab.findUnique({ where: { id: labId }, select: { id: true } });
+    if (!lab) throw new AppError(404, 'LAB_NOT_FOUND', 'Lab not found');
+
+    const { startOfMonth, startOfWeek } = getReportingPeriodStarts();
+    const labWhere = { trainingNode: { labId } };
+    const [certificationsThisMonth, certificationsThisWeek] = await prismaAny.$transaction([
+        prismaAny.certification.count({
+            where: { ...labWhere, issuedAt: { gte: startOfMonth } },
+        }),
+        prismaAny.certification.count({
+            where: { ...labWhere, issuedAt: { gte: startOfWeek } },
+        }),
+    ]);
+
+    return { certificationsThisMonth, certificationsThisWeek };
+};
+
 const createLab = async (labData: LabInput) => {
     const name = labData.name.trim();
     const description = normalizeOptionalText(labData.description);
@@ -277,6 +298,7 @@ export {
     getLabById,
     getToolsByLabId,
     getTrainingNodesByLabId,
+    getLabCertificationStats,
     createLab,
     updateLab,
     deactivateLab,
@@ -284,7 +306,6 @@ export {
     LabIdRequiredError,
     AppError,
 }
-
 
 
 

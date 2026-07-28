@@ -26,6 +26,10 @@ type LabDetail = {
   isActive?: boolean | null;
   tools?: LabTool[] | null;
   trainingNodes?: TrainingNodeSummary[] | null;
+  certificationStats?: {
+    certificationsThisMonth: number;
+    certificationsThisWeek: number;
+  } | null;
 };
 
 
