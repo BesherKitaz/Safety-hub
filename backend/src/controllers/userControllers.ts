@@ -356,22 +356,23 @@ const getUserProfileById = async (id: string) => {
 const getTabularUsers = async (page: number, pageSize: number, filters: { search: string }) => {
     try {
         const skip = (page - 1) * pageSize;
-        const users = await prisma.user.findMany({
+        const where = filters.search ? {
+            OR: [
+                { email: { contains: filters.search, mode: "insensitive" as const } },
+                { fullName: { contains: filters.search, mode: "insensitive" as const } },
+            ],
+        } : {};
+        const [users, totalRows] = await prisma.$transaction([
+          prisma.user.findMany({
             skip,
             take: pageSize,
-            // Filter users based on search query
-            where: {
-                OR: [
-                    { email: { contains: filters.search, mode: "insensitive" } },
-                    { firstName: { contains: filters.search, mode: "insensitive" } },
-                    { lastName: { contains: filters.search, mode: "insensitive" } },
-                ],
-            },
+            where,
             select: {
                 id: true,
                 email: true,
                 firstName: true,
                 lastName: true,
+                fullName: true,
                 role: true,
                 isUserAgreementComplete: true,
                 userAgreementSource: true,
@@ -381,8 +382,10 @@ const getTabularUsers = async (page: number, pageSize: number, filters: { search
             orderBy: {
                 createdAt: 'desc',
             }
-        })
-        return users;
+          }),
+          prisma.user.count({ where }),
+        ]);
+        return { users, totalRows };
     } catch (error) {
         console.error("Error fetching tabular users:", error);
         throw error;

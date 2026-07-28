@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react'
+import {useState, useEffect} from 'react'
 import { Link as RouterLink, useSearchParams } from 'react-router-dom'
 
 import { Typography, Box, Paper, Button, Stack } from '@mui/material'
@@ -106,16 +106,6 @@ const Certifications = () => {
 
     // Fetch data and total rows whenever pagination model or filters change
     useEffect(() => {
-    const getTotalRows = async () => {
-      try {
-          const response = await api.get('/api/certifications/tabular/total-rows');
-          setTotalRows(response.data.data);
-        } catch (error) {
-          console.error("Error fetching total rows:", error);
-        }
-      }
-
-
     const fetchData = async () => {
       const response = await api.get('/api/certifications/tabular', {
         params: {
@@ -131,15 +121,15 @@ const Certifications = () => {
         }
       });
         const rowData = response.data.data.map((cert: any) => {
-          const levelMapper = {
+          const levelMapper: Record<number, string> = {
             1: 'Beginner',
             2: 'Intermediate',
             3: 'Advanced',
           }
           return {
             ...cert,
-            holder: `${cert.issuedTo.firstName} ${cert.issuedTo.lastName}`,
-            issuedBy: `${cert.issuedBy.firstName} ${cert.issuedBy.lastName}`,
+            holder: cert.issuedTo.fullName,
+            issuedBy: cert.issuedBy.fullName,
             issuedAt: new Date(cert.issuedAt),
             lastUpdated: new Date(cert.lastUpdated),
             expiryDate: new Date(cert.expiryDate),
@@ -149,9 +139,9 @@ const Certifications = () => {
         });
       console.log("Row Data:", rowData);
       setRows(rowData);
+      setTotalRows(response.data.meta.totalRows);
       }
       fetchData();
-      getTotalRows();
 
       }, [paginationModel, filters]);
 
@@ -163,6 +153,7 @@ const Certifications = () => {
         <Button
           variant="outlined"
           onClick={() => {
+            setPaginationModel((current) => ({ ...current, page: 0 }));
             setFilters(prev => ({
               ...prev,
               status: !prev.status,
@@ -196,7 +187,9 @@ const Certifications = () => {
             <Box sx={{ mb: 2 }}>
             <SearchBox
                 initialValue={initialSearch}
+                placeholder="Search by full name, email, training, or lab"
                 onSearch={(value: string) => {
+                  setPaginationModel((current) => ({ ...current, page: 0 }));
                   setFilters(prev => ({
                     ...prev,
                     search: value,
@@ -205,7 +198,7 @@ const Certifications = () => {
             />
             </Box>
             <Typography variant="body1" sx={{ color: "text.secondary", lineHeight: 1.7 }}>
-                Quick Search for Certifications. Search by student email or Lab
+                Search automatically by holder or issuer name, email, training, or lab.
             </Typography>
           </Box>
         </Box>

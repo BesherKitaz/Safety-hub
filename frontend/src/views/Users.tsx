@@ -82,17 +82,6 @@ const Users = () => {
 
 
     useEffect(() => {
-    const getTotalRows = async () => {
-      try {
-          const response = await api.get('/api/user/tabular/total-rows');
-          console.log("Total rows:", response.data.data);
-          setTotalRows(response.data.data);
-        } catch (error) {
-          console.error("Error fetching total rows:", error);
-        }
-      }
-
-
     const fetchData = async () => {
       const response = await api.get('/api/user/tabular', {
         params: {
@@ -105,7 +94,7 @@ const Users = () => {
       const rowData = response.data.data.map((user: any) => {
         return {
           ...user,
-          fullName: `${user.firstName} ${user.lastName}`,
+          fullName: user.fullName,
           email: `${user.email}`,
           isUserAgreementComplete: user.isUserAgreementComplete ? 'Yes' : 'No',
           userAgreementSource: user.userAgreementSource || 'N/A',
@@ -115,10 +104,10 @@ const Users = () => {
         };
       });
       setRows(rowData);
+      setTotalRows(response.data.meta.totalRows);
       }
 
       fetchData();
-      getTotalRows();
 
       }, [paginationModel, filters])
 
@@ -160,7 +149,9 @@ const Users = () => {
         <Box sx={{ maxWidth: 720, px: { xs: 2, sm: 4 } }}>
             <Box sx={{ mb: 2 }}>
             <SearchBox
+              placeholder="Search by full name or email"
               onSearch={(value: string) => {
+                                setPaginationModel((current) => ({ ...current, page: 0 }));
                                 setFilters(prev => ({
                                   ...prev,
                                   search: value,
@@ -169,7 +160,7 @@ const Users = () => {
             />
             </Box>
             <Typography variant="body1" sx={{ color: "text.secondary", lineHeight: 1.7 }}>
-                Quick Search for Users. Search by user email or Lab
+                Search automatically by a member’s full name or email address.
             </Typography>
           </Box>
         </Box>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import InputAdornment from "@mui/material/InputAdornment";
@@ -13,6 +13,7 @@ type SearchBoxProps = {
   buttonLabel?: string;
   initialValue?: string;
   onSearch?: (query: string) => void;
+  debounceMs?: number;
 };
 
 
@@ -22,11 +23,37 @@ const SearchBox = ({
   buttonLabel = "Search",
   initialValue = "",
   onSearch,
+  debounceMs = 750,
 }: SearchBoxProps) => {
   const [query, setQuery] = useState(initialValue);
+  const onSearchRef = useRef(onSearch);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSearchedQueryRef = useRef(initialValue.trim());
+
+  useEffect(() => {
+    onSearchRef.current = onSearch;
+  }, [onSearch]);
+
+  useEffect(() => {
+    const normalizedQuery = query.trim();
+    if (normalizedQuery === lastSearchedQueryRef.current) return;
+
+    timerRef.current = setTimeout(() => {
+      lastSearchedQueryRef.current = normalizedQuery;
+      onSearchRef.current?.(normalizedQuery);
+      timerRef.current = null;
+    }, debounceMs);
+
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [query, debounceMs]);
 
   const handleSearch = () => {
-    onSearch?.(query.trim());
+    if (timerRef.current) clearTimeout(timerRef.current);
+    const normalizedQuery = query.trim();
+    lastSearchedQueryRef.current = normalizedQuery;
+    onSearchRef.current?.(normalizedQuery);
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {

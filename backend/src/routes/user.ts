@@ -344,10 +344,11 @@ router.get("/name", authMiddleware, async (req: AuthRequest, res) => {
         const page = Number(req.query.page) || 1;
         const pageSize = Number(req.query.pageSize) || 10;
         const search = String(req.query.search ?? "").trim().toLocaleLowerCase();
-        const users = await getTabularUsers(page, pageSize, { search });
+        const result = await getTabularUsers(page, pageSize, { search });
         res.json({
             message: "Recent users fetched successfully",
-            data: users
+            data: result.users,
+            meta: { totalRows: result.totalRows },
         });
 
     } catch (error) {

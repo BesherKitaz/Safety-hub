@@ -54,10 +54,11 @@ router.get('/tabular', authorizeRoles(...RESOURCE_READER_ROLES), async (req, res
     const filters = req.query.filters ? JSON.parse(req.query.filters as string) : {};
     console.log('Filters received:', filters);
     const skip = (page - 1) * pageSize;
-    const certifications = await getTabularCertifications(skip, pageSize, filters.status, filters.search ?? '');
+    const result = await getTabularCertifications(skip, pageSize, filters.status, filters.search ?? '');
     return res.json({
       message: 'Recent certifications fetched successfully',
-      data: certifications,
+      data: result.certifications,
+      meta: { totalRows: result.totalRows },
     });
   } catch (error) {
     handleCertificationError(res, error, 'Failed to fetch recent certifications');

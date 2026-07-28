@@ -355,17 +355,9 @@ const getTabularCertifications = async (
       OR: [
         {
           issuedTo: {
-            firstName: {
+            fullName: {
               contains: search,
-              mode: "insensitive",
-            },
-          },
-        },
-        {
-          issuedTo: {
-            lastName: {
-              contains: search,
-              mode: "insensitive",
+              mode: "insensitive" as const,
             },
           },
         },
@@ -379,15 +371,15 @@ const getTabularCertifications = async (
         },
         {
           issuedBy: {
-            firstName: {
+            fullName: {
               contains: search,
-              mode: "insensitive",
+              mode: "insensitive" as const,
             },
           },
         },
         {
           issuedBy: {
-            lastName: {
+            email: {
               contains: search,
               mode: "insensitive",
             },
@@ -440,6 +432,7 @@ const getTabularCertifications = async (
         select: {
           firstName: true,
           lastName: true,
+          fullName: true,
           email: true,
           role: true,
         },
@@ -448,6 +441,7 @@ const getTabularCertifications = async (
         select: {
           firstName: true,
           lastName: true,
+          fullName: true,
           email: true,
           role: true,
         },
@@ -456,6 +450,12 @@ const getTabularCertifications = async (
       expiryDate: true,
       status: true,
       level: true,
+    },
+  });
+  const totalRows = await prisma.certification.count({
+    where: {
+      status: normalizedStatus,
+      AND: where,
     },
   });
 
@@ -467,10 +467,13 @@ const getTabularCertifications = async (
     latestHistoryRows.map((history: { certificationId: string; changedAt: Date }) => [history.certificationId, history.changedAt])
   );
 
-  return certifications.map((cert: any) => ({
-    ...cert,
-    lastUpdated: latestHistoryByCertId.get(cert.id) ?? cert.issuedAt,
-  }));
+  return {
+    certifications: certifications.map((cert: any) => ({
+      ...cert,
+      lastUpdated: latestHistoryByCertId.get(cert.id) ?? cert.issuedAt,
+    })),
+    totalRows,
+  };
 };
 
 const selectCertificationHistoryRowsForTabular = async (certificationIds: string[]) => {
