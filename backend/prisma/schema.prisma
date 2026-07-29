@@ -146,8 +146,8 @@ model CertificationHistory {
   certification   Certification @relation("CertificationHistory", fields: [certificationId], references: [id])
 
   // snapshot BEFORE action
-  levelBefore     Int
-  statusBefore    CertificationStatus
+  levelBefore     Int?
+  statusBefore    CertificationStatus?
   expiryDateBefore DateTime?
   notesBefore     String?
 
@@ -157,8 +157,8 @@ model CertificationHistory {
   expiryDateAfter DateTime?
   notesAfter      String?
 
-  trainingNodeIdBefore String
-  trainingNodeBefore   TrainingNode @relation("TrainingNodeCertificationHistory", fields: [trainingNodeIdBefore], references: [id])
+  trainingNodeIdBefore String?
+  trainingNodeBefore   TrainingNode? @relation("TrainingNodeCertificationHistory", fields: [trainingNodeIdBefore], references: [id])
   trainingNodeIdAfter  String
   trainingNodeAfter    TrainingNode @relation("TrainingNodeCertificationHistoryAfter", fields: [trainingNodeIdAfter], references: [id])
 

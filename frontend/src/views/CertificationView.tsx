@@ -3,14 +3,20 @@ import axios from 'axios';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import { alpha } from '@mui/material/styles';
 import {
-    Alert,
+  Alert,
   Box,
   Button,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   Divider,
   Link,
   Paper,
   Stack,
+  TextField,
   Typography,
 } from '@mui/material';
 import {
@@ -208,8 +214,9 @@ const CertificationView = () => {
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  
   const [actionLoading, setActionLoading] = useState(false);
+  const [revokeDialogOpen, setRevokeDialogOpen] = useState(false);
+  const [revokeReason, setRevokeReason] = useState('');
 
   useEffect(() => {
     const fetchCertification = async () => {
@@ -255,13 +262,13 @@ const CertificationView = () => {
       return;
     }
 
-    if (!window.confirm('Revoking this certification may cascade to dependent certifications for the same holder. Continue?')) {
-      return;
-    }
-
     try {
       setActionLoading(true);
-      await api.put(`/api/certifications/${id}/revoke`);
+      setActionError(null);
+      await api.put(`/api/certifications/${id}/revoke`, {
+        reason: revokeReason,
+      });
+      setRevokeDialogOpen(false);
       window.location.reload();
     } catch (requestError) {
       setActionError(getActionErrorMessage(requestError, 'Failed to revoke certification.'));
@@ -437,7 +444,17 @@ const CertificationView = () => {
                       Unrevoke
                     </Button>
                   ) : (
-                    <Button variant="outlined" color="error" size="large" onClick={handleRevoke} disabled={actionLoading}>
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      size="large"
+                      onClick={() => {
+                        setActionError(null);
+                        setRevokeReason('');
+                        setRevokeDialogOpen(true);
+                      }}
+                      disabled={actionLoading}
+                    >
                       Revoke
                     </Button>
                   )}
@@ -470,7 +487,6 @@ const CertificationView = () => {
               <SectionHeader
                 eyebrow="People"
                 title="Issued to and issued by"
-                description="Only the names are shown here, but each one links to the related user profile."
               />
               <Divider sx={{ my: 2.25 }} />
               <Stack spacing={1.5}>
@@ -519,6 +535,7 @@ const CertificationView = () => {
                 <FieldCard
                   label="Training"
                   value={<Link
+                      component={RouterLink}
                       to={`/lab-management/lab/${training.lab?.id}/training/${training.id}`}
                       underline="hover"
                       sx={{ fontWeight: 700 }}>{training.name}
@@ -645,12 +662,52 @@ const CertificationView = () => {
           </Stack>
         </Box>
       </Box>
+
+      <Dialog
+        open={revokeDialogOpen}
+        onClose={() => {
+          if (!actionLoading) setRevokeDialogOpen(false);
+        }}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle sx={{ fontWeight: 800 }}>Revoke certification?</DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ lineHeight: 1.7 }}>
+            Revoking this certification may also revoke dependent certifications for the same holder.
+            This action will be recorded in certification history.
+          </DialogContentText>
+          <TextField
+            autoFocus
+            fullWidth
+            multiline
+            minRows={3}
+            label="Reason (optional)"
+            value={revokeReason}
+            onChange={(event) => setRevokeReason(event.target.value)}
+            helperText="The reason is stored only in the history entry."
+            sx={{ mt: 2.5 }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Button onClick={() => setRevokeDialogOpen(false)} disabled={actionLoading}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={() => void handleRevoke()}
+            disabled={actionLoading}
+          >
+            {actionLoading ? 'Revoking…' : 'Revoke certification'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </GradientBox>
   );
 };
 
 export default CertificationView;
-
 
 
 

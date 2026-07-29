@@ -1,6 +1,7 @@
 import { Prisma, UserRole } from '@prisma/client';
 import prisma from '../lib/prisma';
 import { AppError } from '../middleware/errorHandler';
+import { buildBeforeSnapshotFields } from '../util/certificationHistorySnapshots';
 
 type DatabaseClient = Prisma.TransactionClient | typeof prisma;
 
@@ -61,11 +62,11 @@ type CertificationHistoryRow = {
   id: string;
   certificationId: string;
   action: CertificationHistoryAction;
-  levelBefore: number;
-  statusBefore: CertificationStatus;
+  levelBefore: number | null;
+  statusBefore: CertificationStatus | null;
   expiryDateBefore: Date | null;
   notesBefore: string | null;
-  trainingNodeIdBefore: string;
+  trainingNodeIdBefore: string | null;
   levelAfter: number;
   statusAfter: CertificationStatus;
   expiryDateAfter: Date | null;
@@ -92,6 +93,18 @@ type CertificationValidationContext = {
 const normalizeOptionalText = (value?: string | null) => {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
+};
+
+const normalizeHistoryReason = (value: unknown) => {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  if (typeof value !== 'string') {
+    throw new AppError(400, 'INVALID_HISTORY_REASON', 'Change reason must be text.');
+  }
+
+  return normalizeOptionalText(value);
 };
 
 const normalizeOptionalDate = (value?: string | Date | null) => {
@@ -668,17 +681,13 @@ const createHistoryEntry = async (
   reason: string | null = null,
   before?: CertificationSnapshot | null
 ) => {
-  const previous = before ?? certification;
+  const previous = before === undefined ? certification : before;
 
-  return tx.certificationHistory.create({
+  return (tx as any).certificationHistory.create({
     data: {
       certificationId: certification.id,
 
-      levelBefore: previous.level,
-      statusBefore: previous.status,
-      expiryDateBefore: previous.expiryDate,
-      notesBefore: previous.notes,
-      trainingNodeIdBefore: previous.trainingNodeId,
+      ...buildBeforeSnapshotFields(previous),
 
       levelAfter: certification.level,
       statusAfter: certification.status,
@@ -713,7 +722,7 @@ const addCertification = async (certification: CertificationInput) => {
         select: certificationDetailSelect,
       });
 
-      await createHistoryEntry(tx, createdCertification as CertificationSnapshot, 'CREATED', certification.issuedById, null);
+      await createHistoryEntry(tx, createdCertification as CertificationSnapshot, 'CREATED', certification.issuedById, null, null);
 
       return createdCertification;
     });
@@ -731,7 +740,12 @@ const addCertification = async (certification: CertificationInput) => {
   }
 };
 
-const updateCertification = async (certificationId: string, updateData: Partial<CertificationInput>, changedById: string) => {
+const updateCertification = async (
+  certificationId: string,
+  updateData: Partial<CertificationInput>,
+  changedById: string,
+  reason?: unknown,
+) => {
   if (!certificationId?.trim()) {
     throw new AppError(400, 'CERTIFICATION_ID_REQUIRED', 'Certification ID is required.');
   }
@@ -761,6 +775,7 @@ const updateCertification = async (certificationId: string, updateData: Partial<
 
   const normalizedExpiry = normalizeOptionalDate(proposal.expiryDate);
   const normalizedNotes = normalizeOptionalText(proposal.notes);
+  const normalizedReason = normalizeHistoryReason(reason);
 
   try {
     return await prisma.$transaction(async (tx) => {
@@ -776,7 +791,7 @@ const updateCertification = async (certificationId: string, updateData: Partial<
         select: certificationDetailSelect,
       });
 
-      await createHistoryEntry(tx, updatedCertification as CertificationSnapshot, 'UPDATED', changedById, null, existing as CertificationSnapshot);
+      await createHistoryEntry(tx, updatedCertification as CertificationSnapshot, 'UPDATED', changedById, normalizedReason, existing as CertificationSnapshot);
 
       return updatedCertification;
     });
@@ -819,7 +834,7 @@ const buildEdgeMaps = (edges: { parentId: string; childId: string }[]) => {
   };
 };
 
-const revokeCertification = async (certificationId: string, changedById: string) => {
+const revokeCertification = async (certificationId: string, changedById: string, reason?: unknown) => {
   if (!certificationId?.trim()) {
     throw new AppError(400, 'CERTIFICATION_ID_REQUIRED', 'Certification ID is required.');
   }
@@ -827,6 +842,7 @@ const revokeCertification = async (certificationId: string, changedById: string)
   if (!changedById?.trim()) {
     throw new AppError(400, 'CHANGED_BY_ID_REQUIRED', 'The user performing this action is required.');
   }
+  const normalizedReason = normalizeHistoryReason(reason);
 
   try {
     return await prisma.$transaction(async (tx) => {
@@ -890,7 +906,7 @@ const revokeCertification = async (certificationId: string, changedById: string)
         const updatedSnapshot = updated as CertificationSnapshot;
         certByNodeLevel.set(`${updatedSnapshot.trainingNodeId}:${updatedSnapshot.level}`, updatedSnapshot);
 
-        await createHistoryEntry(tx, updatedSnapshot, action, changedById, null, before ?? cert);
+        await createHistoryEntry(tx, updatedSnapshot, action, changedById, normalizedReason, before ?? cert);
         return updatedSnapshot;
       };
 

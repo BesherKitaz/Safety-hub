@@ -150,7 +150,8 @@ router.post('/add', authorizeCertificationIssuance, async (req: AuthRequest, res
 
 router.put('/:id', authorizeRoles(...RESOURCE_MANAGER_ROLES), async (req: AuthRequest<{ id: string }>, res) => {
   try {
-    const updatedCertification = await updateCertification(req.params.id, req.body, req.user!.userId);
+    const { reason, ...updateData } = req.body ?? {};
+    const updatedCertification = await updateCertification(req.params.id, updateData, req.user!.userId, reason);
     return res.json({
       message: 'Certification updated successfully',
       data: updatedCertification,
@@ -162,7 +163,7 @@ router.put('/:id', authorizeRoles(...RESOURCE_MANAGER_ROLES), async (req: AuthRe
 
 router.put('/:id/revoke', authorizeRoles(...RESOURCE_MANAGER_ROLES), async (req: AuthRequest<{ id: string }>, res) => {
   try {
-    const updatedCertification = await revokeCertification(req.params.id, req.user!.userId);
+    const updatedCertification = await revokeCertification(req.params.id, req.user!.userId, req.body?.reason);
     return res.json({
       message: 'Certification revoked successfully',
       data: updatedCertification,

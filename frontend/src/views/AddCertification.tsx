@@ -115,6 +115,7 @@ const CertificationForm = () => {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [loadingCertification, setLoadingCertification] = useState(false);
+  const [changeReason, setChangeReason] = useState('');
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -255,7 +256,10 @@ const CertificationForm = () => {
 
     try {
       if (isEditMode && certificationId) {
-        await api.put(`/api/certifications/${certificationId}`, submitData);
+        await api.put(`/api/certifications/${certificationId}`, {
+          ...submitData,
+          reason: changeReason,
+        });
       } else {
         await api.post('/api/certifications/add', submitData);
       }
@@ -442,6 +446,17 @@ const CertificationForm = () => {
 
 
               <TextField label="Notes" value={formData.notes} onChange={handleChange('notes')} fullWidth multiline minRows={4} />
+              {isEditMode && (
+                <TextField
+                  label="Reason for change (optional)"
+                  value={changeReason}
+                  onChange={(event) => setChangeReason(event.target.value)}
+                  fullWidth
+                  multiline
+                  minRows={3}
+                  helperText="This reason is stored only in certification history, not on the certification record."
+                />
+              )}
             </Stack>
 
             {errorMessage && (

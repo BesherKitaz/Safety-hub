@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import axios from 'axios';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import { alpha } from '@mui/material/styles';
@@ -77,11 +77,11 @@ type HistoryRecord = {
   id: string;
   certificationId: string;
   action: string;
-  levelBefore: number;
-  statusBefore: string;
+  levelBefore: number | null;
+  statusBefore: string | null;
   expiryDateBefore: string | null;
   notesBefore: string | null;
-  trainingNodeIdBefore: string;
+  trainingNodeIdBefore: string | null;
   levelAfter: number;
   statusAfter: string;
   expiryDateAfter: string | null;
@@ -300,8 +300,6 @@ const CertificationHistory = () => {
     fetchHistory();
   }, [id, historyId]);
 
-  const activeHistoryRecord = useMemo(() => historyRecord ?? historyRecords[0] ?? null, [historyRecord, historyRecords]);
-
   if (loading) {
     return (
       <GradientBox>
@@ -331,6 +329,11 @@ const CertificationHistory = () => {
   const orderedHistory = [...historyRecords].sort((a, b) => new Date(b.changedAt).getTime() - new Date(a.changedAt).getTime());
   const selectedHistory = historyRecord ?? orderedHistory[0] ?? null;
   const currentTraining = certification.trainingNode;
+  const hasBeforeSnapshot = selectedHistory
+    ? selectedHistory.levelBefore !== null
+      && selectedHistory.statusBefore !== null
+      && selectedHistory.trainingNodeIdBefore !== null
+    : false;
 
   return (
     <GradientBox sx={{ position: 'relative', overflow: 'hidden' }}>
@@ -404,24 +407,34 @@ const CertificationHistory = () => {
                     value={selectedHistory.changedBy ? <Link component={RouterLink} to={`/user/${selectedHistory.changedBy.id}`} underline="hover" sx={{ fontWeight: 700 }}>{formatPerson(selectedHistory.changedBy)}</Link> : <Typography color="text.secondary">Unknown user</Typography>}
                   />
                 </Stack>
+                {selectedHistory.action === 'CREATED' && (
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 2, lineHeight: 1.7 }}>
+                    This is the creation snapshot. It has an after-state showing the issued certification,
+                    but no before-state because the certification did not exist yet.
+                  </Typography>
+                )}
               </Paper>
 
               <SnapshotPanel
                 eyebrow="Before this change"
                 title="Certification data before this action"
-                certification={selectedHistory.action === 'CREATED' ? null : {
+                certification={!hasBeforeSnapshot ? null : {
                   id: selectedHistory.certificationId,
-                  trainingNodeId: selectedHistory.trainingNodeIdBefore,
+                  trainingNodeId: selectedHistory.trainingNodeIdBefore!,
                   notes: selectedHistory.notesBefore,
-                  status: selectedHistory.statusBefore,
-                  level: selectedHistory.levelBefore,
+                  status: selectedHistory.statusBefore!,
+                  level: selectedHistory.levelBefore!,
                   expiryDate: selectedHistory.expiryDateBefore,
                   issuedAt: certification.issuedAt,
                   issuedTo: certification.issuedTo,
                   issuedBy: certification.issuedBy,
                   trainingNode: selectedHistory.trainingNodeBefore,
                 }}
-                emptyMessage="This certification did not exist before this action."
+                emptyMessage={
+                  selectedHistory.action === 'CREATED'
+                    ? 'No before-state exists because this entry records when the certification was first created.'
+                    : 'No before-state was captured for this historical entry.'
+                }
               />
             </Stack>
 
@@ -471,7 +484,12 @@ const CertificationHistory = () => {
                     <Chip icon={<CalendarMonthOutlined fontSize="small" />} label={formatDateTime(record.changedAt)} variant="outlined" />
                   </Stack>
                   <Typography variant="h6" sx={{ fontWeight: 800 }}>{formatAction(record.action)} by {formatPerson(record.changedBy)}</Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.7 }}>{record.reason || 'No reason was provided for this change.'}</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.7 }}>
+                    {record.reason
+                      || (record.action === 'CREATED'
+                        ? 'Initial creation snapshot; there was no previous certification state.'
+                        : 'No reason was provided for this change.')}
+                  </Typography>
                 </Stack>
               </Paper>
             ))}
@@ -483,4 +501,3 @@ const CertificationHistory = () => {
 };
 
 export default CertificationHistory;
-
