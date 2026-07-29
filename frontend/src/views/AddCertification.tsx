@@ -100,6 +100,14 @@ const initialCertificationData: CertificationData = {
   notes: '',
 };
 
+const recentLabStorageKey = () =>
+  `safetyHub:lastCertificationLabId:${localStorage.getItem('userId') ?? 'anonymous'}`;
+
+const getInitialCertificationData = (isEditMode: boolean): CertificationData => ({
+  ...initialCertificationData,
+  labId: isEditMode ? '' : localStorage.getItem(recentLabStorageKey()) ?? '',
+});
+
 const levels: Record<string, string> = {
   1: 'Basic',
   2: 'Trusted',
@@ -113,7 +121,9 @@ const CertificationForm = () => {
   const isEditMode = Boolean(certificationId);
   const prefilledStudentId = !isEditMode ? searchParams.get('studentId')?.trim() ?? '' : '';
 
-  const [formData, setFormData] = useState<CertificationData>(initialCertificationData);
+  const [formData, setFormData] = useState<CertificationData>(() =>
+    getInitialCertificationData(isEditMode)
+  );
   const [labs, setLabs] = useState<Lab[]>([]);
   const [trainings, setTrainings] = useState<Training[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -136,14 +146,42 @@ const CertificationForm = () => {
       }));
     };
 
+  const handleTrainingChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setFormData((current) => ({
+      ...current,
+      trainingId: event.target.value,
+      level: '',
+    }));
+  };
+
   const goBack = () => {
     navigate(isEditMode && certificationId ? `/certifications/${certificationId}` : from);
   };
 
+  const selectedTraining = trainings.find((training) => training.id === formData.trainingId);
+  const eligibleLevels = Object.entries(levels).filter(([level]) => {
+    if (level === '3' && !permissions.canIssueLevel3) {
+      return false;
+    }
+
+    return isEditMode || Number(level) === selectedTraining?.eligibleLevel;
+  });
+
   const fetchLabs = async () => {
     try {
       const response = await api.get('/api/labs/listings');
-      setLabs(Array.isArray(response.data.data) ? response.data.data : []);
+      const fetchedLabs: Lab[] = Array.isArray(response.data.data) ? response.data.data : [];
+      setLabs(fetchedLabs);
+
+      if (!isEditMode) {
+        const recentLabId = localStorage.getItem(recentLabStorageKey());
+        if (recentLabId && !fetchedLabs.some((lab) => lab.id === recentLabId)) {
+          localStorage.removeItem(recentLabStorageKey());
+          setFormData((current) =>
+            current.labId === recentLabId ? { ...current, labId: '' } : current
+          );
+        }
+      }
     } catch (error) {
       console.error('Error fetching labs:', error);
     }
@@ -301,6 +339,7 @@ const CertificationForm = () => {
         });
       } else {
         await api.post('/api/certifications/add', submitData);
+        localStorage.setItem(recentLabStorageKey(), formData.labId);
       }
 
       goBack();
@@ -421,7 +460,7 @@ const CertificationForm = () => {
   fullWidth
   label="Training"
   value={formData.trainingId}
-  onChange={handleChange('trainingId')}
+  onChange={handleTrainingChange}
 >
   {[...trainings]
     .sort((a, b) => {
@@ -499,8 +538,16 @@ const CertificationForm = () => {
     })}
 </TextField>
 
-              <TextField select label="Level" value={formData.level} onChange={handleChange('level')} fullWidth required>
-                {Object.entries(levels).filter(([level]) => level !== '3' || permissions.canIssueLevel3).map(([level, label]) => (
+              <TextField
+                select
+                label="Level"
+                value={formData.level}
+                onChange={handleChange('level')}
+                fullWidth
+                required
+                disabled={!isEditMode && !selectedTraining}
+              >
+                {eligibleLevels.map(([level, label]) => (
                   <MenuItem key={level} value={level}>
                     {label}
                   </MenuItem>
