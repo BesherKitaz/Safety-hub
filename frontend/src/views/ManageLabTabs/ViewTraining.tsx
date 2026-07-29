@@ -1,5 +1,6 @@
 ﻿import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import type { MouseEvent } from 'react';
 import {
   Alert,
   Box,
@@ -24,7 +25,7 @@ import SectionHeader from './components/SectionHeader';
 import { pageSurfaceSx } from './LabDetails';
 import { safeText } from './commons/helperFunctions';
 
-export type TrainingNodeType = 'GENERAL' | 'LAB' | 'TOOL';
+export type TrainingNodeType = 'GENERAL' | 'TOOL';
 
 export type TrainingNodeReference = {
   id: string;
@@ -73,7 +74,6 @@ const normalizeList = <T,>(value: T[] | null | undefined) => (Array.isArray(valu
 
 const typeAccentMap: Record<TrainingNodeType, string> = {
   GENERAL: '#2563EB',
-  LAB: '#0F766E',
   TOOL: '#D97706',
 };
 
@@ -100,12 +100,20 @@ const chipSx = (accent: string) => ({
 });
 
 const buildFlowElements = (trainingNode: TrainingNodeRelationshipResponse) => {
+  const currentAccent = typeAccentMap[trainingNode.type] ?? typeAccentMap.GENERAL;
   const nodes: FlowNode[] = [
     {
       id: trainingNode.id,
       position: { x: 0, y: 0 },
       data: {
         label: safeText(trainingNode.name, trainingNode.id),
+      },
+      style: {
+        border: `3px solid ${currentAccent}`,
+        background: currentAccent,
+        color: '#FFFFFF',
+        fontWeight: 800,
+        boxShadow: `0 0 0 5px ${alpha(currentAccent, 0.16)}, 0 14px 30px ${alpha(currentAccent, 0.28)}`,
       },
     },
   ];
@@ -124,6 +132,14 @@ const buildFlowElements = (trainingNode: TrainingNodeRelationshipResponse) => {
       position,
       data: {
         label: safeText(node.name, node.id),
+      },
+      style: {
+        border: `1px solid ${alpha('#0F172A', 0.18)}`,
+        background: '#FFFFFF',
+        color: '#0F172A',
+        cursor: 'pointer',
+        fontWeight: 700,
+        boxShadow: '0 8px 20px rgba(15, 23, 42, 0.10)',
       },
     });
   };
@@ -264,7 +280,7 @@ const ViewTraining = () => {
     };
   }, [trainingId]);
 
-  const goBackPath = labId ? `/lab-management/lab/${labId}` : '/lab-management';
+  const goBackPath = labId ? `/lab-management/lab/${labId}?tab=trainings` : '/lab-management';
 
   if (loading) {
     return (
@@ -352,6 +368,16 @@ const ViewTraining = () => {
   const trainingName = safeText(trainingData.name, trainingData.id);
   const toolLabel = trainingData.tool ? safeText(trainingData.tool.name, trainingData.tool.id) : 'No tool attached';
   const toolIdLabel = trainingData.toolId ?? 'Not provided';
+  const handleNodeClick = (_event: MouseEvent, node: FlowNode) => {
+    if (node.id === trainingData.id) {
+      return;
+    }
+
+    const targetLabId = labId ?? trainingData.labId;
+    navigate(
+      `/lab-management/lab/${encodeURIComponent(targetLabId)}/training/${encodeURIComponent(node.id)}`,
+    );
+  };
 
   return (
     <GradientBox sx={{ position: 'relative', overflow: 'hidden' }}>
@@ -468,7 +494,7 @@ const ViewTraining = () => {
                     sx={chipSx(accent)}
                   />
                 }
-                helper="Used to distinguish general, lab, and tool nodes."
+                helper="Used to distinguish general and tool nodes."
               />
               <DetailField
                 label="Training ID"
@@ -525,7 +551,7 @@ const ViewTraining = () => {
             <SectionHeader
               eyebrow="Relationship graph"
               title="Node canvas"
-              description="The React Flow surface sits in its own card so the graph can be refined later without reshaping the metadata section above."
+              description="The highlighted node is the training you are viewing. Select any surrounding node to open its details."
               accent="#0F766E"
             />
 
@@ -554,6 +580,9 @@ const ViewTraining = () => {
                 onNodesChange={noop}
                 onEdgesChange={noop}
                 onConnect={noop}
+                onNodeClick={handleNodeClick}
+                nodesDraggable={false}
+                nodesConnectable={false}
                 fitView
               />
             </Box>
@@ -565,4 +594,3 @@ const ViewTraining = () => {
 };
 
 export default ViewTraining;
-

@@ -258,7 +258,9 @@ const TrainingsTab = ({ lab, trainingNodes }: TrainingsTabProps) => {
           <Button
             variant="contained"
             startIcon={<AddIcon />}
-            onClick={() => navigate('/lab-management/training/add')}
+            onClick={() => navigate('/lab-management/training/add', {
+              state: { labId: lab.id },
+            })}
             disabled={!isLabActive}
             sx={{
               flexShrink: 0,

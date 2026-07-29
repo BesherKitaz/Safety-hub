@@ -1,6 +1,7 @@
 import { TrainingNodeType } from '@prisma/client/index-browser';
 import prisma from '../lib/prisma';
 import { AppError, assertLabIsActive } from './labsControllers';
+import { findProposedTrainingCycle } from '../util/trainingGraph';
 
 const prismaAny = prisma as any;
 
@@ -12,6 +13,64 @@ type TrainingNodeData = {
     childTrainingNodeIds: string[];
     name: string;
     description?: string;
+};
+
+const supportedTrainingNodeTypes = new Set<TrainingNodeType>([
+  TrainingNodeType.GENERAL,
+  TrainingNodeType.TOOL,
+]);
+
+const isTrainingNodeType = (value: unknown): value is TrainingNodeType =>
+  supportedTrainingNodeTypes.has(value as TrainingNodeType);
+
+const validateTrainingRequestShape: (data: unknown) => asserts data is TrainingNodeData = (data) => {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    throw new AppError(400, 'INVALID_TRAINING_REQUEST', 'Training details must be provided.');
+  }
+
+  const request = data as Record<string, unknown>;
+
+  if (typeof request.name !== 'string' || !request.name.trim()) {
+    throw new AppError(400, 'NAME_REQUIRED', 'Training name is required.');
+  }
+
+  if (typeof request.labId !== 'string' || !request.labId.trim()) {
+    throw new AppError(400, 'LAB_REQUIRED', 'Lab is required.');
+  }
+
+  if (!isTrainingNodeType(request.type)) {
+    throw new AppError(400, 'INVALID_TRAINING_TYPE', 'Please select a valid training type.');
+  }
+
+  for (const field of ['parentTrainingNodeIds', 'childTrainingNodeIds'] as const) {
+    const ids = request[field];
+    if (
+      !Array.isArray(ids) ||
+      ids.some((id) => typeof id !== 'string' || !id.trim())
+    ) {
+      throw new AppError(
+        400,
+        'INVALID_RELATED_NODES',
+        'Parent and child training nodes must be submitted as valid selections.'
+      );
+    }
+  }
+
+  if (
+    request.toolId !== undefined &&
+    request.toolId !== null &&
+    typeof request.toolId !== 'string'
+  ) {
+    throw new AppError(400, 'INVALID_TOOL', 'Please select a valid tool.');
+  }
+
+  if (
+    request.description !== undefined &&
+    request.description !== null &&
+    typeof request.description !== 'string'
+  ) {
+    throw new AppError(400, 'INVALID_DESCRIPTION', 'Training description must be text.');
+  }
 };
 
 
@@ -32,40 +91,16 @@ const getTrainingNamesAndIdsByLab = async (labId: string) => {
         select: {
             id: true,
             name: true,
+            type: true,
+            labId: true,
             isActive: true,
+            childEdges: {
+              select: {
+                childId: true,
+              },
+            },
         },
     });
-};
-
-
-const hasPath = async (startNodeId: string, targetNodeId: string): Promise<boolean> => {
-  const visited = new Set<string>();
-  const stack = [startNodeId];
-
-  while (stack.length > 0) {
-    const currentId = stack.pop()!;
-
-    if (currentId === targetNodeId) {
-      return true;
-    }
-
-    if (visited.has(currentId)) {
-      continue;
-    }
-
-    visited.add(currentId);
-
-    const edges = await prismaAny.trainingEdge.findMany({
-      where: { parentId: currentId },
-      select: { childId: true },
-    });
-
-    for (const edge of edges) {
-      stack.push(edge.childId);
-    }
-  }
-
-  return false;
 };
 
 const collectDescendantTrainingIds = async (trainingId: string) => {
@@ -133,17 +168,11 @@ const getTrainingRecord = async (trainingId: string) => {
   });
 };
 
-const validateTrainingNodeData = async (data: TrainingNodeData) => {
+const validateTrainingNodeData = async (data: TrainingNodeData, currentTrainingId?: string) => {
+  validateTrainingRequestShape(data);
+
   const parentIds = unique(data.parentTrainingNodeIds);
   const childIds = unique(data.childTrainingNodeIds);
-
-  if (!data.name.trim()) {
-    throw new AppError(400, 'NAME_REQUIRED', 'Training name is required.');
-  }
-
-  if (!data.labId) {
-    throw new AppError(400, 'LAB_REQUIRED', 'Lab is required.');
-  }
 
   await assertLabIsActive(data.labId);
 
@@ -165,6 +194,17 @@ const validateTrainingNodeData = async (data: TrainingNodeData) => {
       400,
       'NODE_CANNOT_BE_PARENT_AND_CHILD',
       'A training node cannot be both a parent and child of the new node.'
+    );
+  }
+
+  if (
+    currentTrainingId &&
+    (parentIds.includes(currentTrainingId) || childIds.includes(currentTrainingId))
+  ) {
+    throw new AppError(
+      400,
+      'TRAINING_SELF_RELATION',
+      'A training node cannot be related directly to itself.'
     );
   }
 
@@ -194,7 +234,7 @@ const validateTrainingNodeData = async (data: TrainingNodeData) => {
       throw new AppError(409, 'TOOL_INACTIVE', 'Selected tool is inactive and cannot be assigned.');
     }
 
-    if (tool.trainingNode) {
+    if (tool.trainingNode && tool.trainingNode.id !== currentTrainingId) {
       throw new AppError(409, 'TOOL_ALREADY_HAS_TRAINING', 'This tool already has a training node.');
     }
   }
@@ -228,14 +268,45 @@ const validateTrainingNodeData = async (data: TrainingNodeData) => {
     throw new AppError(409, 'RELATED_NODE_INACTIVE', 'Selected parent/child training nodes are inactive and cannot be modified.');
   }
 
-  for (const childId of childIds) {
-    for (const parentId of parentIds) {
-      const createsCycle = await hasPath(childId, parentId);
+  const graphNodes = await prismaAny.trainingNode.findMany({
+    where: { labId: data.labId },
+    select: {
+      id: true,
+      name: true,
+      childEdges: {
+        select: {
+          parentId: true,
+          childId: true,
+        },
+      },
+    },
+  });
+  const graphEdges = graphNodes.flatMap((node: any) => node.childEdges);
+  const proposedCycle = findProposedTrainingCycle(
+    graphEdges,
+    parentIds,
+    childIds,
+    currentTrainingId,
+  );
 
-      if (createsCycle) {
-        throw new AppError(409, 'TRAINING_GRAPH_CYCLE', 'This connection would create a cycle in the training prerequisite graph.');
-      }
-    }
+  if (proposedCycle) {
+    const namesById = new Map<string, string>(
+      graphNodes.map((node: any) => [node.id, node.name]),
+    );
+    const currentName = data.name.trim() || 'This training';
+    const cyclePath = [
+      namesById.get(proposedCycle.parentId) ?? proposedCycle.parentId,
+      currentName,
+      ...proposedCycle.existingPath.map(
+        (id) => namesById.get(id) ?? id,
+      ),
+    ].join(' → ');
+
+    throw new AppError(
+      409,
+      'TRAINING_GRAPH_CYCLE',
+      `This relationship would create a cycle: ${cyclePath}. That would make "${currentName}" indirectly depend on itself.`
+    );
   }
 
   return { parentIds, childIds };
@@ -363,7 +434,7 @@ const updateTraining = async (trainingId: string, updateData: TrainingNodeData) 
     throw new AppError(409, 'TRAINING_INACTIVE', 'This training node is inactive and cannot be modified.');
   }
 
-  const { parentIds, childIds } = await validateTrainingNodeData(updateData);
+  const { parentIds, childIds } = await validateTrainingNodeData(updateData, trainingId);
 
   try {
     return await prismaAny.$transaction(async (tx: any) => {
@@ -476,4 +547,3 @@ export {
   activateTraining,
   AppError,
 };
-

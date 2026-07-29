@@ -1,5 +1,5 @@
-import { useEffect, useState, type ReactNode } from 'react';
-import { Link as RouterLink, useParams } from 'react-router-dom';
+import { useEffect, useState, type ReactNode, type SyntheticEvent } from 'react';
+import { Link as RouterLink, useParams, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { alpha } from '@mui/material/styles';
 import { Alert, Box, Button, Chip, CircularProgress, Paper, Stack, Tab, Tabs, Typography } from '@mui/material';
@@ -46,11 +46,17 @@ const TabPanel = ({ children, value, index, idPrefix }: TabPanelProps) => (
 );
 
 const normalizeList = <T,>(value?: T[] | null) => (Array.isArray(value) ? value : []);
+const tabNames = ['info', 'tools', 'trainings'] as const;
 
 const LabManagement = () => {
   const { labId } = useParams<{ labId: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get('tab');
   const [labData, setLabData] = useState<LabDetail | null>(null);
-  const [tab, setTab] = useState(0);
+  const [tab, setTab] = useState(() => {
+    const requestedIndex = tabNames.findIndex((name) => name === requestedTab);
+    return requestedIndex >= 0 ? requestedIndex : 0;
+  });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [reloadToken, setReloadToken] = useState(0);
@@ -132,6 +138,10 @@ const LabManagement = () => {
   }, [labId, reloadToken]);
 
   const refreshLabData = () => setReloadToken((current) => current + 1);
+  const handleTabChange = (_event: SyntheticEvent, value: number) => {
+    setTab(value);
+    setSearchParams({ tab: tabNames[value] ?? tabNames[0] }, { replace: true });
+  };
   const tools = normalizeList(labData?.tools);
   const trainingNodes = normalizeList(labData?.trainingNodes);
 
@@ -235,7 +245,7 @@ const LabManagement = () => {
         </Paper>
 
         <Paper elevation={0} sx={{ ...pageSurfaceSx, overflow: 'hidden' }}>
-          <Tabs value={tab} onChange={(_, value) => setTab(value)} aria-label="Lab management tabs" variant="scrollable" scrollButtons="auto" sx={{ px: { xs: 1, md: 1.5 }, pt: 1, borderBottom: '1px solid', borderColor: alpha('#0F172A', 0.08), '& .MuiTab-root': { textTransform: 'none', fontWeight: 800, minHeight: 52, px: 2.25 } }}>
+          <Tabs value={tab} onChange={handleTabChange} aria-label="Lab management tabs" variant="scrollable" scrollButtons="auto" sx={{ px: { xs: 1, md: 1.5 }, pt: 1, borderBottom: '1px solid', borderColor: alpha('#0F172A', 0.08), '& .MuiTab-root': { textTransform: 'none', fontWeight: 800, minHeight: 52, px: 2.25 } }}>
             <Tab label="Lab Info" id="lab-management-tab-0" aria-controls="lab-management-tabpanel-0" />
             <Tab label="Tools" id="lab-management-tab-1" aria-controls="lab-management-tabpanel-1" />
             <Tab label="Trainings" id="lab-management-tab-2" aria-controls="lab-management-tabpanel-2" />

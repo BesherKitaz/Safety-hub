@@ -33,7 +33,6 @@ const UserRole = {
 
 const TrainingNodeType = {
   GENERAL: "GENERAL",
-  LAB: "LAB",
   TOOL: "TOOL",
 };
 
@@ -273,7 +272,6 @@ async function main() {
   const toolByName = new Map(seededTools.map((tool) => [tool.name, tool]));
 
   const generalNodes = [];
-  const labNodes = [];
 
   for (const lab of labs) {
     const labRecord = labByName.get(lab.name);
@@ -290,34 +288,22 @@ async function main() {
       },
     });
 
-    generalNodes.push(generalNode);
-
-    const labNode = await prisma.trainingNode.create({
-      data: {
-        name: lab.name,
-        type: TrainingNodeType.LAB,
-        labId: labRecord.id,
-      },
-    });
-
-    labNodes.push(labNode);
-
-    await prisma.trainingEdge.create({
-      data: {
-        parentId: generalNode.id,
-        childId: labNode.id,
-      },
+    generalNodes.push({
+      ...generalNode,
+      labName: lab.name,
     });
   }
 
-  const labNodeByName = new Map(labNodes.map((node) => [node.name, node]));
+  const generalNodeByLabName = new Map(
+    generalNodes.map((node) => [node.labName, node]),
+  );
   const toolNodes = [];
 
   for (const lab of labs) {
-    const labNode = labNodeByName.get(lab.name);
+    const generalNode = generalNodeByLabName.get(lab.name);
 
-    if (!labNode) {
-      throw new Error(`Missing seed reference for lab node ${lab.name}`);
+    if (!generalNode) {
+      throw new Error(`Missing seed reference for general training node in ${lab.name}`);
     }
 
     for (const tool of lab.tools) {
@@ -331,7 +317,7 @@ async function main() {
         data: {
           name: tool.name,
           type: TrainingNodeType.TOOL,
-          labId: labNode.labId,
+          labId: generalNode.labId,
           toolId: toolRecord.id,
         },
       });
@@ -344,7 +330,7 @@ async function main() {
 
       await prisma.trainingEdge.create({
         data: {
-          parentId: labNode.id,
+          parentId: generalNode.id,
           childId: toolNode.id,
         },
       });
@@ -399,8 +385,8 @@ async function main() {
   console.log("Admin login: admin@purdue.edu / password123");
   console.log(
     `Seeded ${users.length} users, ${labs.length} labs, ${toolBlueprints.length} tools, ${
-      generalNodes.length + labNodes.length + toolNodes.length
-    } training nodes, ${generalNodes.length + labNodes.length} training edges, and ${
+      generalNodes.length + toolNodes.length
+    } training nodes, ${toolNodes.length} training edges, and ${
       certificationData.length
     } certifications.`,
   );

@@ -217,7 +217,6 @@ model TrainingEdge {
 
 enum TrainingNodeType {
   GENERAL
-  LAB
   TOOL
 }
 

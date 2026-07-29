@@ -1,4 +1,4 @@
-import { Typography, TextField, Paper, Box, MenuItem, Button, Stack, Collapse, Autocomplete, Alert } from '@mui/material'
+import { Typography, TextField, Paper, Box, MenuItem, Button, Stack, Collapse, Autocomplete, Alert, Chip } from '@mui/material'
 import GradientBox from '../../components/ui/GradientBox'
 import React, { useState, useEffect } from 'react'
 
@@ -10,9 +10,8 @@ import axios from 'axios';
 
 
 const TrainingNodeTypeLabels = {
-  GENERAL: "General Training",
-  LAB: "Lab Training",
-  TOOL: "Tool Training",
+  GENERAL: "General",
+  TOOL: "Tool",
 } as const;
 
 type TrainingNodeType = keyof typeof TrainingNodeTypeLabels;
@@ -86,21 +85,99 @@ type TrainingNodeOption = {
   name: string;
   type: TrainingNodeType;
   labId: string;
+  isActive?: boolean;
+  childEdges?: {
+    childId: string;
+  }[];
+};
+
+type CycleDetails = {
+  parentId: string;
+  childId: string;
+  existingPath: string[];
+};
+
+const findDirectedPath = (
+  nodes: TrainingNodeOption[],
+  startId: string,
+  targetId: string,
+  currentTrainingId?: string,
+): string[] | null => {
+  const adjacency = new Map<string, string[]>();
+
+  nodes.forEach((node) => {
+    node.childEdges?.forEach(({ childId }) => {
+      if (
+        node.id === currentTrainingId ||
+        childId === currentTrainingId
+      ) {
+        return;
+      }
+      adjacency.set(node.id, [...(adjacency.get(node.id) ?? []), childId]);
+    });
+  });
+
+  const queue: string[][] = [[startId]];
+  const visited = new Set<string>();
+
+  while (queue.length > 0) {
+    const path = queue.shift()!;
+    const currentId = path[path.length - 1]!;
+    if (currentId === targetId) return path;
+    if (visited.has(currentId)) continue;
+    visited.add(currentId);
+
+    (adjacency.get(currentId) ?? []).forEach((childId) => {
+      if (!visited.has(childId)) queue.push([...path, childId]);
+    });
+  }
+
+  return null;
+};
+
+const findProposedCycle = (
+  nodes: TrainingNodeOption[],
+  parentIds: string[],
+  childIds: string[],
+  currentTrainingId?: string,
+): CycleDetails | null => {
+  for (const parentId of parentIds) {
+    for (const childId of childIds) {
+      const existingPath = findDirectedPath(
+        nodes,
+        childId,
+        parentId,
+        currentTrainingId,
+      );
+      if (existingPath) return { parentId, childId, existingPath };
+    }
+  }
+  return null;
 };
 
 
 type LocationState = {
   from?: string;
+  labId?: string;
+};
+
+type ApiErrorResponse = {
+  error?: {
+    code?: string;
+    message?: string;
+  } | string;
+  message?: string;
 };
 
 const getErrorMessage = (error: unknown, fallback: string) => {
-  if (axios.isAxiosError<{ message?: string; error?: string }>(error)) {
-    return (
-      error.response?.data?.message ??
-      error.response?.data?.error ??
-      error.message ??
-      fallback
-    );
+  if (axios.isAxiosError<ApiErrorResponse>(error)) {
+    const responseError = error.response?.data?.error;
+    const apiMessage =
+      typeof responseError === 'object' && responseError !== null
+        ? responseError.message
+        : responseError;
+
+    return apiMessage ?? error.response?.data?.message ?? fallback;
   }
 
   if (error instanceof Error) {
@@ -147,17 +224,18 @@ const TrainingForm = ({ mode }: { mode: 'create' | 'edit' }) => {
     const [tools, setTools] = useState<Tool[]>([])
     const [trainingNodes, setTrainingNodes] = useState<TrainingNodeOption[]>([]);
     const [errorMessage, setErrorMessage] = useState<string | null>(null)
+    const [isSubmitting, setIsSubmitting] = useState(false)
     const [formData, setFormData] = useState<TrainingNodeData>(
         initialFormData
     )
 
-      const { trainingId } = useParams<{ trainingId: string }>();
+      const { labId, trainingId } = useParams<{ labId: string; trainingId: string }>();
 
       const navigate = useNavigate();
       const location = useLocation();
 
 
-      const from = (location.state as LocationState | null)?.from ?? "/lab-management";
+      const locationState = location.state as LocationState | null;
 
     const handleFormDataChange = (field: string) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> ) => {
         setFormData((prev) => ({
@@ -198,8 +276,6 @@ const TrainingForm = ({ mode }: { mode: 'create' | 'edit' }) => {
       } 
       if (formData.type === 'TOOL') {
         getTools()          
-      } else {
-        setTools([]);
       }
       
     }, [formData.selectedLabId, formData.type])
@@ -225,11 +301,17 @@ const TrainingForm = ({ mode }: { mode: 'create' | 'edit' }) => {
     }, [formData.selectedLabId])
 
     const goBack = () => {
-      navigate(from);
+      const returnLabId = formData.selectedLabId || labId || locationState?.labId;
+      navigate(
+        returnLabId
+          ? `/lab-management/lab/${encodeURIComponent(returnLabId)}?tab=trainings`
+          : '/lab-management',
+      );
     };
 
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setErrorMessage(null);
     if (!formData.selectedLabId) {
       setErrorMessage('Please select a lab before saving the training.');
       return;
@@ -246,6 +328,10 @@ const TrainingForm = ({ mode }: { mode: 'create' | 'edit' }) => {
       setErrorMessage('Training ID is missing from the edit route.');
       return;
     }
+    if (selectedCycle) {
+      setErrorMessage(`${formatCycle(selectedCycle)} This would make the training indirectly depend on itself.`);
+      return;
+    }
 
     const submitData = {
       labId: formData.selectedLabId,
@@ -258,6 +344,7 @@ const TrainingForm = ({ mode }: { mode: 'create' | 'edit' }) => {
     }
 
     try {
+      setIsSubmitting(true);
       if (mode === 'edit') {
         await api.put(`/api/trainings/update/${encodeURIComponent(trainingId as string)}`, submitData);
       } else {
@@ -275,16 +362,54 @@ const TrainingForm = ({ mode }: { mode: 'create' | 'edit' }) => {
             : 'Something went wrong while creating the training.'
         )
       );
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
-    const parentOptions = trainingNodes.filter(
+    const selectableTrainingNodes = trainingNodes.filter(
+      (node) => node.id !== trainingId && node.isActive !== false
+    );
+
+    const parentOptions = selectableTrainingNodes.filter(
       (node) => !formData.childTrainingNodeIds.includes(node.id)
     );
 
-    const childOptions = trainingNodes.filter(
+    const childOptions = selectableTrainingNodes.filter(
       (node) => !formData.parentTrainingNodeIds.includes(node.id)
     );
+
+    const nodeName = (id: string) =>
+      trainingNodes.find((node) => node.id === id)?.name ?? id;
+    const currentNodeName = formData.name.trim() || 'This training';
+    const formatCycle = (cycle: CycleDetails) => {
+      const path = [
+        nodeName(cycle.parentId),
+        currentNodeName,
+        ...cycle.existingPath.map(nodeName),
+      ].join(' → ');
+      return `Cycle: ${path}.`;
+    };
+    const selectedCycle = findProposedCycle(
+      trainingNodes,
+      formData.parentTrainingNodeIds,
+      formData.childTrainingNodeIds,
+      trainingId,
+    );
+    const parentCycle = (candidateId: string) =>
+      findProposedCycle(
+        trainingNodes,
+        [...formData.parentTrainingNodeIds, candidateId],
+        formData.childTrainingNodeIds,
+        trainingId,
+      );
+    const childCycle = (candidateId: string) =>
+      findProposedCycle(
+        trainingNodes,
+        formData.parentTrainingNodeIds,
+        [...formData.childTrainingNodeIds, candidateId],
+        trainingId,
+      );
 
     useEffect(() => {
       if (mode !== 'edit' || !trainingId) return;
@@ -447,6 +572,7 @@ const TrainingForm = ({ mode }: { mode: 'create' | 'edit' }) => {
                     multiple
                     options={parentOptions}
                     getOptionLabel={(option) => option.name}
+                    getOptionDisabled={(option) => Boolean(parentCycle(option.id))}
                     value={trainingNodes.filter(node =>
                       formData.parentTrainingNodeIds.includes(node.id)
                     )}
@@ -456,14 +582,35 @@ const TrainingForm = ({ mode }: { mode: 'create' | 'edit' }) => {
                         parentTrainingNodeIds: value.map(node => node.id),
                       }));
                     }}
+                    renderOption={(props, option) => {
+                      const cycle = parentCycle(option.id);
+                      const { key, ...optionProps } = props;
+                      return (
+                        <Box component="li" key={key} {...optionProps}>
+                          <Box>
+                            <Typography variant="body2">{option.name}</Typography>
+                            {cycle && (
+                              <Typography variant="caption" color="error.main">
+                                {formatCycle(cycle)}
+                              </Typography>
+                            )}
+                          </Box>
+                        </Box>
+                      );
+                    }}
                     renderInput={(params) => (
-                    <TextField {...params} label="Parent Training Nodes/Tools (What is this training part of?)" />
+                    <TextField
+                      {...params}
+                      label="Parents — point into this training"
+                      helperText="Direction: Parent → this training"
+                    />
                     )}
                   />
                   <Autocomplete<TrainingNodeOption, true>
                     multiple
                     options={childOptions}
                     getOptionLabel={(option) => option.name}
+                    getOptionDisabled={(option) => Boolean(childCycle(option.id))}
                     value={trainingNodes.filter(node =>
                       formData.childTrainingNodeIds.includes(node.id)
                     )}
@@ -473,13 +620,85 @@ const TrainingForm = ({ mode }: { mode: 'create' | 'edit' }) => {
                         childTrainingNodeIds: value.map(node => node.id),
                       }));
                     }}
+                    renderOption={(props, option) => {
+                      const cycle = childCycle(option.id);
+                      const { key, ...optionProps } = props;
+                      return (
+                        <Box component="li" key={key} {...optionProps}>
+                          <Box>
+                            <Typography variant="body2">{option.name}</Typography>
+                            {cycle && (
+                              <Typography variant="caption" color="error.main">
+                                {formatCycle(cycle)}
+                              </Typography>
+                            )}
+                          </Box>
+                        </Box>
+                      );
+                    }}
                     renderInput={(params) => (
-                    <TextField {...params} label="Child Training Nodes/Tools (What is part of this training?)" />
+                    <TextField
+                      {...params}
+                      label="Children — this training points into them"
+                      helperText="Direction: This training → Child"
+                    />
                     )}
                   />
+                  <Box
+                    sx={{
+                      p: 2,
+                      borderRadius: 2,
+                      border: "1px solid",
+                      borderColor: selectedCycle ? "error.light" : "divider",
+                      bgcolor: selectedCycle ? "error.50" : "grey.50",
+                    }}
+                  >
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                      Relationship preview
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Arrows show the saved parent-to-child direction.
+                    </Typography>
+                    <Stack spacing={1.25} sx={{ mt: 1.5 }}>
+                      {formData.parentTrainingNodeIds.map((id) => (
+                        <Stack key={`parent-${id}`} direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+                          <Chip size="small" label={nodeName(id)} />
+                          <Typography aria-hidden="true">→</Typography>
+                          <Chip size="small" color="primary" label={currentNodeName} />
+                        </Stack>
+                      ))}
+                      {formData.childTrainingNodeIds.map((id) => (
+                        <Stack key={`child-${id}`} direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+                          <Chip size="small" color="primary" label={currentNodeName} />
+                          <Typography aria-hidden="true">→</Typography>
+                          <Chip size="small" label={nodeName(id)} />
+                        </Stack>
+                      ))}
+                      {formData.parentTrainingNodeIds.length === 0 &&
+                        formData.childTrainingNodeIds.length === 0 && (
+                          <Typography variant="body2" color="text.secondary">
+                            Select a parent or child to preview the relationship.
+                          </Typography>
+                        )}
+                    </Stack>
+                  </Box>
+                  {selectedCycle && (
+                    <Alert severity="error">
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                        {formatCycle(selectedCycle)}
+                      </Typography>
+                      <Typography variant="body2">
+                        This is not allowed because it would make this training indirectly depend on itself.
+                      </Typography>
+                    </Alert>
+                  )}
             </Stack>
               {errorMessage && (
-                <Alert severity="error" sx={{ alignItems: "center" }}>
+                <Alert
+                  severity="error"
+                  onClose={() => setErrorMessage(null)}
+                  sx={{ alignItems: "center", mt: 2 }}
+                >
                   {errorMessage}
                 </Alert>
               )}
@@ -512,6 +731,7 @@ const TrainingForm = ({ mode }: { mode: 'create' | 'edit' }) => {
               <Button
                 type="submit"
                 variant="contained"
+                disabled={isSubmitting || Boolean(selectedCycle)}
                 sx={{
                   flex: 1,
                   borderRadius: 999,
@@ -526,7 +746,9 @@ const TrainingForm = ({ mode }: { mode: 'create' | 'edit' }) => {
                   },
                 }}
               >
-                {mode === 'edit' ? 'Update Training' : 'Add Training'}
+                {isSubmitting
+                  ? (mode === 'edit' ? 'Updating Training…' : 'Adding Training…')
+                  : (mode === 'edit' ? 'Update Training' : 'Add Training')}
               </Button>
             </Stack>
           </Box>
@@ -537,7 +759,3 @@ const TrainingForm = ({ mode }: { mode: 'create' | 'edit' }) => {
 }
 
 export default TrainingForm
-
-
-
-
