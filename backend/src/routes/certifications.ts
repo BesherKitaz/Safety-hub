@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { Prisma } from '@prisma/client/index-browser';
+import { Prisma, UserRole } from '@prisma/client/index-browser';
 import { authMiddleware, type AuthRequest } from '../middleware/auth';
 import prisma from '../lib/prisma';
 import {
@@ -13,6 +13,10 @@ import {
   revokeCertification,
   unrevokeCertification,
   updateCertification,
+  renewCertification,
+  expireDueCertifications,
+  getCertificationDurationDays,
+  updateCertificationDurationDays,
 } from '../controllers/certificationsControllers';
 import { sendError } from '../middleware/errorHandler';
 import {
@@ -27,9 +31,39 @@ import {
 const router = Router();
 
 router.use(authMiddleware);
+router.use(async (_req, _res, next) => {
+  try {
+    await expireDueCertifications();
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
 
 const handleCertificationError = (res: any, error: unknown, fallback: string) =>
   sendError(res, error, { statusCode: 500, code: 'CERTIFICATION_REQUEST_FAILED', message: fallback });
+
+router.get('/settings/duration', authorizeRoles(...RESOURCE_READER_ROLES), async (_req, res) => {
+  try {
+    return res.json({
+      message: 'Certification duration fetched successfully',
+      data: { durationDays: await getCertificationDurationDays() },
+    });
+  } catch (error) {
+    return handleCertificationError(res, error, 'Failed to fetch certification duration');
+  }
+});
+
+router.put('/settings/duration', authorizeRoles(UserRole.ADMIN), async (req, res) => {
+  try {
+    return res.json({
+      message: 'Certification duration updated successfully',
+      data: await updateCertificationDurationDays(req.body?.durationDays),
+    });
+  } catch (error) {
+    return handleCertificationError(res, error, 'Failed to update certification duration');
+  }
+});
 
 router.get('/tabular/total-rows', authorizeRoles(...RESOURCE_READER_ROLES), async (req: AuthRequest, res) => {
   try {
@@ -55,7 +89,13 @@ router.get('/tabular', authorizeRoles(...RESOURCE_READER_ROLES), async (req, res
     const filters = req.query.filters ? JSON.parse(req.query.filters as string) : {};
     console.log('Filters received:', filters);
     const skip = (page - 1) * pageSize;
-    const result = await getTabularCertifications(skip, pageSize, filters.status, filters.search ?? '');
+    const result = await getTabularCertifications(
+      skip,
+      pageSize,
+      filters.status,
+      filters.search ?? '',
+      filters.level,
+    );
     return res.json({
       message: 'Recent certifications fetched successfully',
       data: result.certifications,
@@ -182,6 +222,18 @@ router.put('/:id/unrevoke', authorizeRoles(...RESOURCE_MANAGER_ROLES), async (re
     });
   } catch (error) {
     handleCertificationError(res, error, 'Failed to unrevoke certification');
+  }
+});
+
+router.put('/:id/renew', authorizeRoles(...RESOURCE_MANAGER_ROLES), async (req: AuthRequest<{ id: string }>, res) => {
+  try {
+    const updatedCertification = await renewCertification(req.params.id, req.user!.userId);
+    return res.json({
+      message: 'Certification renewed successfully',
+      data: updatedCertification,
+    });
+  } catch (error) {
+    handleCertificationError(res, error, 'Failed to renew certification');
   }
 });
 

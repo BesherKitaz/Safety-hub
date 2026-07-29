@@ -248,6 +248,7 @@ const CertificationView = () => {
   const permissions = currentResourcePermissions();
   const isStudent = localStorage.getItem('userRole') === 'STUDENT';
   const isRevoked = certification?.status.toUpperCase() === 'REVOKED';
+  const isExpired = certification?.status.toUpperCase() === 'EXPIRED';
 
   const handleModify = () => {
     if (!id) {
@@ -288,6 +289,20 @@ const CertificationView = () => {
       window.location.reload();
     } catch (requestError) {
       setActionError(getActionErrorMessage(requestError, 'Failed to unrevoke certification.'));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRenew = async () => {
+    if (!id) return;
+    try {
+      setActionLoading(true);
+      setActionError(null);
+      await api.put(`/api/certifications/${id}/renew`);
+      window.location.reload();
+    } catch (requestError) {
+      setActionError(getActionErrorMessage(requestError, 'Failed to renew certification.'));
     } finally {
       setActionLoading(false);
     }
@@ -442,6 +457,10 @@ const CertificationView = () => {
                   {isRevoked ? (
                     <Button variant="outlined" color="success" size="large" onClick={handleUnrevoke} disabled={actionLoading}>
                       Unrevoke
+                    </Button>
+                  ) : isExpired ? (
+                    <Button variant="outlined" color="success" size="large" onClick={handleRenew} disabled={actionLoading}>
+                      Renew
                     </Button>
                   ) : (
                     <Button
@@ -708,7 +727,6 @@ const CertificationView = () => {
 };
 
 export default CertificationView;
-
 
 
 

@@ -164,14 +164,20 @@ model CertificationHistory {
 
   action          CertificationHistoryAction
 
-  changedById     String
-  changedBy       User @relation("CertificationHistoryChangedBy", fields: [changedById], references: [id])
+  changedById     String?
+  changedBy       User? @relation("CertificationHistoryChangedBy", fields: [changedById], references: [id])
 
   changedAt       DateTime @default(now())
   reason          String?
 
   @@index([certificationId])
   @@index([changedById])
+}
+
+model CertificationSettings {
+  id           String   @id @default("default")
+  durationDays Int      @default(365)
+  updatedAt    DateTime @updatedAt
 }
 
 
@@ -240,6 +246,7 @@ enum CertificationHistoryAction {
   UPDATED
   REVOKED
   REACTIVATED
+  RENEWED
   EXPIRED
   DEACTIVATED
 }

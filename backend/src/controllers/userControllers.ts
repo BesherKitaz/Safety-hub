@@ -12,6 +12,7 @@ import { sendEmail } from '../services/emailService';
 import path from 'path'
 import { EDITABLE_PROFILE_FIELDS, USER_ROLES, canMutateProfileField, getProfileMutationPermissions, type EditableProfileField, type UserRoleName } from '../util/userProfileAuthorization';
 import { validateSafetyHubAgreementCompletion } from '../util/agreementCompletion';
+import { canChangeRole } from '../util/agreementEligibility';
 import { directoryTargetRoles } from '../middleware/resourceAuthorization';
 import { UserRole } from '@prisma/client';
 
@@ -358,7 +359,13 @@ const getUserProfileById = async (id: string) => {
 const getTabularUsers = async (
     page: number,
     pageSize: number,
-    filters: { search: string },
+    filters: {
+      search: string;
+      role?: string;
+      agreementComplete?: boolean;
+      agreementSource?: string;
+      isActive?: boolean;
+    },
     actorRole: UserRoleName,
 ) => {
     try {
@@ -372,9 +379,25 @@ const getTabularUsers = async (
             }
           : {};
         const targetRoles = directoryTargetRoles(actorRole as UserRole);
-        const where = targetRoles
-          ? { role: { in: targetRoles }, ...searchWhere }
-          : searchWhere;
+        const requestedRole = (USER_ROLES as readonly string[]).includes(filters.role ?? '')
+          ? filters.role as UserRoleName
+          : undefined;
+        const where = {
+          AND: [
+            ...(targetRoles ? [{ role: { in: targetRoles } }] : []),
+            ...(requestedRole ? [{ role: requestedRole }] : []),
+            ...(filters.agreementComplete !== undefined
+              ? [{ isUserAgreementComplete: filters.agreementComplete }]
+              : []),
+            ...(filters.isActive !== undefined ? [{ isActive: filters.isActive }] : []),
+            ...(filters.agreementSource === 'NONE'
+              ? [{ userAgreementSource: null }]
+              : filters.agreementSource
+                ? [{ userAgreementSource: filters.agreementSource }]
+                : []),
+            searchWhere,
+          ],
+        };
         const [users, totalRows] = await prisma.$transaction([
           prisma.user.findMany({
             skip,
@@ -438,7 +461,7 @@ const updateUserProfile = async (actorId: string, targetId: string, input: Profi
 
     const [actor, target] = await Promise.all([
         prisma.user.findUnique({ where: { id: actorId }, select: { id: true, role: true } }),
-        prisma.user.findUnique({ where: { id: targetId }, select: { id: true, role: true } }),
+        prisma.user.findUnique({ where: { id: targetId }, select: { id: true, role: true, isUserAgreementComplete: true } }),
     ]);
     if (!actor) throw new AppError(401, 'ACTOR_NOT_FOUND', 'Authenticated user no longer exists');
     if (!target) throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
@@ -457,6 +480,9 @@ const updateUserProfile = async (actorId: string, targetId: string, input: Profi
         if (field === 'role') {
             if (typeof value !== 'string' || !(USER_ROLES as readonly string[]).includes(value)) throw new AppError(400, 'INVALID_ROLE', 'Role is invalid');
             if (!permissions.assignableRoles.includes(value as UserRoleName)) throw new AppError(403, 'ROLE_ASSIGNMENT_FORBIDDEN', `You cannot assign the ${value} role`);
+            if (!canChangeRole(target.role, value, target.isUserAgreementComplete)) {
+                throw new AppError(409, 'USER_AGREEMENT_REQUIRED', 'This user must complete the user agreement before their role can be changed');
+            }
             data.role = value;
         } else if (field === 'isActive') {
             if (typeof value !== 'boolean') throw new AppError(400, 'INVALID_BOOLEAN', `${field} must be a boolean`);
@@ -564,6 +590,7 @@ const userSearch = async (query: string) => {
       firstName: true,
       lastName: true,
       email: true,
+      isUserAgreementComplete: true,
     },
     take: 10,
   });

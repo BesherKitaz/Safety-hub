@@ -556,6 +556,11 @@ const Profile = () => {
   const labsCertifiedIn = userData.certsGroupedByLab.length;
   const isOwnProfile = localStorage.getItem('userId') === userData.id;
   const canEditProfile = localStorage.getItem('userRole') !== 'STUDENT';
+  const canCertifyUser =
+    !isOwnProfile &&
+    ['ADMIN', 'STAFF', 'SUPERVISOR', 'MENTOR'].includes(
+      localStorage.getItem('userRole') ?? '',
+    );
   const completeOwnAgreement = async () => {
     const signatureName = agreementSignature.trim();
     if (!signatureName || !agreementSignedDate || acknowledgedLinkIds.length !== agreementLinks.length) {
@@ -803,6 +808,17 @@ const Profile = () => {
                 {canEditProfile && (
                   <Button component={Link} state={{ from: location.pathname + location.search }} to={`/user/${userData.id}/edit`} variant="contained" size="large" sx={{ px: 3 }}>
                     Edit profile
+                  </Button>
+                )}
+                {canCertifyUser && (
+                  <Button
+                    component={Link}
+                    to={`/certifications/add?studentId=${encodeURIComponent(userData.id)}`}
+                    variant="outlined"
+                    size="large"
+                    sx={{ px: 3 }}
+                  >
+                    Certify
                   </Button>
                 )}
                 {!userData.isUserAgreementComplete && (

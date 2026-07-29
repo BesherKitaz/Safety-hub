@@ -134,6 +134,8 @@ const formatAction = (action: string) => {
       return 'Revoked';
     case 'REACTIVATED':
       return 'Unrevoked';
+    case 'RENEWED':
+      return 'Renewed';
     case 'EXPIRED':
       return 'Expired';
     case 'DEACTIVATED':
@@ -169,6 +171,8 @@ const getActionStyles = (action: string) => {
       return { color: '#b91c1c', bg: alpha('#dc2626', 0.12), border: alpha('#dc2626', 0.24) };
     case 'REACTIVATED':
       return { color: '#0f766e', bg: alpha('#14b8a6', 0.12), border: alpha('#14b8a6', 0.24) };
+    case 'RENEWED':
+      return { color: '#047857', bg: alpha('#10b981', 0.12), border: alpha('#10b981', 0.24) };
     case 'EXPIRED':
       return { color: '#b45309', bg: alpha('#f59e0b', 0.12), border: alpha('#f59e0b', 0.24) };
     case 'DEACTIVATED':
@@ -396,7 +400,9 @@ const CertificationHistory = () => {
                   {formatAction(selectedHistory.action)} on {formatDateTime(selectedHistory.changedAt)}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 1.25, lineHeight: 1.7 }}>
-                  {formatPerson(selectedHistory.changedBy)} recorded this change.
+                  {selectedHistory.changedBy
+                    ? `${formatPerson(selectedHistory.changedBy)} recorded this change.`
+                    : 'Safety Hub recorded this change automatically.'}
                 </Typography>
                 <Divider sx={{ my: 2.25 }} />
                 <Stack spacing={1.5}>
@@ -483,7 +489,9 @@ const CertificationHistory = () => {
                     <Chip icon={<PersonOutlineRounded fontSize="small" />} label={formatPerson(record.changedBy)} variant="outlined" />
                     <Chip icon={<CalendarMonthOutlined fontSize="small" />} label={formatDateTime(record.changedAt)} variant="outlined" />
                   </Stack>
-                  <Typography variant="h6" sx={{ fontWeight: 800 }}>{formatAction(record.action)} by {formatPerson(record.changedBy)}</Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                    {formatAction(record.action)} {record.changedBy ? `by ${formatPerson(record.changedBy)}` : 'automatically by Safety Hub'}
+                  </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.7 }}>
                     {record.reason
                       || (record.action === 'CREATED'

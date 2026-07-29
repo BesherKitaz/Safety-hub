@@ -2,11 +2,21 @@ import { Prisma, UserRole } from '@prisma/client';
 import prisma from '../lib/prisma';
 import { AppError } from '../middleware/errorHandler';
 import { buildBeforeSnapshotFields } from '../util/certificationHistorySnapshots';
+import { canReceiveCertification } from '../util/agreementEligibility';
+import {
+  normalizeCertificationLevelFilter,
+  normalizeCertificationStatusFilter,
+} from '../util/managementFilters';
+import {
+  calculateCertificationExpiryDate,
+  dependencyExpirationReason,
+  dueDateExpirationReason,
+} from '../util/certificationLifecycle';
 
 type DatabaseClient = Prisma.TransactionClient | typeof prisma;
 
 type CertificationStatus = 'ACTIVE' | 'DEACTIVATED' | 'EXPIRED' | 'REVOKED';
-type CertificationHistoryAction = 'CREATED' | 'UPDATED' | 'REVOKED' | 'REACTIVATED' | 'EXPIRED' | 'DEACTIVATED';
+type CertificationHistoryAction = 'CREATED' | 'UPDATED' | 'REVOKED' | 'REACTIVATED' | 'RENEWED' | 'EXPIRED' | 'DEACTIVATED';
 
 type CertificationInput = {
   trainingNodeId: string;
@@ -85,6 +95,7 @@ type CertificationHistoryResponse = CertificationHistoryRow & {
 
 type CertificationValidationContext = {
   issuerRole: UserRole;
+  recipientAgreementComplete: boolean;
   receiverCertifications: CertificationSummary[];
   requestedLevel: number;
   trainingNodeSummary: TrainingNodeSummary;
@@ -132,6 +143,41 @@ const normalizeOptionalDate = (value?: string | Date | null) => {
 
   return parsed;
 };
+
+const prismaAny = prisma as any;
+const DEFAULT_CERTIFICATION_DURATION_DAYS = 365;
+
+const getCertificationDurationDays = async (db: DatabaseClient = prisma) => {
+  const settings = await (db as any).certificationSettings.upsert({
+    where: { id: 'default' },
+    update: {},
+    create: {
+      id: 'default',
+      durationDays: DEFAULT_CERTIFICATION_DURATION_DAYS,
+    },
+    select: { durationDays: true },
+  });
+  return settings.durationDays as number;
+};
+
+const updateCertificationDurationDays = async (value: unknown) => {
+  const durationDays = Number(value);
+  if (!Number.isInteger(durationDays) || durationDays < 1 || durationDays > 3650) {
+    throw new AppError(
+      400,
+      'INVALID_CERTIFICATION_DURATION',
+      'Certification duration must be a whole number between 1 and 3650 days.',
+    );
+  }
+
+  return prismaAny.certificationSettings.upsert({
+    where: { id: 'default' },
+    update: { durationDays },
+    create: { id: 'default', durationDays },
+    select: { durationDays: true, updatedAt: true },
+  });
+};
+
 
 const personSelect = {
   id: true,
@@ -350,17 +396,12 @@ const getRecentCertifications = async () => {
 const getTabularCertifications = async (
   skip: number,
   pageSize: number,
-  status: CertificationStatus | boolean | number = 'ACTIVE',
+  status: unknown = 'ACTIVE',
   search: string = '',
+  level?: unknown,
 ) => {
-  const normalizedStatus: CertificationStatus =
-    status === false || status === 0 || status === 'REVOKED'
-      ? 'REVOKED'
-      : status === 'DEACTIVATED'
-        ? 'DEACTIVATED'
-        : status === 'EXPIRED'
-          ? 'EXPIRED'
-          : 'ACTIVE';
+  const normalizedStatus = normalizeCertificationStatusFilter(status);
+  const normalizedLevel = normalizeCertificationLevelFilter(level);
 
   search = search.trim();
   const where: Prisma.CertificationWhereInput = search
@@ -424,7 +465,8 @@ const getTabularCertifications = async (
     skip,
     take: pageSize,
     where: {
-      status: normalizedStatus,
+      ...(normalizedStatus ? { status: normalizedStatus } : {}),
+      ...(normalizedLevel ? { level: normalizedLevel } : {}),
       AND: where,
     },
     select: {
@@ -467,7 +509,8 @@ const getTabularCertifications = async (
   });
   const totalRows = await prisma.certification.count({
     where: {
-      status: normalizedStatus,
+      ...(normalizedStatus ? { status: normalizedStatus } : {}),
+      ...(normalizedLevel ? { level: normalizedLevel } : {}),
       AND: where,
     },
   });
@@ -523,6 +566,19 @@ const getCertificationValidationContext = async (
     throw new AppError(404, 'ISSUER_NOT_FOUND', 'Actor not found.');
   }
 
+  const recipient = await db.user.findUnique({
+    where: {
+      id: proposal.issuedToId,
+    },
+    select: {
+      isUserAgreementComplete: true,
+    },
+  });
+
+  if (!recipient) {
+    throw new AppError(404, 'RECIPIENT_NOT_FOUND', 'Certification recipient not found.');
+  }
+
   const receiverCertifications = await db.certification.findMany({
     where: {
       issuedToId: proposal.issuedToId,
@@ -562,6 +618,7 @@ const getCertificationValidationContext = async (
 
   return {
     issuerRole,
+    recipientAgreementComplete: recipient.isUserAgreementComplete,
     receiverCertifications,
     requestedLevel: proposal.level,
     trainingNodeSummary: {
@@ -602,6 +659,23 @@ const validateCertificationProposal = async (
   }
 
   const context = await getCertificationValidationContext(proposal, excludeCertificationId, db);
+
+  if (proposal.issuedById === proposal.issuedToId) {
+    throw new AppError(400, 'SELF_CERTIFICATION_FORBIDDEN', 'You cannot issue a certification to yourself.');
+  }
+
+  if (!canReceiveCertification(
+    proposal.issuedById,
+    proposal.issuedToId,
+    context.recipientAgreementComplete,
+  )) {
+    throw new AppError(
+      409,
+      'USER_AGREEMENT_REQUIRED',
+      'This user must complete the user agreement before receiving a certification.',
+    );
+  }
+
   const duplicate = await db.certification.findFirst({
     where: {
       issuedToId: proposal.issuedToId,
@@ -677,7 +751,7 @@ const createHistoryEntry = async (
   tx: Prisma.TransactionClient,
   certification: CertificationSnapshot,
   action: CertificationHistoryAction,
-  changedById: string,
+  changedById: string | null,
   reason: string | null = null,
   before?: CertificationSnapshot | null
 ) => {
@@ -704,11 +778,13 @@ const createHistoryEntry = async (
 
 const addCertification = async (certification: CertificationInput) => {
   await validateCertificationProposal(certification);
-  const expiryDate = normalizeOptionalDate(certification.expiryDate);
   const notes = normalizeOptionalText(certification.notes);
 
   try {
     return await prisma.$transaction(async (tx) => {
+      const issuedAt = new Date();
+      const durationDays = await getCertificationDurationDays(tx);
+      const expiryDate = calculateCertificationExpiryDate(issuedAt, durationDays);
       const createdCertification = await tx.certification.create({
         data: {
           trainingNodeId: certification.trainingNodeId,
@@ -716,6 +792,7 @@ const addCertification = async (certification: CertificationInput) => {
           level: certification.level,
           issuedToId: certification.issuedToId,
           issuedById: certification.issuedById,
+          issuedAt,
           expiryDate,
           status: 'ACTIVE',
         },
@@ -834,15 +911,17 @@ const buildEdgeMaps = (edges: { parentId: string; childId: string }[]) => {
   };
 };
 
-const revokeCertification = async (certificationId: string, changedById: string, reason?: unknown) => {
+const cascadeInvalidateCertification = async (
+  certificationId: string,
+  targetStatus: 'REVOKED' | 'EXPIRED',
+  action: 'REVOKED' | 'EXPIRED',
+  changedById: string | null,
+  rootReason: string | null,
+  dependentReason: string,
+) => {
   if (!certificationId?.trim()) {
     throw new AppError(400, 'CERTIFICATION_ID_REQUIRED', 'Certification ID is required.');
   }
-
-  if (!changedById?.trim()) {
-    throw new AppError(400, 'CHANGED_BY_ID_REQUIRED', 'The user performing this action is required.');
-  }
-  const normalizedReason = normalizeHistoryReason(reason);
 
   try {
     return await prisma.$transaction(async (tx) => {
@@ -855,12 +934,8 @@ const revokeCertification = async (certificationId: string, changedById: string,
         throw new AppError(404, 'CERTIFICATION_NOT_FOUND', 'Certification not found.');
       }
 
-      if (rootCertification.status === 'REVOKED') {
-        throw new AppError(409, 'CERTIFICATION_ALREADY_REVOKED', 'Certification is already revoked.');
-      }
-
       if (rootCertification.status !== 'ACTIVE') {
-        throw new AppError(409, 'CERTIFICATION_NOT_ACTIVE', 'Only active certifications can be revoked.');
+        throw new AppError(409, 'CERTIFICATION_NOT_ACTIVE', 'Only active certifications can be invalidated.');
       }
 
       const holderId = rootCertification.issuedTo.id;
@@ -888,25 +963,32 @@ const revokeCertification = async (certificationId: string, changedById: string,
 
       const getCert = (nodeId: string, level: 1 | 2 | 3) => certByNodeLevel.get(`${nodeId}:${level}`) ?? null;
 
-      const revokeCert = async (cert: CertificationSnapshot | null, action: CertificationHistoryAction, before?: CertificationSnapshot | null) => {
+      const revokeCert = async (cert: CertificationSnapshot | null, _legacyAction: CertificationHistoryAction, before?: CertificationSnapshot | null) => {
         if (!cert) {
           return null;
         }
 
-        if (cert.status === 'REVOKED') {
+        if (cert.status !== 'ACTIVE') {
           return null;
         }
 
         const updated = await tx.certification.update({
           where: { id: cert.id },
-          data: { status: 'REVOKED' },
+          data: { status: targetStatus },
           select: certificationDetailSelect,
         });
 
         const updatedSnapshot = updated as CertificationSnapshot;
         certByNodeLevel.set(`${updatedSnapshot.trainingNodeId}:${updatedSnapshot.level}`, updatedSnapshot);
 
-        await createHistoryEntry(tx, updatedSnapshot, action, changedById, normalizedReason, before ?? cert);
+        await createHistoryEntry(
+          tx,
+          updatedSnapshot,
+          action,
+          changedById,
+          cert.id === rootCertification.id ? rootReason : dependentReason,
+          before ?? cert,
+        );
         return updatedSnapshot;
       };
 
@@ -1002,9 +1084,60 @@ const revokeCertification = async (certificationId: string, changedById: string,
       throw error;
     }
 
-    console.error('Failed to revoke certification:', error);
-    throw new AppError(500, 'CERTIFICATION_REVOKE_FAILED', 'Something went wrong while revoking the certification.');
+    console.error(`Failed to mark certification ${targetStatus.toLowerCase()}:`, error);
+    throw new AppError(500, 'CERTIFICATION_INVALIDATION_FAILED', 'Something went wrong while updating certification validity.');
   }
+};
+
+const revokeCertification = async (certificationId: string, changedById: string, reason?: unknown) => {
+  if (!changedById?.trim()) {
+    throw new AppError(400, 'CHANGED_BY_ID_REQUIRED', 'The user performing this action is required.');
+  }
+  const normalizedReason = normalizeHistoryReason(reason);
+  return cascadeInvalidateCertification(
+    certificationId,
+    'REVOKED',
+    'REVOKED',
+    changedById,
+    normalizedReason,
+    normalizedReason
+      ? `A prerequisite certification was revoked. Original reason: ${normalizedReason}`
+      : 'A prerequisite certification was revoked, so this dependent certification is no longer valid.',
+  );
+};
+
+const expireDueCertifications = async (now = new Date()) => {
+  const dueCertifications = await prisma.certification.findMany({
+    where: {
+      status: 'ACTIVE',
+      expiryDate: { lte: now },
+    },
+    select: {
+      id: true,
+      expiryDate: true,
+    },
+    orderBy: { expiryDate: 'asc' },
+  });
+
+  for (const certification of dueCertifications) {
+    const current = await prisma.certification.findUnique({
+      where: { id: certification.id },
+      select: { status: true },
+    });
+    if (current?.status !== 'ACTIVE') continue;
+
+    const expiryDate = certification.expiryDate ?? now;
+    await cascadeInvalidateCertification(
+      certification.id,
+      'EXPIRED',
+      'EXPIRED',
+      null,
+      dueDateExpirationReason(expiryDate),
+      dependencyExpirationReason,
+    );
+  }
+
+  return dueCertifications.length;
 };
 
 const unrevokeCertification = async (certificationId: string, changedById: string) => {
@@ -1067,6 +1200,63 @@ const unrevokeCertification = async (certificationId: string, changedById: strin
       throw new AppError(409, 'DUPLICATE_CERTIFICATION', 'This certification already exists for this student, training node, and level.');
     }
     throw new AppError(500, 'CERTIFICATION_UNREVOKE_FAILED', error);
+  }
+};
+
+const renewCertification = async (certificationId: string, changedById: string) => {
+  if (!certificationId?.trim()) {
+    throw new AppError(400, 'CERTIFICATION_ID_REQUIRED', 'Certification ID is required.');
+  }
+  if (!changedById?.trim()) {
+    throw new AppError(400, 'CHANGED_BY_ID_REQUIRED', 'The user performing this action is required.');
+  }
+
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const existing = await tx.certification.findUnique({
+        where: { id: certificationId },
+        select: certificationDetailSelect,
+      });
+      if (!existing) {
+        throw new AppError(404, 'CERTIFICATION_NOT_FOUND', 'Certification not found.');
+      }
+      if (existing.status !== 'EXPIRED') {
+        throw new AppError(409, 'CERTIFICATION_NOT_EXPIRED', 'Only expired certifications can be renewed.');
+      }
+
+      const proposal: CertificationInput = {
+        trainingNodeId: existing.trainingNodeId,
+        ...(existing.notes !== null ? { notes: existing.notes } : {}),
+        level: existing.level,
+        issuedToId: existing.issuedTo.id,
+        issuedById: changedById,
+      };
+      await validateCertificationProposal(proposal, certificationId, tx);
+
+      const durationDays = await getCertificationDurationDays(tx);
+      const renewedAt = new Date();
+      const updated = await tx.certification.update({
+        where: { id: certificationId },
+        data: {
+          status: 'ACTIVE',
+          expiryDate: calculateCertificationExpiryDate(renewedAt, durationDays),
+        },
+        select: certificationDetailSelect,
+      });
+
+      await createHistoryEntry(
+        tx,
+        updated as CertificationSnapshot,
+        'RENEWED',
+        changedById,
+        `Renewed for ${durationDays} days after its prerequisites were revalidated.`,
+        existing as CertificationSnapshot,
+      );
+      return updated;
+    });
+  } catch (error: any) {
+    if (error instanceof AppError) throw error;
+    throw new AppError(500, 'CERTIFICATION_RENEW_FAILED', 'Something went wrong while renewing the certification.');
   }
 };
 
@@ -1267,6 +1457,10 @@ export {
   updateCertification,
   revokeCertification,
   unrevokeCertification,
+  renewCertification,
+  expireDueCertifications,
+  getCertificationDurationDays,
+  updateCertificationDurationDays,
   getTabularCertifications,
   getCertificationById,
   getCertificationHistoryById,

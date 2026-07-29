@@ -1,5 +1,5 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
-import { useNavigate, useLocation, useParams } from 'react-router-dom';
+import { useNavigate, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -8,6 +8,7 @@ import {
   Stack,
   TextField,
   Typography,
+  Alert,
   ListItemIcon,
   ListItemText,
 } from '@mui/material';
@@ -52,6 +53,7 @@ type Student = {
   firstName: string;
   lastName: string;
   email: string;
+  isUserAgreementComplete?: boolean;
 };
 
 type CertificationDetailResponse = {
@@ -107,7 +109,9 @@ const levels: Record<string, string> = {
 const CertificationForm = () => {
   const permissions = currentResourcePermissions();
   const { certificationId } = useParams<{ certificationId?: string }>();
+  const [searchParams] = useSearchParams();
   const isEditMode = Boolean(certificationId);
+  const prefilledStudentId = !isEditMode ? searchParams.get('studentId')?.trim() ?? '' : '';
 
   const [formData, setFormData] = useState<CertificationData>(initialCertificationData);
   const [labs, setLabs] = useState<Lab[]>([]);
@@ -115,6 +119,8 @@ const CertificationForm = () => {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [loadingCertification, setLoadingCertification] = useState(false);
+  const [loadingRecipient, setLoadingRecipient] = useState(Boolean(prefilledStudentId));
+  const [recipientAgreementComplete, setRecipientAgreementComplete] = useState<boolean | null>(null);
   const [changeReason, setChangeReason] = useState('');
 
   const navigate = useNavigate();
@@ -188,7 +194,10 @@ const CertificationForm = () => {
       const response = await api.get('/api/user/search', {
         params: { query },
       });
-      return Array.isArray(response.data.data) ? response.data.data : response.data.users ?? [];
+      const users: Student[] = Array.isArray(response.data.data)
+        ? response.data.data
+        : response.data.users ?? [];
+      return users.filter((user) => user.id !== localStorage.getItem('userId'));
     } catch (error) {
       console.error('Error fetching users:', error);
       return [];
@@ -198,6 +207,36 @@ const CertificationForm = () => {
   useEffect(() => {
     fetchLabs();
   }, []);
+
+  useEffect(() => {
+    if (!prefilledStudentId) {
+      return;
+    }
+
+    let active = true;
+    api.get(`/api/user/profile/${encodeURIComponent(prefilledStudentId)}`)
+      .then((response) => {
+        if (!active) return;
+        const user = response.data.data as Student;
+        setSelectedStudent(user);
+        setRecipientAgreementComplete(user.isUserAgreementComplete === true);
+        setFormData((current) => ({
+          ...current,
+          selectedStudentId: user.id,
+        }));
+      })
+      .catch((error) => {
+        if (!active) return;
+        setErrorMessage(getApiErrorMessage(error, 'Failed to load the selected certification recipient.'));
+      })
+      .finally(() => {
+        if (active) setLoadingRecipient(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [prefilledStudentId]);
 
   useEffect(() => {
     if (formData.labId) {
@@ -331,17 +370,41 @@ const CertificationForm = () => {
                   disabled
                 />
               ) : (
-                <DropDownSearch<Student>
-                  label="Search student"
-                  fetchOptions={fetchUsers}
-                  getOptionLabel={(student) => `${student.firstName} ${student.lastName} (${student.email})`}
-                  onChange={(student) => {
-                    setFormData((current) => ({
-                      ...current,
-                      selectedStudentId: student?.id ?? '',
-                    }));
-                  }}
-                />
+                prefilledStudentId ? (
+                  <TextField
+                    label="Certification recipient"
+                    value={
+                      loadingRecipient
+                        ? 'Loading selected user…'
+                        : selectedStudent
+                          ? `${selectedStudent.firstName} ${selectedStudent.lastName} (${selectedStudent.email})`
+                          : ''
+                    }
+                    fullWidth
+                    disabled
+                  />
+                ) : (
+                  <DropDownSearch<Student>
+                    label="Search student"
+                    fetchOptions={fetchUsers}
+                    getOptionLabel={(student) => `${student.firstName} ${student.lastName} (${student.email})`}
+                    onChange={(student) => {
+                      setSelectedStudent(student);
+                      setRecipientAgreementComplete(
+                        student ? student.isUserAgreementComplete === true : null,
+                      );
+                      setFormData((current) => ({
+                        ...current,
+                        selectedStudentId: student?.id ?? '',
+                      }));
+                    }}
+                  />
+                )
+              )}
+              {!isEditMode && recipientAgreementComplete === false && (
+                <Alert severity="warning">
+                  This user must complete the user agreement before they can receive a certification.
+                </Alert>
               )}
               <TextField select label="lab" value={formData.labId} onChange={handleChange('labId')} fullWidth required>
                 {labs && labs.length > 0 && <MenuItem value="">Select a lab</MenuItem>}
@@ -469,7 +532,7 @@ const CertificationForm = () => {
               <Button
                 type="submit"
                 variant="contained"
-                disabled={loadingCertification}
+                disabled={loadingCertification || loadingRecipient || recipientAgreementComplete === false}
                 sx={{
                   flex: 1,
                   borderRadius: 999,

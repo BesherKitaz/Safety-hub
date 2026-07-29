@@ -35,6 +35,7 @@ import { sendError } from '../middleware/errorHandler';
 import { authorizeRoles, authorizeStudentSelf, RESOURCE_READER_ROLES, USER_DIRECTORY_ROLES } from '../middleware/resourceAuthorization';
 import { UserRole } from '@prisma/client';
 import type { UserRoleName } from '../util/userProfileAuthorization';
+import { parseOptionalBooleanFilter } from '../util/managementFilters';
 
 const router = Router();
 
@@ -354,7 +355,17 @@ router.get("/name", authMiddleware, async (req: AuthRequest, res) => {
         const page = Number(req.query.page) || 1;
         const pageSize = Number(req.query.pageSize) || 10;
         const search = String(req.query.search ?? "").trim().toLocaleLowerCase();
-        const result = await getTabularUsers(page, pageSize, { search }, req.user!.role as UserRoleName);
+        const agreementComplete = parseOptionalBooleanFilter(req.query.agreementComplete);
+        const isActive = parseOptionalBooleanFilter(req.query.isActive);
+        const result = await getTabularUsers(page, pageSize, {
+          search,
+          ...(typeof req.query.role === 'string' ? { role: req.query.role } : {}),
+          ...(agreementComplete !== undefined ? { agreementComplete } : {}),
+          ...(typeof req.query.agreementSource === 'string'
+            ? { agreementSource: req.query.agreementSource }
+            : {}),
+          ...(isActive !== undefined ? { isActive } : {}),
+        }, req.user!.role as UserRoleName);
         res.json({
             message: "Recent users fetched successfully",
             data: result.users,
