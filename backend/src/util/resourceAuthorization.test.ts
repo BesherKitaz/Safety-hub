@@ -68,6 +68,19 @@ test('students cannot issue certifications', () => {
   for (const level of [1, 2, 3]) assert.equal(canIssueCertification(UserRole.STUDENT, level), false);
 });
 
+test('students are rejected by managed-resource role middleware', () => {
+  let result: unknown;
+  authorizeRoles(...RESOURCE_READER_ROLES)(
+    { user: { userId: 'student', email: 'student@example.com', role: UserRole.STUDENT } } as never,
+    {} as never,
+    (error?: unknown) => { result = error ?? 'allowed'; },
+  );
+
+  assert.ok(result instanceof AppError);
+  assert.equal(result.statusCode, 403);
+  assert.equal(result.code, 'FORBIDDEN');
+});
+
 test('students can read only certifications issued to themselves', () => {
   assert.equal(canReadCertification(UserRole.STUDENT, 'student', 'student'), true);
   assert.equal(canReadCertification(UserRole.STUDENT, 'student', 'other'), false);

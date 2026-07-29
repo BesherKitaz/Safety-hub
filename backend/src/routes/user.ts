@@ -148,7 +148,7 @@ router.post('/password-reset/complete', async (req, res) => {
 });
 
 /* Email-related routes */
-router.post("/test-email", async (req, res, next) => {
+router.post("/test-email", authMiddleware, authorizeRoles(UserRole.ADMIN), async (req, res, next) => {
   try {
     const { email } = req.body;
 
@@ -244,7 +244,11 @@ router.get("/name", authMiddleware, async (req: AuthRequest, res) => {
     }
   });
 
-  router.put("/profile/:id", authMiddleware, authorizeStudentSelf('id'), async (req: AuthRequest<{ id: string }>, res) => {
+  router.put(
+    "/profile/:id",
+    authMiddleware,
+    authorizeRoles(...RESOURCE_READER_ROLES),
+    async (req: AuthRequest<{ id: string }>, res) => {
     try {
       const data = await updateUserProfile(req.user!.userId, req.params.id, req.body);
       return res.json({ message: 'User profile updated successfully', data });
@@ -255,7 +259,8 @@ router.get("/name", authMiddleware, async (req: AuthRequest, res) => {
         message: 'Error updating user profile',
       });
     }
-  });
+    },
+  );
 
   router.post("/profile/:id/agreement/complete", authMiddleware, authorizeStudentSelf('id'), async (req: AuthRequest<{ id: string }>, res) => {
     try {

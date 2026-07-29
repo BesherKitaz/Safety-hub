@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes, BrowserRouter } from 'react-router-dom';
+import { Navigate, Route, Routes, BrowserRouter, useParams } from 'react-router-dom';
 import Home from './views/Home.tsx';
 import Profile from './views/ViewProfile.tsx';
 
@@ -39,6 +39,16 @@ const RequireAuth = ({ children }: { children: React.ReactNode }) =>
 const RequireRole = ({ roles, children }: { roles: string[]; children: React.ReactNode }) =>
   roles.includes(localStorage.getItem('userRole') ?? '') ? children : <Navigate to="/user" replace />;
 
+const RequireProfileAccess = ({ children }: { children: React.ReactNode }) => {
+  const { id } = useParams<{ id: string }>();
+  const role = localStorage.getItem('userRole');
+  const userId = localStorage.getItem('userId');
+
+  return role === 'STUDENT' && id && id !== userId
+    ? <Navigate to="/user" replace />
+    : children;
+};
+
 const operationalRoles = ['ADMIN', 'STAFF', 'SUPERVISOR', 'MENTOR'];
 const managerRoles = ['ADMIN', 'STAFF'];
 const dashboardRoles = ['ADMIN', 'STAFF'];
@@ -61,14 +71,14 @@ function App() {
             <Route element={<RequireAuth><Layout /></RequireAuth>}>
               <Route path="/" element={<RequireRole roles={dashboardRoles}><Home /></RequireRole>} />
               <Route path="/user" element={<Profile />} />
-              <Route path="/user/:id" element={<Profile />} />
+              <Route path="/user/:id" element={<RequireProfileAccess><Profile /></RequireProfileAccess>} />
               <Route path="/certifications" element={<RequireRole roles={operationalRoles}><Certifications /></RequireRole>} />
               <Route path="/users" element={<RequireRole roles={operationalRoles}><Users /></RequireRole>} />
               <Route path="/lab-management" element={<RequireRole roles={operationalRoles}><Lab /></RequireRole>} />
               <Route path="/lab-management/deactivated" element={<RequireRole roles={operationalRoles}><DeactivatedLabs /></RequireRole>} />
     
-              <Route path="/user/:id/edit" element={<EditProfile mode="edit" />} />
-              <Route path="/user/create" element={<EditProfile mode="create" />} />
+              <Route path="/user/:id/edit" element={<RequireRole roles={operationalRoles}><EditProfile mode="edit" /></RequireRole>} />
+              <Route path="/user/create" element={<RequireRole roles={managerRoles}><EditProfile mode="create" /></RequireRole>} />
               <Route path="/certifications/add" element={<RequireRole roles={operationalRoles}><AddCertification /></RequireRole>} />
               <Route path="/certifications/:certificationId/edit" element={<RequireRole roles={managerRoles}><AddCertification /></RequireRole>} />
               <Route path="/certifications/:id" element={<CertificationView />} />

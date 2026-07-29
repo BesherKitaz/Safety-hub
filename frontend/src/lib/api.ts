@@ -23,13 +23,17 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401 && localStorage.getItem("token")) {
+    if (error.response?.status === 401) {
       localStorage.removeItem("token");
       localStorage.removeItem("userRole");
       localStorage.removeItem("userId");
 
       if (window.location.pathname !== "/login") {
         window.location.replace("/login");
+      }
+    } else if (error.response?.status === 403) {
+      if (window.location.pathname !== "/user") {
+        window.location.replace("/user");
       }
     }
 

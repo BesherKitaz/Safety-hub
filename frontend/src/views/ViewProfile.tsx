@@ -555,6 +555,7 @@ const Profile = () => {
   const totalCertifications = allCertifications.length;
   const labsCertifiedIn = userData.certsGroupedByLab.length;
   const isOwnProfile = localStorage.getItem('userId') === userData.id;
+  const canEditProfile = localStorage.getItem('userRole') !== 'STUDENT';
   const completeOwnAgreement = async () => {
     const signatureName = agreementSignature.trim();
     if (!signatureName || !agreementSignedDate || acknowledgedLinkIds.length !== agreementLinks.length) {
@@ -799,9 +800,11 @@ const Profile = () => {
               </Stack>
 
               <Stack direction="row" spacing={1.5} useFlexGap sx={{ flexWrap: "wrap" }}>
-                <Button component={Link} state={{ from: location.pathname + location.search }} to={`/user/${userData.id}/edit`} variant="contained" size="large" sx={{ px: 3 }}>
-                  Edit profile
-                </Button>
+                {canEditProfile && (
+                  <Button component={Link} state={{ from: location.pathname + location.search }} to={`/user/${userData.id}/edit`} variant="contained" size="large" sx={{ px: 3 }}>
+                    Edit profile
+                  </Button>
+                )}
                 {!userData.isUserAgreementComplete && (
                   <Button
                     variant="outlined"
