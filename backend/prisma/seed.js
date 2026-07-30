@@ -110,6 +110,21 @@ const users = [
   },
 ];
 
+const academicDirectory = [
+  {
+    name: "College of Engineering",
+    departments: ["Mechanical Engineering", "Electrical and Computer Engineering", "Industrial Engineering"],
+  },
+  {
+    name: "College of Science",
+    departments: ["Computer Science", "Mathematics", "Physics and Astronomy"],
+  },
+  {
+    name: "Purdue Polytechnic Institute",
+    departments: ["Computer and Information Technology", "Engineering Technology"],
+  },
+];
+
 const labs = [
   {
     name: "Woodshop",
@@ -220,10 +235,13 @@ async function main() {
 
   await prisma.trainingEdge.deleteMany();
   await prisma.certification.deleteMany();
+  await prisma.userAcademicAffiliation.deleteMany();
   await prisma.trainingNode.deleteMany();
   await prisma.tool.deleteMany();
   await prisma.lab.deleteMany();
   await prisma.user.deleteMany();
+  await prisma.department.deleteMany();
+  await prisma.college.deleteMany();
 
   await prisma.user.createMany({
     data: users.map((user) => ({
@@ -231,6 +249,17 @@ async function main() {
       passwordHash,
     })),
   });
+
+  for (const college of academicDirectory) {
+    await prisma.college.create({
+      data: {
+        name: college.name,
+        departments: {
+          create: college.departments.map((name) => ({ name })),
+        },
+      },
+    });
+  }
 
   await prisma.lab.createMany({
     data: labs.map((lab) => ({
@@ -240,10 +269,34 @@ async function main() {
   });
 
   const seededUsers = await prisma.user.findMany();
+  const seededDepartments = await prisma.department.findMany();
   const seededLabs = await prisma.lab.findMany();
 
   const userByEmail = new Map(seededUsers.map((user) => [user.email, user]));
+  const departmentByName = new Map(seededDepartments.map((department) => [department.name, department]));
   const labByName = new Map(seededLabs.map((lab) => [lab.name, lab]));
+
+  const seedDepartmentNames = [
+    "Mechanical Engineering",
+    "Electrical and Computer Engineering",
+    "Industrial Engineering",
+    "Computer Science",
+    "Mathematics",
+    "Physics and Astronomy",
+    "Computer and Information Technology",
+    "Engineering Technology",
+  ];
+  for (let index = 0; index < seededUsers.length; index += 1) {
+    const department = departmentByName.get(seedDepartmentNames[index % seedDepartmentNames.length]);
+    if (!department) continue;
+    await prisma.userAcademicAffiliation.create({
+      data: {
+        userId: seededUsers[index].id,
+        collegeId: department.collegeId,
+        departmentId: department.id,
+      },
+    });
+  }
 
   const toolBlueprints = labs.flatMap((lab) =>
     lab.tools.map((tool) => ({

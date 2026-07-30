@@ -555,7 +555,11 @@ const Profile = () => {
   const totalCertifications = allCertifications.length;
   const labsCertifiedIn = userData.certsGroupedByLab.length;
   const isOwnProfile = localStorage.getItem('userId') === userData.id;
-  const canEditProfile = localStorage.getItem('userRole') !== 'STUDENT';
+  const viewerRole = localStorage.getItem('userRole');
+  const canEditProfile = isOwnProfile
+    || viewerRole === 'ADMIN'
+    || (viewerRole === 'STAFF' && ['SUPERVISOR', 'MENTOR', 'STUDENT'].includes(userData.role))
+    || (viewerRole === 'SUPERVISOR' && ['MENTOR', 'STUDENT'].includes(userData.role));
   const canCertifyUser =
     !isOwnProfile &&
     ['ADMIN', 'STAFF', 'SUPERVISOR', 'MENTOR'].includes(

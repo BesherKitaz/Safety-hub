@@ -9,6 +9,9 @@
 - Prisma
 - Docker
 
- 
+### Read SET_UP.md to learn how to setup the project for development
+
+### Read NPM_SCRIPTS to learn about shortcuts for scripts in the project
+
 Copyright (c) 2026 Besher Kitaz.
 All Rights Reserved.

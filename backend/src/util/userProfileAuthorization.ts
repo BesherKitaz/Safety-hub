@@ -1,8 +1,8 @@
 export const USER_ROLES = ['ADMIN', 'STAFF', 'SUPERVISOR', 'MENTOR', 'STUDENT'] as const;
 export type UserRoleName = typeof USER_ROLES[number];
 
-export const BASIC_PROFILE_FIELDS = ['graduationYear', 'jobTitle', 'department', 'phoneNumber', 'address'] as const;
-export const PROTECTED_IDENTITY_FIELDS = ['firstName', 'lastName', 'email'] as const;
+export const BASIC_PROFILE_FIELDS = ['graduationYear', 'jobTitle', 'phoneNumber', 'address', 'academicAffiliations'] as const;
+export const PROTECTED_IDENTITY_FIELDS = ['firstName', 'lastName'] as const;
 export const ADMINISTRATIVE_FIELDS = ['role', 'isActive'] as const;
 export const EDITABLE_PROFILE_FIELDS = [...BASIC_PROFILE_FIELDS, ...PROTECTED_IDENTITY_FIELDS, ...ADMINISTRATIVE_FIELDS] as const;
 export type EditableProfileField = typeof EDITABLE_PROFILE_FIELDS[number];
@@ -25,10 +25,15 @@ export const getProfileMutationPermissions = (
   const actorIsAdmin = actor.role === 'ADMIN';
   const actorIsStaff = actor.role === 'STAFF';
   const staffCanManageTarget = actorIsStaff && !self && staffManageableRoles.includes(target.role);
+  const canEditProtectedIdentity = !self && (
+    actorIsAdmin
+    || ((actor.role === 'STAFF' || actor.role === 'SUPERVISOR')
+      && (target.role === 'MENTOR' || target.role === 'STUDENT'))
+  );
 
   return {
-    basic: self || (actorIsAdmin && !self) || staffCanManageTarget,
-    identity: actorIsAdmin && !self,
+    basic: self || (actorIsAdmin && !self),
+    identity: canEditProtectedIdentity,
     role: !self && (actorIsAdmin || staffCanManageTarget),
     active: !self && (actorIsAdmin || staffCanManageTarget),
     assignableRoles: !self && actorIsAdmin ? [...USER_ROLES] : staffCanManageTarget ? [...staffManageableRoles] : [],

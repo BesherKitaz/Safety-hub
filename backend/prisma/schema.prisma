@@ -40,12 +40,52 @@ model User {
   issuedCertifications   Certification[] @relation("IssuedCertifications")
   receivedCertifications Certification[] @relation("ReceivedCertifications")
   certificationsUpdated CertificationHistory[] @relation("CertificationHistoryChangedBy")
+  academicAffiliations UserAcademicAffiliation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   isProfileComplete Boolean @default(false)
   isActive Boolean @default(true)
+}
+
+model College {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  isActive    Boolean  @default(true)
+  departments Department[]
+  affiliations UserAcademicAffiliation[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Department {
+  id          String   @id @default(cuid())
+  name        String
+  collegeId   String
+  college     College  @relation(fields: [collegeId], references: [id])
+  isActive    Boolean  @default(true)
+  affiliations UserAcademicAffiliation[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([collegeId, name])
+  @@index([collegeId])
+}
+
+model UserAcademicAffiliation {
+  id           String     @id @default(cuid())
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collegeId    String
+  college      College    @relation(fields: [collegeId], references: [id])
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+  createdAt    DateTime   @default(now())
+
+  @@unique([userId, departmentId])
+  @@index([collegeId])
+  @@index([departmentId])
 }
 
 model AgreementLink {
@@ -66,8 +106,11 @@ model EmailVerificationToken {
   verifiedAt DateTime?
   expiresAt DateTime
   createdAt DateTime @default(now())
+  purpose   String   @default("SIGNUP")
+  userId    String?
 
   @@index([expiresAt])
+  @@index([userId])
 }
 
 model PasswordResetToken {

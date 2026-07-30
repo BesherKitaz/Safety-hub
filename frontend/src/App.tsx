@@ -21,6 +21,7 @@ import EmailForm from './views/EmailForm'
 import VerifyEmail from './views/VerifyEmail'
 import ForgotPassword from './views/ForgotPassword'
 import ResetPassword from './views/ResetPassword'
+import AcademicAffiliations from './views/AcademicAffiliations'
 import HeaderContext from './contexts/HeaderContext.tsx';
 import Layout from './Layout';
 
@@ -74,10 +75,11 @@ function App() {
               <Route path="/user/:id" element={<RequireProfileAccess><Profile /></RequireProfileAccess>} />
               <Route path="/certifications" element={<RequireRole roles={operationalRoles}><Certifications /></RequireRole>} />
               <Route path="/users" element={<RequireRole roles={operationalRoles}><Users /></RequireRole>} />
+              <Route path="/academic-affiliations" element={<RequireRole roles={['ADMIN']}><AcademicAffiliations /></RequireRole>} />
               <Route path="/lab-management" element={<RequireRole roles={operationalRoles}><Lab /></RequireRole>} />
               <Route path="/lab-management/deactivated" element={<RequireRole roles={operationalRoles}><DeactivatedLabs /></RequireRole>} />
     
-              <Route path="/user/:id/edit" element={<RequireRole roles={operationalRoles}><EditProfile mode="edit" /></RequireRole>} />
+              <Route path="/user/:id/edit" element={<RequireProfileAccess><EditProfile mode="edit" /></RequireProfileAccess>} />
               <Route path="/user/create" element={<RequireRole roles={managerRoles}><EditProfile mode="create" /></RequireRole>} />
               <Route path="/certifications/add" element={<RequireRole roles={operationalRoles}><AddCertification /></RequireRole>} />
               <Route path="/certifications/:certificationId/edit" element={<RequireRole roles={managerRoles}><AddCertification /></RequireRole>} />

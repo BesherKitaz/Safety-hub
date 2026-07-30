@@ -10,6 +10,7 @@ import ScienceIcon from '@mui/icons-material/Science';
 import PersonIcon from '@mui/icons-material/Person';
 import LogoutIcon from '@mui/icons-material/Logout';
 import CloseIcon from '@mui/icons-material/Close';
+import AccountTreeOutlinedIcon from '@mui/icons-material/AccountTreeOutlined';
 
 import { useNavigate } from 'react-router-dom'
 import { useContext, useState } from "react";
@@ -21,6 +22,7 @@ const navItems = [
   { id: 'home', label: 'Home', to: '/', icon: <HomeIcon /> },
   { id: 'certifications', label: 'Certifications', to: '/certifications', icon: <WorkspacePremiumIcon /> },
   { id: 'manage-members', label: 'Manage Members', to: '/users', icon: <GroupIcon /> },
+  { id: 'academic-affiliations', label: 'Academic Affiliations', to: '/academic-affiliations', icon: <AccountTreeOutlinedIcon /> },
   { id: 'manage-labs', label: 'Manage Labs', to: '/lab-management', icon: <ScienceIcon /> },
   { id: 'profile', label: 'Profile', to: '/user', icon: <PersonIcon /> },
   { id: 'logout', label: 'Log Out', to: '/login', icon: <LogoutIcon /> },
@@ -188,6 +190,10 @@ const NavigationSidePanelComponent = () => {
             if (userRole !== "ADMIN" && userRole !== "STAFF" && userRole !== "MENTOR" && userRole !== "SUPERVISOR") {
               return null; // Skip rendering this item for non-admin users
             }
+          }
+
+          if (id === "academic-affiliations" && localStorage.getItem("userRole") !== "ADMIN") {
+            return null;
           }
 
           if (id === "certifications") {

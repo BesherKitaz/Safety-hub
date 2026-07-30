@@ -17,6 +17,8 @@ import {
   sendVerificationEmail,
   verifyEmailAddress,
   getEmailVerificationStatus,
+  sendEmailChangeVerification,
+  confirmEmailChange,
   sendPasswordResetEmail,
   verifyPasswordReset,
   getPasswordResetStatus,
@@ -101,6 +103,26 @@ router.get('/verify-email', async (req, res) => {
       code: 'EMAIL_VERIFICATION_FAILED',
       message: 'Error verifying email',
     });
+  }
+});
+
+router.post('/email-change/request', authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const data = await sendEmailChangeVerification(req.user!.userId, req.body?.email);
+    return res.json({ message: 'Verification email sent successfully', data });
+  } catch (error) {
+    return sendError(res, error, { statusCode: 400, code: 'EMAIL_CHANGE_REQUEST_FAILED', message: 'Unable to start email change' });
+  }
+});
+
+router.post('/email-change/confirm', async (req, res) => {
+  try {
+    const token = typeof req.body?.token === 'string' ? req.body.token.trim() : '';
+    if (!token) throw new AppError(400, 'TOKEN_REQUIRED', 'Verification token is required');
+    const data = await confirmEmailChange(token);
+    return res.json({ message: 'Email address updated successfully', data });
+  } catch (error) {
+    return sendError(res, error, { statusCode: 400, code: 'EMAIL_CHANGE_CONFIRM_FAILED', message: 'Unable to confirm email change' });
   }
 });
 
@@ -248,7 +270,6 @@ router.get("/name", authMiddleware, async (req: AuthRequest, res) => {
   router.put(
     "/profile/:id",
     authMiddleware,
-    authorizeRoles(...RESOURCE_READER_ROLES),
     async (req: AuthRequest<{ id: string }>, res) => {
     try {
       const data = await updateUserProfile(req.user!.userId, req.params.id, req.body);

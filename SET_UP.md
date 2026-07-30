@@ -9,6 +9,7 @@ SafetyHub is a containerized full-stack application consisting of:
 - **Database:** PostgreSQL
 - **ORM:** Prisma
 - **Containerization:** Docker Compose
+- **Ui:** Material UI
 
 All services run inside Docker containers and communicate through Docker's internal network.
 
@@ -27,7 +28,12 @@ Safety-hub/
 │   └── prisma.config.ts
 ├── frontend/
 │   └── src/
-│   
+|   |__ .env
+│   |__ index.html
+|   |
+|   |__ ...
+|
+|
 ├── scripts/
 │    ├── database-migrate.sh
 │    ├── database-reset.sh
@@ -38,6 +44,7 @@ Safety-hub/
 ├──README.md
 ├──.env
 ├──.env.docker
+├──.env.local.example
 ├──docker.compose.yaml
 └── Dockerfile
 ```
@@ -72,15 +79,27 @@ POSTGRES_USER=safetyhub         // Development Database
 POSTGRES_PASSWORD=safetyhub     // Development Database
 POSTGRES_DB=safetyhub           // Development Database
 
+POSTGRES_PORT=5433
+BACKEND_PORT=3001
+FRONTEND_PORT=3000
+
+JWT_SECRET="INSERT_SECRET"  // Generate a secret for development. For deployment, this should be one, consistent secret, **and it should not be compromised**
+
 POSTGRES_PORT=5432
 BACKEND_PORT=3001
 FRONTEND_PORT=3000
 
 ```
 
+For `.env.docker`:
 ```env.docker
 DATABASE_URL="postgresql://safetyhub:safetyhub@db:5432/safetyhub"
 
+```
+Create a `.env` file in /frontend and put inside:
+
+```env
+VITE_API_URL=http://localhost:3001
 ```
 
 ## Why use `db:5432` instead of `localhost` in docker?
@@ -387,6 +406,25 @@ docker compose down
 ```
 
 ---
+## Error: Port 3000 (or 3001) is already in use
+
+You probably left the development server in use since last coding session, or have another application that uses the same port.
+
+Run 
+```
+docker compose down 
+npm run setup
+```
+
+Then try to run the servers again. You can also try to kill the process on the specific blocked port.
+
+## Vite does not exit
+
+Most likely you need to re-install depencies:
+```
+npm run setup
+```
+
 
 # Daily Development Workflow
 
@@ -399,7 +437,7 @@ docker compose down
 or 
 
 ```bash
-npm run set-up
+npm run setup
 ```
 
 ### Run Development Server
@@ -413,6 +451,12 @@ From project root:
 npm run dev
 ```
 
+### If you need to install new depencies, remember to start the docker shell:
+```
+npm run docker-shell
+```
+Then `cd ./backend` or `cd ./frontend` depending on where the library is needed
+
 ### If Prisma schema changes:
 
 ```bash
@@ -424,6 +468,21 @@ or
 ```bash
 npm run db-migrate
 ```
+
+### If Prisma rejects the migration because of conflict, change the seed to match the new schema, then clear the database:
+
+```
+npm run db_reset  // clears the database and dependancies
+```
+
+Then run 
+
+```
+npm run setup // To re-install the depencies
+npm run seed // Seed the DB with new data
+```
+
+
 ---
 
 # Important Docker Networking Notes

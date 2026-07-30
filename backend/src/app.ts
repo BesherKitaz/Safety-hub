@@ -7,6 +7,7 @@ import CertiRoutes from './routes/certifications'
 import labsRoutes from './routes/labs'
 import toolsRoutes from './routes/tools'
 import trainingsRoutes from './routes/trainings'
+import academicsRoutes from './routes/academics';
 import { errorHandler } from './middleware/errorHandler';
 import { authMiddleware } from './middleware/auth';
 const app = express();
@@ -30,6 +31,7 @@ app.use("/api/certifications", CertiRoutes);
 app.use("/api/labs", labsRoutes);
 app.use("/api/tools", toolsRoutes);
 app.use("/api/trainings", trainingsRoutes);
+app.use("/api/academics", academicsRoutes);
 
 app.use(errorHandler);
 

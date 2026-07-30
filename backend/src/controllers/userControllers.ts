@@ -15,6 +15,7 @@ import { validateSafetyHubAgreementCompletion } from '../util/agreementCompletio
 import { canChangeRole } from '../util/agreementEligibility';
 import { directoryTargetRoles } from '../middleware/resourceAuthorization';
 import { UserRole } from '@prisma/client';
+import { normalizeAcademicAffiliations, type AcademicAffiliationInput } from '../util/academicAffiliations';
 
 type User = {
     firstName: string;
@@ -22,6 +23,7 @@ type User = {
     email: string;
     password: string;
     verificationToken: string;
+    academicAffiliations: AcademicAffiliationInput[];
 }
 
 type CertificationsByLab = {
@@ -71,7 +73,7 @@ const getVerifiedEmailRecord = async (email: string) => {
 const requireVerifiedEmail = async (email: string, requestToken: string) => {
     const credentialHash = requestToken ? hashToken(requestToken) : '';
     const verifiedEmail = requestToken ? await prisma.emailVerificationToken.findFirst({
-        where: { email: normalizeEmail(email), OR: [{ requestTokenHash: credentialHash }, { tokenHash: credentialHash }], verifiedAt: { not: null }, expiresAt: { gt: new Date() } },
+        where: { email: normalizeEmail(email), purpose: 'SIGNUP', OR: [{ requestTokenHash: credentialHash }, { tokenHash: credentialHash }], verifiedAt: { not: null }, expiresAt: { gt: new Date() } },
     }) : null;
 
     if (!verifiedEmail) {
@@ -106,12 +108,15 @@ const sendVerificationEmail = async (email: string) => {
             requestTokenHash,
             expiresAt,
             verifiedAt: null,
+            purpose: 'SIGNUP',
+            userId: null,
         },
         create: {
             email: normalizedEmail,
             tokenHash,
             requestTokenHash,
             expiresAt,
+            purpose: 'SIGNUP',
         },
     });
 
@@ -155,6 +160,9 @@ const verifyEmailAddress = async (token: string) => {
 
     if (!verificationRecord) {
         throw new AppError(400, 'INVALID_VERIFICATION_TOKEN', 'Verification link is invalid or expired');
+    }
+    if (verificationRecord.purpose !== 'SIGNUP') {
+        throw new AppError(400, 'INVALID_VERIFICATION_PURPOSE', 'This link cannot be used to create an account');
     }
 
     if (verificationRecord.expiresAt.getTime() < Date.now()) {
@@ -285,6 +293,9 @@ const getUserProfileById = async (id: string) => {
                 phoneNumber: true,
                 address: true,
                 isActive: true,
+                academicAffiliations: {
+                    select: { collegeId: true, departmentId: true },
+                },
             }
         });
 
@@ -475,9 +486,12 @@ const updateUserProfile = async (actorId: string, targetId: string, input: Profi
     }
 
     const data: Record<string, string | number | boolean | null> = {};
+    let academicAffiliations: ReturnType<typeof normalizeAcademicAffiliations> | undefined;
     for (const field of fields as EditableProfileField[]) {
         const value = input[field];
-        if (field === 'role') {
+        if (field === 'academicAffiliations') {
+            academicAffiliations = normalizeAcademicAffiliations(value);
+        } else if (field === 'role') {
             if (typeof value !== 'string' || !(USER_ROLES as readonly string[]).includes(value)) throw new AppError(400, 'INVALID_ROLE', 'Role is invalid');
             if (!permissions.assignableRoles.includes(value as UserRoleName)) throw new AppError(403, 'ROLE_ASSIGNMENT_FORBIDDEN', `You cannot assign the ${value} role`);
             if (!canChangeRole(target.role, value, target.isUserAgreementComplete)) {
@@ -494,23 +508,108 @@ const updateUserProfile = async (actorId: string, targetId: string, input: Profi
         } else {
             if (value !== null && typeof value !== 'string') throw new AppError(400, 'INVALID_PROFILE_VALUE', `${field} must be a string or null`);
             const normalized = typeof value === 'string' ? value.trim() : null;
-            if (['firstName', 'lastName', 'email'].includes(field) && !normalized) throw new AppError(400, 'REQUIRED_IDENTITY_FIELD', `${field} cannot be empty`);
-            if (field === 'email' && normalized && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) throw new AppError(400, 'INVALID_EMAIL', 'Email address is invalid');
-            data[field] = field === 'email' && normalized ? normalized.toLowerCase() : normalized;
+            if (['firstName', 'lastName'].includes(field) && !normalized) throw new AppError(400, 'REQUIRED_IDENTITY_FIELD', `${field} cannot be empty`);
+            data[field] = normalized;
         }
     }
-    if ('email' in data) {
-        const duplicate = await prisma.user.findFirst({ where: { email: data.email as string, id: { not: targetId } }, select: { id: true } });
-        if (duplicate) throw new AppError(409, 'EMAIL_IN_USE', 'A user with this email already exists');
+    if (academicAffiliations) {
+        const departments = await prisma.department.findMany({
+            where: {
+                id: { in: academicAffiliations.map((entry) => entry.departmentId) },
+                isActive: true,
+                college: { isActive: true },
+            },
+            select: { id: true, collegeId: true },
+        });
+        const departmentById = new Map(departments.map((department) => [department.id, department]));
+        if (
+            departments.length !== academicAffiliations.length
+            || academicAffiliations.some((entry) => departmentById.get(entry.departmentId)?.collegeId !== entry.collegeId)
+        ) {
+            throw new AppError(400, 'INVALID_ACADEMIC_AFFILIATION', 'One or more selected departments do not belong to the selected active colleges.');
+        }
     }
-    const [updated] = await prisma.$transaction([
-        prisma.user.update({
+    const updated = await prisma.$transaction(async (tx) => {
+        if (academicAffiliations) {
+            await tx.userAcademicAffiliation.deleteMany({ where: { userId: targetId } });
+        }
+        return tx.user.update({
             where: { id: targetId },
-            data,
-            select: { id: true, firstName: true, lastName: true, email: true, role: true, graduationYear: true, jobTitle: true, department: true, phoneNumber: true, address: true, isActive: true, isUserAgreementComplete: true, userAgreementSource: true, userAgreementCompletedAt: true, userAgreementSignature: true, userAgreementAcknowledgements: true },
-        }),
-    ]);
+            data: {
+                ...data,
+                ...(academicAffiliations ? {
+                    academicAffiliations: {
+                        create: academicAffiliations.map((entry) => ({
+                            collegeId: entry.collegeId,
+                            departmentId: entry.departmentId,
+                        })),
+                    },
+                } : {}),
+            },
+            select: {
+                id: true, firstName: true, lastName: true, email: true, role: true, graduationYear: true,
+                jobTitle: true, department: true, phoneNumber: true, address: true, isActive: true,
+                isUserAgreementComplete: true, userAgreementSource: true, userAgreementCompletedAt: true,
+                userAgreementSignature: true, userAgreementAcknowledgements: true,
+                academicAffiliations: { select: { collegeId: true, departmentId: true } },
+            },
+        });
+    });
     return updated;
+};
+
+const sendEmailChangeVerification = async (userId: string, emailValue: unknown) => {
+    const email = typeof emailValue === 'string' ? normalizeEmail(emailValue) : '';
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        throw new AppError(400, 'INVALID_EMAIL', 'Enter a valid email address');
+    }
+    const [user, duplicate] = await Promise.all([
+        prisma.user.findUnique({ where: { id: userId }, select: { id: true, email: true } }),
+        prisma.user.findUnique({ where: { email }, select: { id: true } }),
+    ]);
+    if (!user) throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
+    if (email === user.email) throw new AppError(400, 'EMAIL_UNCHANGED', 'Enter a different email address');
+    if (duplicate) throw new AppError(409, 'EMAIL_IN_USE', 'A user with this email already exists');
+
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = hashToken(rawToken);
+    const expiresAt = new Date(Date.now() + VERIFICATION_TOKEN_TTL_MS);
+    const verificationUrl = `${getFrontendBaseUrl()}/verify-email?purpose=email-change&token=${rawToken}`;
+    await prisma.emailVerificationToken.upsert({
+        where: { email },
+        update: { tokenHash, requestTokenHash: null, verifiedAt: null, expiresAt, purpose: 'EMAIL_CHANGE', userId },
+        create: { email, tokenHash, expiresAt, purpose: 'EMAIL_CHANGE', userId },
+    });
+    const result = await sendEmail({
+        to: email,
+        subject: 'Verify your new SafetyHub email',
+        text: `Confirm your new email address by opening this link: ${verificationUrl}`,
+        html: `<h2>SafetyHub</h2><p>Confirm this email address for your account.</p><p><a href="${verificationUrl}">Verify new email</a></p>`,
+    });
+    return { email, previewUrl: result.previewUrl };
+};
+
+const confirmEmailChange = async (token: string) => {
+    const record = await prisma.emailVerificationToken.findUnique({ where: { tokenHash: hashToken(token) } });
+    if (!record || record.purpose !== 'EMAIL_CHANGE' || !record.userId || record.expiresAt.getTime() < Date.now()) {
+        throw new AppError(400, 'EMAIL_CHANGE_EXPIRED', 'This email-change link is invalid or expired');
+    }
+    const userId = record.userId;
+    const duplicate = await prisma.user.findUnique({ where: { email: record.email }, select: { id: true } });
+    if (duplicate && duplicate.id !== userId) throw new AppError(409, 'EMAIL_IN_USE', 'A user with this email already exists');
+    const user = await prisma.$transaction(async (tx) => {
+        const updated = await tx.user.update({
+            where: { id: userId },
+            data: { email: record.email },
+            select: { id: true, email: true },
+        });
+        // Verification can be submitted more than once (for example, React
+        // StrictMode may run the confirmation effect twice). Consuming an
+        // already-consumed token must not roll back the successful email update.
+        await tx.emailVerificationToken.deleteMany({ where: { id: record.id } });
+        return updated;
+    });
+    return user;
 };
 
 const completeUserAgreement = async (actorId: string, targetId: string, input: unknown) => {
@@ -632,25 +731,51 @@ const createUser = async (userData: User) => {
       );
     }
 
-    const hashedPassword = await bcrypt.hash(userData.password, 10);
-
-    const createdUser = await prisma.user.create({
-      data: {
-        firstName: userData.firstName,
-        lastName: userData.lastName,
-        email: normalizedEmail,
-        passwordHash: hashedPassword,
+    const affiliations = normalizeAcademicAffiliations(userData.academicAffiliations);
+    const departments = await prisma.department.findMany({
+      where: {
+        id: { in: affiliations.map((entry) => entry.departmentId) },
+                isActive: true,
+        college: { isActive: true },
       },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-      },
+      select: { id: true, collegeId: true },
     });
+    const departmentById = new Map(departments.map((department) => [department.id, department]));
+    const invalidAffiliation = affiliations.find(
+      (entry) => departmentById.get(entry.departmentId)?.collegeId !== entry.collegeId,
+    );
+    if (invalidAffiliation || departments.length !== affiliations.length) {
+      throw new AppError(
+        400,
+        'INVALID_ACADEMIC_AFFILIATION',
+        'One or more selected departments do not belong to the selected active colleges.',
+      );
+    }
 
-    await prisma.emailVerificationToken.deleteMany({
-      where: { email: normalizedEmail },
+    const hashedPassword = await bcrypt.hash(userData.password, 10);
+    const createdUser = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          email: normalizedEmail,
+          passwordHash: hashedPassword,
+          academicAffiliations: {
+            create: affiliations.map((entry) => ({
+              collegeId: entry.collegeId,
+              departmentId: entry.departmentId,
+            })),
+          },
+        },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+        },
+      });
+      await tx.emailVerificationToken.deleteMany({ where: { email: normalizedEmail } });
+      return user;
     });
 
     return createdUser;
@@ -743,7 +868,7 @@ const getUserRoleById = async (id: string) => {
 }
 
 
-const validateSignupData = async (userData: { email?: string; password?: string; firstName?: string; lastName?: string; }) => {
+const validateSignupData = async (userData: { email?: string; password?: string; firstName?: string; lastName?: string; academicAffiliations?: unknown; }) => {
     // Check if a user with the given email already exists
     if (
         !userData.email ||
@@ -757,6 +882,7 @@ const validateSignupData = async (userData: { email?: string; password?: string;
       "Missing required user data"
     );
   }
+  normalizeAcademicAffiliations(userData.academicAffiliations);
     // Check if the email is a Purdue University email
   /*   const emailPattern = /^[a-zA-Z0-9._%+-]+@purdue\.edu$/;
     if (!emailPattern.test(userData.email)) {
@@ -788,7 +914,7 @@ const validateSignupData = async (userData: { email?: string; password?: string;
 }
 
 
-export { AppError, getUserDataById, getUserProfileById, getUserNameDatabyId, createUser, login, userSearch, getTabularUsers, getUserRoleById, getUserIdByEmail, checkPasswordStrength, validateSignupData, sendVerificationEmail, verifyEmailAddress, getEmailVerificationStatus, sendPasswordResetEmail, verifyPasswordReset, getPasswordResetStatus, resetPassword, updateUserProfile, completeUserAgreement, sendUserAgreementReminder };
+export { AppError, getUserDataById, getUserProfileById, getUserNameDatabyId, createUser, login, userSearch, getTabularUsers, getUserRoleById, getUserIdByEmail, checkPasswordStrength, validateSignupData, sendVerificationEmail, verifyEmailAddress, getEmailVerificationStatus, sendEmailChangeVerification, confirmEmailChange, sendPasswordResetEmail, verifyPasswordReset, getPasswordResetStatus, resetPassword, updateUserProfile, completeUserAgreement, sendUserAgreementReminder };
 
 
 
