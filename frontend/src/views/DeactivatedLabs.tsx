@@ -21,6 +21,7 @@ const getErrorMessage = (error: unknown) => {
   return 'Failed to load deactivated labs.';
 };
 
+// Defensive response normalization keeps restoration independent of API envelopes.
 const normalizeLabs = (payload: unknown): LabDetail[] => {
   if (Array.isArray(payload)) return payload as LabDetail[];
 
@@ -32,6 +33,7 @@ const normalizeLabs = (payload: unknown): LabDetail[] => {
   return [];
 };
 
+// List inactive labs and allow authorized users to restore them.
 const DeactivatedLabs = () => {
   const permissions = currentResourcePermissions();
   const [labs, setLabs] = useState<LabDetail[]>([]);

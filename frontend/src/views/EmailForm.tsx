@@ -9,6 +9,7 @@ import api from "../lib/api";
 const errorMessage = (error: unknown) => axios.isAxiosError(error) ? error.response?.data?.error?.message ?? "Unable to send the verification email." : "Unable to send the verification email.";
 
 export default function EmailForm() {
+  // Poll the opaque request credential while the user confirms the emailed link.
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const requestToken = params.get("requestToken") ?? "";
@@ -40,6 +41,7 @@ export default function EmailForm() {
   return <WaitingPage email={email} error={pollError} onRestart={() => setParams({})} />;
 }
 
+// Shared waiting state is reused by signup verification and password recovery.
 export function WaitingPage({ email, error, onRestart, reset = false }: { email: string; error: string | null; onRestart: () => void; reset?: boolean }) {
   return <Box sx={{ minHeight: "calc(100dvh / var(--app-scale, 1))", display: "grid", placeItems: "center", p: 2.5, background: "linear-gradient(135deg, #e9f2fb, #f8fafc)" }}><Paper elevation={0} sx={{ maxWidth: 560, width: "100%", p: { xs: 3, sm: 5 }, borderRadius: 4, textAlign: "center", boxShadow: "0 24px 70px rgba(15,23,42,.13)" }}><Stack spacing={2.5} sx={{ alignItems: "center" }}><Box sx={{ width: 72, height: 72, borderRadius: "50%", display: "grid", placeItems: "center", bgcolor: "#eaf3ff", color: "primary.main" }}><MarkEmailReadOutlinedIcon sx={{ fontSize: 38 }} /></Box><Typography variant="h4" component="h1" sx={{ fontWeight: 900 }}>Check your email</Typography><Typography color="text.secondary" sx={{ lineHeight: 1.7 }}>We sent {reset ? "a password reset" : "a verification"} link to <strong>{email}</strong>. This page will continue automatically after you click it.</Typography><Stack direction="row" spacing={1} sx={{ alignItems: "center" }}><CircularProgress size={18} /><Typography variant="body2" color="text.secondary">Waiting for confirmation…</Typography></Stack>{error && <Alert severity="error" sx={{ width: "100%" }}>{error}</Alert>}<Button variant="outlined" onClick={onRestart} sx={{ textTransform: "none", fontWeight: 800 }}>Use a different email</Button><Typography variant="body2"><Link to="/login">Back to login</Link></Typography></Stack></Paper></Box>;
 }

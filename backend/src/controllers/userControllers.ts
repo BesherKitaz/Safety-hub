@@ -52,6 +52,7 @@ const options = {
 const VERIFICATION_TOKEN_TTL_MS = 1000 * 60 * 60 * 24;
 const PASSWORD_RESET_TOKEN_TTL_MS = 1000 * 60 * 30;
 
+// Email verification tokens are stored as hashes; raw credentials only travel by email.
 const getFrontendBaseUrl = () => {
     return (process.env.FRONTEND_URL ?? 'http://localhost:3000').replace(/\/$/, '');
 };
@@ -83,6 +84,7 @@ const requireVerifiedEmail = async (email: string, requestToken: string) => {
     return verifiedEmail;
 };
 
+// Start the verified-email signup flow and invalidate any older request for the address.
 const sendVerificationEmail = async (email: string) => {
     const normalizedEmail = normalizeEmail(email);
 
@@ -186,6 +188,7 @@ const verifyEmailAddress = async (token: string) => {
     };
 };
 
+// Password reset uses a separate short-lived credential and never reveals account existence.
 const sendPasswordResetEmail = async (email: string) => {
     const normalizedEmail = normalizeEmail(email);
     const rawToken = crypto.randomBytes(32).toString('hex');
@@ -269,6 +272,7 @@ const getUserDataById = async (id: string) => {
     }
 };
 
+// Load the complete profile view model, including certifications grouped by lab.
 const getUserProfileById = async (id: string) => {
     try {
         const userData = await prisma.user.findUnique({
@@ -461,6 +465,7 @@ const getUserNameDatabyId = async (id: string) => {
 
 type ProfileUpdateInput = Partial<Record<EditableProfileField, unknown>>;
 
+// Apply the central field allowlist before validating or writing any profile value.
 const updateUserProfile = async (actorId: string, targetId: string, input: ProfileUpdateInput) => {
     if (!input || typeof input !== 'object' || Array.isArray(input)) {
         throw new AppError(400, 'INVALID_PROFILE_UPDATE', 'Profile update must be an object');
@@ -512,6 +517,7 @@ const updateUserProfile = async (actorId: string, targetId: string, input: Profi
             data[field] = normalized;
         }
     }
+    // Academic affiliations are replaced atomically after validating active relationships.
     if (academicAffiliations) {
         const departments = await prisma.department.findMany({
             where: {
@@ -558,6 +564,7 @@ const updateUserProfile = async (actorId: string, targetId: string, input: Profi
     return updated;
 };
 
+// Only the authenticated account owner can initiate a change to a new unique email.
 const sendEmailChangeVerification = async (userId: string, emailValue: unknown) => {
     const email = typeof emailValue === 'string' ? normalizeEmail(emailValue) : '';
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -589,6 +596,7 @@ const sendEmailChangeVerification = async (userId: string, emailValue: unknown) 
     return { email, previewUrl: result.previewUrl };
 };
 
+// The emailed bearer token identifies the requesting account and finalizes the change once.
 const confirmEmailChange = async (token: string) => {
     const record = await prisma.emailVerificationToken.findUnique({ where: { tokenHash: hashToken(token) } });
     if (!record || record.purpose !== 'EMAIL_CHANGE' || !record.userId || record.expiresAt.getTime() < Date.now()) {
@@ -612,6 +620,7 @@ const confirmEmailChange = async (token: string) => {
     return user;
 };
 
+// Agreement completion is self-service and requires every configured acknowledgement.
 const completeUserAgreement = async (actorId: string, targetId: string, input: unknown) => {
     if (actorId !== targetId) {
         throw new AppError(403, 'AGREEMENT_COMPLETION_FORBIDDEN', 'Users may only sign their own agreement');
@@ -712,6 +721,7 @@ function checkPasswordStrength(
   };
 }
 
+// Create an account only after email verification and academic-affiliation validation.
 const createUser = async (userData: User) => {
   try {
     const normalizedEmail = normalizeEmail(userData.email);

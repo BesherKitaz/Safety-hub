@@ -18,6 +18,7 @@ import DrawerContext from "../contexts/DrawerContext";
 
 
 // Navigation items for the side drawer. Modify by adding items to the list
+// Navigation metadata is filtered by role before links are rendered.
 const navItems = [
   { id: 'home', label: 'Home', to: '/', icon: <HomeIcon /> },
   { id: 'certifications', label: 'Certifications', to: '/certifications', icon: <WorkspacePremiumIcon /> },
@@ -82,6 +83,7 @@ const ListItemLink = ({ to, primary, icon, expanded, onClick, onSelect }: ListIt
 };
 
 
+// Coordinate permanent desktop navigation with the responsive mobile drawer.
 const NavigationSidePanelComponent = () => {
   const [hovered, setHovered] = useState(false);
 

@@ -99,6 +99,7 @@ const chipSx = (accent: string) => ({
   },
 });
 
+// Convert training relationships into positioned React Flow nodes and edges.
 const buildFlowElements = (trainingNode: TrainingNodeRelationshipResponse) => {
   const currentAccent = typeAccentMap[trainingNode.type] ?? typeAccentMap.GENERAL;
   const nodes: FlowNode[] = [
@@ -200,6 +201,7 @@ const buildFlowElements = (trainingNode: TrainingNodeRelationshipResponse) => {
   return { nodes, edges };
 };
 
+// Render one training node together with its prerequisite/dependency graph.
 const ViewTraining = () => {
   const navigate = useNavigate();
   const { labId, trainingId } = useParams<'labId' | 'trainingId'>();

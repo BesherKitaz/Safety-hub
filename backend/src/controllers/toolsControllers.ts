@@ -28,6 +28,7 @@ const getToolNamesAndIdsByLabs = async (labId: string) => {
     });
 };
 
+// Tool reads include active-state and training usage needed by management screens.
 const getToolById = async (toolId: string) => {
     return prismaAny.tool.findUnique({
         where: { id: toolId },
@@ -47,6 +48,7 @@ const getToolById = async (toolId: string) => {
     });
 };
 
+// Updates preserve optional descriptions and enforce lab/tool state constraints.
 const updateTool = async (toolId: string, updateData: { name: string; description?: string }) => {
     try {
         const name = updateData.name.trim();
@@ -111,6 +113,7 @@ const createTool = async (labId: string, name: string, description?: string) => 
     }
 };
 
+// Deactivation is rejected when active training relationships still require the tool.
 const deactivateTool = async (toolId: string) => {
     const tool = await getToolById(toolId);
 

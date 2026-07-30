@@ -25,6 +25,7 @@ const getErrorMessage = (error: unknown) => {
   return 'Failed to load labs.';
 };
 
+// Defensive response normalization keeps the screen stable across API envelopes.
 const normalizeLabs = (payload: unknown): LabDetail[] => {
   if (Array.isArray(payload)) return payload as LabDetail[];
 
@@ -36,6 +37,7 @@ const normalizeLabs = (payload: unknown): LabDetail[] => {
   return [];
 };
 
+// Present active labs and their tool/training counts as management entry points.
 const Labs = () => {
   const permissions = currentResourcePermissions();
   const [labs, setLabs] = useState<LabDetail[]>([]);

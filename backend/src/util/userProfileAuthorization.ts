@@ -1,3 +1,4 @@
+// Central profile-edit allowlists keep UI concepts aligned with backend enforcement.
 export const USER_ROLES = ['ADMIN', 'STAFF', 'SUPERVISOR', 'MENTOR', 'STUDENT'] as const;
 export type UserRoleName = typeof USER_ROLES[number];
 
@@ -17,6 +18,7 @@ export type ProfileMutationPermissions = {
   assignableRoles: UserRoleName[];
 };
 
+// Resolve field-level permissions once for the actor/target pair.
 export const getProfileMutationPermissions = (
   actor: { id: string; role: UserRoleName },
   target: { id: string; role: UserRoleName },
@@ -40,6 +42,7 @@ export const getProfileMutationPermissions = (
   };
 };
 
+// Map an incoming field to the permission category that governs it.
 export const canMutateProfileField = (permissions: ProfileMutationPermissions, field: EditableProfileField) => {
   if ((BASIC_PROFILE_FIELDS as readonly string[]).includes(field)) return permissions.basic;
   if ((PROTECTED_IDENTITY_FIELDS as readonly string[]).includes(field)) return permissions.identity;

@@ -20,6 +20,7 @@ const normalizeOptionalText = (value?: string | null) => {
     return trimmed ? trimmed : null;
 };
 
+// Guard child mutations so tools and trainings cannot be added to inactive labs.
 export const assertLabIsActive = async (labId: string) => {
     const lab = await prismaAny.lab.findUnique({
         where: {
@@ -92,6 +93,7 @@ const getDeactivatedLabs = async () => {
     }
 };
 
+// Return the complete lab detail used by the management tabs.
 const getLabById = async (labId: string) => {
     try {
         return await prismaAny.lab.findUnique({
@@ -249,6 +251,7 @@ const updateLab = async (labId: string, labData: LabInput) => {
     }
 };
 
+// Deactivating a lab also reconciles dependent records inside one transaction.
 const setLabActiveState = async (labId: string, isActive: boolean) => {
     if (!labId) {
         throw new AppError(400, 'LAB_ID_REQUIRED', 'Lab ID is required.');
@@ -306,7 +309,6 @@ export {
     LabIdRequiredError,
     AppError,
 }
-
 
 
 

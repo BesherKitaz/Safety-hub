@@ -82,6 +82,7 @@ type ApiErrorResponse = {
   message?: string;
 };
 
+// Normalize server failures into actionable form-level messages.
 const getApiErrorMessage = (error: unknown, fallback: string) => {
   if (!axios.isAxiosError<ApiErrorResponse>(error)) {
     return fallback;
@@ -103,6 +104,7 @@ const initialCertificationData: CertificationData = {
 const recentLabStorageKey = () =>
   `safetyHub:lastCertificationLabId:${localStorage.getItem('userId') ?? 'anonymous'}`;
 
+// Restore safe defaults while preserving the issuer's recent lab preference.
 const getInitialCertificationData = (isEditMode: boolean): CertificationData => ({
   ...initialCertificationData,
   labId: isEditMode ? '' : localStorage.getItem(recentLabStorageKey()) ?? '',
@@ -115,6 +117,7 @@ const levels: Record<string, string> = {
 };
 
 const CertificationForm = () => {
+  // Create mode progressively filters valid choices; edit mode loads the existing record.
   const permissions = currentResourcePermissions();
   const { certificationId } = useParams<{ certificationId?: string }>();
   const [searchParams] = useSearchParams();

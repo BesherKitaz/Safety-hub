@@ -45,9 +45,11 @@ const TabPanel = ({ children, value, index, idPrefix }: TabPanelProps) => (
   </Box>
 );
 
+// Normalize nullable API collections before passing them into management tabs.
 const normalizeList = <T,>(value?: T[] | null) => (Array.isArray(value) ? value : []);
 const tabNames = ['info', 'tools', 'trainings'] as const;
 
+// Fetch a lab once and coordinate its details, tools, and training tabs.
 const LabManagement = () => {
   const { labId } = useParams<{ labId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();

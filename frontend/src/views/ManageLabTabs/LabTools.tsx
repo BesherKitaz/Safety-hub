@@ -61,6 +61,7 @@ const toolCardShellSx = {
 };
 
 
+// The shared modal handles validation and submission for create/edit variants.
 const ToolModalForm = ({
   open,
   onClose,
@@ -270,6 +271,7 @@ const ToolCreateModal = ({
     />
   );
 };
+// Resolve a tool's included training relationship into a compact summary.
 const resolveTrainingNodeLink = (tool: LabTool): ToolSummary | null => {
   const trainingNodeId = tool.trainingNode?.id ?? tool.trainingNodeId;
   if (!trainingNodeId) {
@@ -284,6 +286,7 @@ const resolveTrainingNodeLink = (tool: LabTool): ToolSummary | null => {
 
 
 
+// Each card owns activation actions and links to dependent training.
 const ToolCard = ({ tool, currentLab, onToolChanged }: ToolCardProps) => {
   const permissions = currentResourcePermissions();
   const [toolData, setToolData] = useState<LabTool>(tool);
@@ -493,6 +496,7 @@ const ToolCard = ({ tool, currentLab, onToolChanged }: ToolCardProps) => {
   );
 };
 
+// Combine tool creation with active and inactive tool management.
 const ToolsTab = ({ lab, tools }: ToolsTabProps) => {
   const permissions = currentResourcePermissions();
   const [toolList, setToolList] = useState<LabTool[]>(tools);
@@ -619,7 +623,6 @@ const ToolsTab = ({ lab, tools }: ToolsTabProps) => {
 };
 
 export default ToolsTab;
-
 
 
 

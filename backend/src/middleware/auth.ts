@@ -16,6 +16,7 @@ export type AuthRequest<P = Record<string, string>> = Request<P> & {
   user?: AuthTokenPayload;
 };
 
+// Validate the bearer token, then refresh role and active status from the database.
 export const authMiddleware = async (
   req: AuthRequest,
   res: Response,

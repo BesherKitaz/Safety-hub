@@ -1,5 +1,6 @@
 import type { ErrorRequestHandler, Response } from 'express';
 
+// AppError carries a stable API code and an intentional HTTP status.
 export class AppError extends Error {
 	statusCode: number;
 	code: string;
@@ -25,6 +26,7 @@ const fallbackError: StandardError = {
 	message: 'Internal server error',
 };
 
+// Convert Prisma, application, and unknown failures into the public error contract.
 export const normalizeError = (
 	error: unknown,
 	fallback: Partial<StandardError> = {}
@@ -68,6 +70,7 @@ export const normalizeError = (
 	};
 };
 
+// Route handlers use this helper when they need a contextual fallback message.
 export const sendError = (
 	res: Response,
 	error: unknown,
@@ -83,6 +86,7 @@ export const sendError = (
 	});
 };
 
+// Final Express error boundary for errors forwarded through next().
 export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
 	sendError(res, error);
 };

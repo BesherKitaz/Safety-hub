@@ -5,6 +5,7 @@ import type { AuthRequest } from './auth';
 import { AppError } from './errorHandler';
 import prisma from '../lib/prisma';
 
+// Reusable role groups define access consistently across routes and controllers.
 export const RESOURCE_READER_ROLES: UserRole[] = [
   UserRole.ADMIN,
   UserRole.STAFF,
@@ -22,6 +23,7 @@ export const USER_DIRECTORY_ROLES: UserRole[] = [
   UserRole.MENTOR,
 ];
 
+// Pure permission helpers support both middleware and focused unit tests.
 export const directoryTargetRoles = (actorRole: UserRole): UserRole[] | undefined =>
   actorRole === UserRole.MENTOR || actorRole === UserRole.SUPERVISOR
     ? [UserRole.STUDENT, UserRole.MENTOR, UserRole.SUPERVISOR]
@@ -36,6 +38,7 @@ export const canManageCertifications = (role: UserRole) =>
 export const canReadCertification = (role: UserRole, userId: string, issuedToId: string) =>
   RESOURCE_READER_ROLES.includes(role) || (role === UserRole.STUDENT && userId === issuedToId);
 
+// Require one of the supplied roles before entering a protected route.
 export const authorizeRoles = (...allowedRoles: UserRole[]) =>
   (req: AuthRequest, _res: Response, next: NextFunction) => {
     const role = req.user?.role as UserRole | undefined;
@@ -47,6 +50,7 @@ export const authorizeRoles = (...allowedRoles: UserRole[]) =>
     next();
   };
 
+// Certification issuance has an additional level restriction for mentors.
 export const authorizeCertificationIssuance = (
   req: AuthRequest,
   _res: Response,
@@ -70,6 +74,7 @@ export const authorizeCertificationIssuance = (
   next();
 };
 
+// Students may read profile-scoped resources only when the route targets themselves.
 export const authorizeStudentSelf = (parameterName = 'id') =>
   (req: AuthRequest, _res: Response, next: NextFunction) => {
     if (req.user?.role === UserRole.STUDENT && req.params[parameterName] !== req.user.userId) {
@@ -79,6 +84,7 @@ export const authorizeStudentSelf = (parameterName = 'id') =>
     next();
   };
 
+// Managers can read any certification; students are limited to their own records.
 export const authorizeCertificationRead = async (
   req: AuthRequest<{ id: string }>,
   _res: Response,

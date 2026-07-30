@@ -35,6 +35,7 @@ const smtpPort = Number(SMTP_PORT);
 if (Number.isNaN(smtpPort)) {
   throw new Error("SMTP_PORT must be a valid number");
 }
+// A single SMTP transport is shared by all transactional email flows.
 const transporter = nodemailer.createTransport({
   host: SMTP_HOST,
   port: smtpPort,
@@ -52,6 +53,7 @@ type SendEmailOptions = {
   html?: string;
 };
 
+// Send a message and expose a test-provider preview URL when one is available.
 export const sendEmail = async ({
   to,
   subject,

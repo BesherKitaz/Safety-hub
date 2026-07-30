@@ -7,6 +7,7 @@ type AgreementLinkInput = {
   displayText: string | null;
 };
 
+// Validate administrator-managed agreement links before database writes.
 const validateAgreementLink = (input: unknown): AgreementLinkInput => {
   if (!input || typeof input !== 'object' || Array.isArray(input)) {
     throw new AppError(400, 'INVALID_AGREEMENT_LINK', 'Agreement link must be an object');
@@ -41,6 +42,7 @@ export const listAgreementLinks = () =>
 export const createAgreementLink = (input: unknown) =>
   prisma.agreementLink.create({ data: validateAgreementLink(input) });
 
+// Updates merge supplied fields with the existing record, then revalidate the result.
 export const updateAgreementLink = async (id: string, input: unknown) => {
   const existing = await prisma.agreementLink.findUnique({ where: { id }, select: { id: true } });
   if (!existing) throw new AppError(404, 'AGREEMENT_LINK_NOT_FOUND', 'Agreement link not found');

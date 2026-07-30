@@ -150,6 +150,7 @@ const heroSx = {
   boxShadow: "0 28px 70px rgba(15, 23, 42, 0.10)",
 };
 
+// Shared section primitives keep the long profile page visually consistent.
 const SectionHeader = ({ eyebrow, title, description, accent = "#2563EB" }: SectionHeaderProps) => (
   <Stack spacing={0.75}>
     <Typography
@@ -280,6 +281,7 @@ const StatCard = ({ icon, value, label, caption, accent }: StatCardProps) => (
   </Paper>
 );
 
+// Certification cards summarize current status while linking to full record detail.
 const CertificationCard = ({ certification, accent }: CertificationCardProps) => (
   <Box
     sx={{
@@ -354,6 +356,7 @@ const CertificationCard = ({ certification, accent }: CertificationCardProps) =>
   </Box>
 );
 
+// Group certifications by lab to make a user's access progression easier to scan.
 const LabSection = ({ group }: { group: CertsGroupedByLab }) => {
   const [expanded, setExpanded] = useState(true);
   const accent = "#059669"
@@ -487,6 +490,7 @@ const LabSection = ({ group }: { group: CertsGroupedByLab }) => {
 
 
 
+// Load the requested member, or the signed-in user's profile when no ID is supplied.
 const Profile = () => {
   const [userData, setUserData] = useState<UserData| null>(null);
   const [loading, setLoading] = useState(true);

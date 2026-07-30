@@ -9,6 +9,7 @@ export type ProposedTrainingCycle = {
   existingPath: string[];
 };
 
+// Find a directed path so callers can explain prerequisite relationships.
 export const findDirectedPath = (
   edges: TrainingGraphEdge[],
   startId: string,
@@ -48,6 +49,7 @@ export const findDirectedPath = (
   return null;
 };
 
+// Simulate proposed edges and return the first cycle they would introduce.
 export const findProposedTrainingCycle = (
   edges: TrainingGraphEdge[],
   parentIds: string[],

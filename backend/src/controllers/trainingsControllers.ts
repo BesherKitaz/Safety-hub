@@ -23,6 +23,7 @@ const supportedTrainingNodeTypes = new Set<TrainingNodeType>([
 const isTrainingNodeType = (value: unknown): value is TrainingNodeType =>
   supportedTrainingNodeTypes.has(value as TrainingNodeType);
 
+// Validate primitive request fields before performing relationship queries.
 const validateTrainingRequestShape: (data: unknown) => asserts data is TrainingNodeData = (data) => {
   if (!data || typeof data !== 'object' || Array.isArray(data)) {
     throw new AppError(400, 'INVALID_TRAINING_REQUEST', 'Training details must be provided.');
@@ -103,6 +104,7 @@ const getTrainingNamesAndIdsByLab = async (labId: string) => {
     });
 };
 
+// Descendant collection supports cascade checks when training relationships change.
 const collectDescendantTrainingIds = async (trainingId: string) => {
   const visited = new Set<string>();
   const descendants = new Set<string>();
@@ -148,6 +150,7 @@ const normalizeOptionalId = (value: unknown): string | null => {
   return trimmed;
 };
 
+// Clear both incoming and outgoing edges before rebuilding an edited graph node.
 const clearTrainingEdges = async (tx: any, trainingId: string) => {
   await tx.trainingEdge.deleteMany({
     where: {
@@ -168,6 +171,7 @@ const getTrainingRecord = async (trainingId: string) => {
   });
 };
 
+// Validate tools, prerequisite types, dependencies, and graph cycles as one proposal.
 const validateTrainingNodeData = async (data: TrainingNodeData, currentTrainingId?: string) => {
   validateTrainingRequestShape(data);
 
@@ -312,6 +316,7 @@ const validateTrainingNodeData = async (data: TrainingNodeData, currentTrainingI
   return { parentIds, childIds };
 };
 
+// Persist a validated node and all of its graph relationships atomically.
 const addTraining = async (trainingData: TrainingNodeData) => {
   const { parentIds, childIds } = await validateTrainingNodeData(trainingData);
 
@@ -423,6 +428,7 @@ const getTrainingById = async (trainingId: string) => {
   }
 };
 
+// Update the node and replace its relationships in a single transaction.
 const updateTraining = async (trainingId: string, updateData: TrainingNodeData) => {
   const currentTraining = await getTrainingRecord(trainingId);
 

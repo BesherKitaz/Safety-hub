@@ -36,6 +36,7 @@ const getErrorMessage = (error: unknown, fallback: string) => {
   return fallback;
 };
 
+// Keep edit and activation workflows next to the lab summary.
 const LabActions = ({ lab, onLabUpdated }: { lab: NonNullable<LabInfoTabProps['lab']>; onLabUpdated: () => void | Promise<void> }) => {
   const [editOpen, setEditOpen] = useState(false);
   const [deactivateOpen, setDeactivateOpen] = useState(false);
@@ -174,6 +175,7 @@ const LabActions = ({ lab, onLabUpdated }: { lab: NonNullable<LabInfoTabProps['l
   );
 };
 
+// Combine lab metadata, counts, and administrative actions.
 const LabInfoTab = ({ lab, tools, trainingNodes, onLabUpdated }: LabInfoTabProps) => {
   const isActive = lab.isActive !== false;
   const permissions = currentResourcePermissions();

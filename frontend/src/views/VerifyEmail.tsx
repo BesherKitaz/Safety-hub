@@ -5,6 +5,7 @@ import axios from "axios";
 import api from "../lib/api";
 
 export default function VerifyEmail() {
+  // Route tokens to signup, password-reset, or email-change completion.
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const token = params.get("token") ?? "";

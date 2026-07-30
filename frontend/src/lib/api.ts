@@ -8,6 +8,7 @@ const api = axios.create({
   },
 });
 
+// Attach the current session token to every API request.
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
 
@@ -20,6 +21,7 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Clear invalid sessions and move users away from forbidden screens.
 api.interceptors.response.use(
   (response) => response,
   (error) => {

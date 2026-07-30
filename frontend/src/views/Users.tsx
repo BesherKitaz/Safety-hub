@@ -14,6 +14,7 @@ import api from '../lib/api'
 
 
 
+// Directory columns provide profile navigation and role/agreement status at a glance.
 const columns: GridColDef[] = [
   {
     field: 'fullName',
@@ -107,6 +108,7 @@ type UserFilters = {
 };
 
 const Users = () => {
+    // Search and filters are sent to the backend rather than applied to one page locally.
     const [rows, setRows] = useState<UserRow[]>([]);
     const [totalRows, setTotalRows] = useState(0);
     const [paginationModel, setPaginationModel] = useState({

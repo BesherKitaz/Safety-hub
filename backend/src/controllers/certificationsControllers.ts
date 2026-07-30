@@ -147,6 +147,7 @@ const normalizeOptionalDate = (value?: string | Date | null) => {
 const prismaAny = prisma as any;
 const DEFAULT_CERTIFICATION_DURATION_DAYS = 365;
 
+// Certification duration is configurable while retaining a safe one-year default.
 const getCertificationDurationDays = async (db: DatabaseClient = prisma) => {
   const settings = await (db as any).certificationSettings.upsert({
     where: { id: 'default' },
@@ -179,6 +180,7 @@ const updateCertificationDurationDays = async (value: unknown) => {
 };
 
 
+// Shared selections keep current and historical certification responses consistent.
 const personSelect = {
   id: true,
   firstName: true,
@@ -223,6 +225,7 @@ const certificationDetailSelect = {
   },
 } as const;
 
+// Raw SQL preserves snapshots even when related live records later change.
 const certificationHistorySelectSql = (certificationId: string) => Prisma.sql`
   SELECT
     h."id",
@@ -318,6 +321,7 @@ const mapCertificationSnapshot = (certification: any): CertificationSnapshot => 
   trainingNode: certification.trainingNode,
 });
 
+// Convert denormalized history rows into the nested API response consumed by the UI.
 const mapHistoryRow = (row: Record<string, any>, certification: CertificationSnapshot): CertificationHistoryResponse => {
   const trainingNodeBefore = mapTrainingNodeSnapshot(row, 'trainingNodeBefore');
   const trainingNodeAfter = mapTrainingNodeSnapshot(row, 'trainingNodeAfter');
@@ -393,6 +397,7 @@ const getRecentCertifications = async () => {
 };
 
 
+// Build the paginated management table with role, search, status, and date filters.
 const getTabularCertifications = async (
   skip: number,
   pageSize: number,
@@ -547,6 +552,7 @@ const selectCertificationHistoryRowsForTabular = async (certificationIds: string
   `)) as { certificationId: string; changedAt: Date }[];
 };
 
+// Gather all related records needed to validate a proposed certification mutation.
 const getCertificationValidationContext = async (
   proposal: CertificationInput,
   excludeCertificationId?: string,
@@ -629,6 +635,7 @@ const getCertificationValidationContext = async (
   };
 };
 
+// Enforce agreement, lab, training, level, prerequisite, and issuer constraints together.
 const validateCertificationProposal = async (
   proposal: CertificationInput,
   excludeCertificationId?: string,
@@ -747,6 +754,7 @@ const getCertificationById = async (certificationId: string) => {
   });
 };
 
+// History writes capture before/after snapshots for a durable audit trail.
 const createHistoryEntry = async (
   tx: Prisma.TransactionClient,
   certification: CertificationSnapshot,
@@ -776,6 +784,7 @@ const createHistoryEntry = async (
   });
 };
 
+// Create a certification and its initial audit entry atomically.
 const addCertification = async (certification: CertificationInput) => {
   await validateCertificationProposal(certification);
   const notes = normalizeOptionalText(certification.notes);
@@ -817,6 +826,7 @@ const addCertification = async (certification: CertificationInput) => {
   }
 };
 
+// Validate an edit against the current graph before updating the record and history.
 const updateCertification = async (
   certificationId: string,
   updateData: Partial<CertificationInput>,
@@ -891,6 +901,7 @@ type RevocationTask = {
   level: 1 | 2 | 3;
 };
 
+// Convert graph edges into lookup maps used by cascade invalidation.
 const buildEdgeMaps = (edges: { parentId: string; childId: string }[]) => {
   const parentsByChild = new Map<string, string[]>();
   const childrenByParent = new Map<string, string[]>();
@@ -911,6 +922,7 @@ const buildEdgeMaps = (edges: { parentId: string; childId: string }[]) => {
   };
 };
 
+// Recursively invalidate certifications whose prerequisites are no longer satisfied.
 const cascadeInvalidateCertification = async (
   certificationId: string,
   targetStatus: 'REVOKED' | 'EXPIRED',
@@ -1089,6 +1101,7 @@ const cascadeInvalidateCertification = async (
   }
 };
 
+// Revocation records an explicit reason and cascades dependency effects.
 const revokeCertification = async (certificationId: string, changedById: string, reason?: unknown) => {
   if (!changedById?.trim()) {
     throw new AppError(400, 'CHANGED_BY_ID_REQUIRED', 'The user performing this action is required.');
@@ -1106,6 +1119,7 @@ const revokeCertification = async (certificationId: string, changedById: string,
   );
 };
 
+// Scheduled lifecycle reconciliation expires every certification past its due date.
 const expireDueCertifications = async (now = new Date()) => {
   const dueCertifications = await prisma.certification.findMany({
     where: {
@@ -1203,6 +1217,7 @@ const unrevokeCertification = async (certificationId: string, changedById: strin
   }
 };
 
+// Renewal recalculates validity and records the lifecycle transition.
 const renewCertification = async (certificationId: string, changedById: string) => {
   if (!certificationId?.trim()) {
     throw new AppError(400, 'CERTIFICATION_ID_REQUIRED', 'Certification ID is required.');
@@ -1303,6 +1318,7 @@ const allChildrenCertifiedAtLevel = (
   );
 
 
+// Filter training choices to nodes the selected student can validly receive next.
 const getTrainingNamesAndIdsByLabForStudent = async (labId: string, studentId: string) => {
   try {
     if (!labId?.trim()) {

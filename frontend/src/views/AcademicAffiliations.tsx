@@ -39,6 +39,7 @@ type AcademicStats = {
 
 const colors = ['#1559a6', '#2e7d32', '#ed6c02', '#7b1fa2', '#0288d1', '#c62828', '#6d4c41', '#455a64'];
 
+// Render compact affiliation shares without introducing a charting dependency.
 const FundingPie = ({ items, total }: { items: { name: string; count: number }[]; total: number }) => {
   let cursor = 0;
   const segments = items.map((item, index) => {
@@ -84,6 +85,7 @@ const FundingPie = ({ items, total }: { items: { name: string; count: number }[]
   );
 };
 
+// Manage the academic directory and review its usage in one administrator screen.
 const AcademicAffiliations = () => {
   const [tab, setTab] = useState(0);
   const [colleges, setColleges] = useState<College[]>([]);

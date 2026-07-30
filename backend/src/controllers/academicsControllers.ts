@@ -7,6 +7,7 @@ const normalizeName = (value: unknown, label: string) => {
   return name;
 };
 
+// Public signup/profile options include only active colleges and departments.
 export const listAcademicOptions = () =>
   prisma.college.findMany({
     where: { isActive: true },
@@ -22,6 +23,7 @@ export const listAcademicOptions = () =>
     },
   });
 
+// Admin management includes inactive entries so they can be restored.
 export const listAcademicManagement = () =>
   prisma.college.findMany({
     orderBy: { name: 'asc' },
@@ -65,6 +67,7 @@ export const updateDepartment = (id: string, input: { name?: unknown; isActive?:
     },
   });
 
+// Aggregate affiliation counts for the academic directory dashboard.
 export const getAcademicStats = async () => {
   const [totalUsers, colleges, departments, affiliations] = await Promise.all([
     prisma.user.count(),

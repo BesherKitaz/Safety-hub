@@ -35,6 +35,7 @@ type LinkDraft = {
   displayText: string;
 };
 
+// Agreement links are edited as drafts so incomplete input never mutates saved rows.
 const emptyDraft: LinkDraft = { title: "", url: "", displayText: "" };
 const errorMessage = (error: unknown) =>
   axios.isAxiosError(error)

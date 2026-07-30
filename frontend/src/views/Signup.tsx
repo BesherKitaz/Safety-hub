@@ -12,6 +12,7 @@ type ApiErrorResponse = {
 };
 
 const Signup = () => {
+  // Signup requires the email credential issued by the preceding verification flow.
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const verifiedEmail = searchParams.get('email')?.trim() ?? '';

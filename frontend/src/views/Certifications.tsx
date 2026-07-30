@@ -13,6 +13,7 @@ import api from '../lib/api'
 
 
 
+// Column definitions own lifecycle formatting and record navigation.
 const columns: GridColDef[] = [
   { field: 'holder', headerName: 'Holder\'s Name', width: 130, flex: 0.5 },
   { field: 'issuedBy', headerName: 'Issuer\'s Name', width: 130, flex: 0.5 },
@@ -125,6 +126,7 @@ const levelLabels: Record<number, string> = {
 };
 
 const Certifications = () => {
+    // Filters and pagination remain server-driven for large certification datasets.
     const [searchParams] = useSearchParams();
     const initialSearch = searchParams.get('search') ?? '';
     const [rows, setRows] = useState<CertificationRow[]>([]);

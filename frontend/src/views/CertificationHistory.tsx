@@ -124,6 +124,7 @@ const formatPerson = (person?: UserSummary) => {
   return `${person.firstName} ${person.lastName}`.trim();
 };
 
+// Translate backend audit actions into concise user-facing labels.
 const formatAction = (action: string) => {
   switch (action.toUpperCase()) {
     case 'CREATED':
@@ -201,6 +202,7 @@ const FieldCard = ({ label, value, helper }: { label: string; value: ReactNode; 
   </Box>
 );
 
+// Render immutable before/after snapshots instead of current related records.
 const SnapshotPanel = ({
   title,
   eyebrow,
@@ -256,6 +258,7 @@ const SnapshotPanel = ({
 };
 
 const CertificationHistory = () => {
+  // An optional history ID switches between the timeline and a single audit entry.
   const { id, historyId } = useParams<{ id: string; historyId?: string }>();
   const navigate = useNavigate();
 

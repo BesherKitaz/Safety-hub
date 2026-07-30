@@ -4,6 +4,7 @@ import { Alert, Autocomplete, Box, Button, Chip, IconButton, InputAdornment, Lin
 import { Visibility, VisibilityOff, VerifiedUserOutlined } from "@mui/icons-material";
 import { Link } from "react-router-dom";
 import api from "../lib/api";
+// Provide immediate password guidance; the backend remains the security authority.
 const passwordScore = (password: string) => [password.length >= 12, /[a-z]/.test(password) && /[A-Z]/.test(password), /\d/.test(password), /[^A-Za-z0-9]/.test(password)].filter(Boolean).length;
 
 type DepartmentOption = { id: string; name: string; collegeId: string };
@@ -28,6 +29,7 @@ const copy = {
 };
 
 export default function AuthForm({ mode, onSubmit, signupEmail }: AuthFormProps) {
+  // One form component serves login, signup, verification, and recovery variants.
   const [data, setData] = useState<AuthFormData>({ firstName: "", lastName: "", email: signupEmail ?? "", password: "", confirmPassword: "" });
   const [visible, setVisible] = useState(false);
   const [confirmVisible, setConfirmVisible] = useState(false);
@@ -43,6 +45,7 @@ export default function AuthForm({ mode, onSubmit, signupEmail }: AuthFormProps)
   const details = copy[mode];
   const departmentOptions = selectedColleges.flatMap((college) => college.departments);
 
+  // Signup loads the managed academic directory for linked college/department choices.
   useEffect(() => {
     if (mode !== "signup") return;
     let active = true;
@@ -61,6 +64,7 @@ export default function AuthForm({ mode, onSubmit, signupEmail }: AuthFormProps)
 
   const change = (key: keyof AuthFormData) => (event: ChangeEvent<HTMLInputElement>) => setData((current) => ({ ...current, [key]: event.target.value }));
 
+  // Perform mode-specific client checks before delegating the request to the page.
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError(null);

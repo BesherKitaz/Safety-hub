@@ -24,6 +24,7 @@ const apiError = (error: unknown) => axios.isAxiosError(error) ? error.response?
 const Section = ({ title, description, children }: { title: string; description: string; children: ReactNode }) => <Box><Typography variant="h6" sx={{ fontWeight: 850 }}>{title}</Typography><Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>{description}</Typography>{children}</Box>;
 
 export default function EditProfile({ mode }: EditProfileProps) {
+  // Route and session identities drive the same actor/target permission model as the API.
   const { id } = useParams<{ id: string }>();
   const actorId = localStorage.getItem("userId") ?? "";
   const actorRole = (localStorage.getItem("userRole") ?? "STUDENT") as Role;
@@ -40,6 +41,7 @@ export default function EditProfile({ mode }: EditProfileProps) {
   const [newEmail, setNewEmail] = useState("");
   const [emailChangeSent, setEmailChangeSent] = useState(false);
 
+  // Load the target profile independently from the shared academic option directory.
   useEffect(() => {
     if (mode !== "edit" || !targetId) return;
     let active = true;
@@ -59,6 +61,7 @@ export default function EditProfile({ mode }: EditProfileProps) {
       .catch(() => setError("College and department choices could not be loaded."));
   }, [mode]);
 
+  // Mirror backend authorization so the form exposes only actionable sections.
   const permissions = useMemo(() => {
     const self = actorId === profile.id;
     const staffTarget = actorRole === "STAFF" && !self && staffRoles.includes(profile.role);
@@ -70,6 +73,7 @@ export default function EditProfile({ mode }: EditProfileProps) {
   }, [actorId, actorRole, profile.id, profile.role]);
 
   const change = (field: keyof ProfileData) => (event: ChangeEvent<HTMLInputElement>) => setProfile((current) => ({ ...current, [field]: event.target.value }));
+  // Send only changed, authorized fields rather than replacing the entire profile.
   const changedPayload = () => {
     const allowed: (keyof ProfileData)[] = [];
     if (permissions.basic) allowed.push("graduationYear", "jobTitle", "phoneNumber", "address", "academicAffiliations");
@@ -78,6 +82,7 @@ export default function EditProfile({ mode }: EditProfileProps) {
     return Object.fromEntries(allowed.filter((field) => JSON.stringify(profile[field]) !== JSON.stringify(initial[field])).map((field) => [field, field === "graduationYear" ? (profile[field] === null || profile[field] === ("" as never) ? null : Number(profile[field])) : profile[field]]));
   };
 
+  // Email changes use their own verification flow and never enter the generic payload.
   const requestEmailChange = async () => {
     setSaving(true); setError(null); setSuccess(null);
     try {
@@ -91,6 +96,7 @@ export default function EditProfile({ mode }: EditProfileProps) {
     }
   };
 
+  // Resolve compact affiliation IDs into the option objects expected by the controls.
   const selectedDepartments = colleges.flatMap((college) => college.departments)
     .filter((department) => profile.academicAffiliations.some((entry) => entry.departmentId === department.id));
   const selectedColleges = colleges.filter((college) => selectedCollegeIds.includes(college.id));

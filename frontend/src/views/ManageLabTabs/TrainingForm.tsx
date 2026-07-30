@@ -97,6 +97,7 @@ type CycleDetails = {
   existingPath: string[];
 };
 
+// Search the proposed prerequisite graph so the form can explain invalid cycles.
 const findDirectedPath = (
   nodes: TrainingNodeOption[],
   startId: string,
@@ -135,6 +136,7 @@ const findDirectedPath = (
   return null;
 };
 
+// Add pending form edges to the graph and report the cycle they would create.
 const findProposedCycle = (
   nodes: TrainingNodeOption[],
   parentIds: string[],
@@ -187,6 +189,7 @@ const getErrorMessage = (error: unknown, fallback: string) => {
   return fallback;
 };
 
+// Convert the API's nullable relationship shape into controlled form values.
 const normalizeFetchedTrainingNodeData = (data: FetchedTrainingNodeData): TrainingNodeData => {
   const childTrainingNodeIds: string[] = [];
   const parentTrainingNodeIds: string[] = [];
@@ -219,6 +222,7 @@ const normalizeFetchedTrainingNodeData = (data: FetchedTrainingNodeData): Traini
 } 
 
 
+// Coordinate node metadata, tool requirements, and graph relationships.
 const TrainingForm = ({ mode }: { mode: 'create' | 'edit' }) => {
     const [labs, setLabs] = useState<Lab[]>([])
     const [tools, setTools] = useState<Tool[]>([])

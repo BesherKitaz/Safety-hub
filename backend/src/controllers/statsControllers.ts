@@ -9,6 +9,7 @@ import { getReportingPeriodStarts } from '../util/reportingPeriods';
 
 
 
+// Compute dashboard totals and reporting-period changes for the management overview.
 const collectStats = async () => {
     
     const { startOfMonth } = getReportingPeriodStarts();

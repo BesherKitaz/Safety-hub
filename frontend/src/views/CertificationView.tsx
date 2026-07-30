@@ -112,6 +112,7 @@ const formatDateTime = (value?: string | null) => {
 
 const formatName = (person: UserSummary) => `${person.firstName} ${person.lastName}`;
 
+// Status presentation is centralized so lifecycle states remain visually consistent.
 const getStatusStyles = (status: string) => {
   switch (status.toUpperCase()) {
     case 'ACTIVE':
@@ -152,6 +153,7 @@ const getStatusStyles = (status: string) => {
   }
 };
 
+// Small display components keep the detail page organized by domain section.
 const FieldCard = ({ label, value, helper }: FieldCardProps) => (
   <Box
     sx={{
@@ -207,6 +209,7 @@ const SectionHeader = ({ eyebrow, title, description, accent = '#2563EB' }: Sect
 );
 
 const CertificationView = () => {
+  // Load one certification and expose lifecycle actions permitted for the viewer.
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
@@ -727,7 +730,6 @@ const CertificationView = () => {
 };
 
 export default CertificationView;
-
 
 
 

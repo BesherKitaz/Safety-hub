@@ -34,12 +34,14 @@ type Header = {
   actions: React.ReactNode;
 };
 
+// Route guards keep authentication and coarse role access close to navigation.
 const RequireAuth = ({ children }: { children: React.ReactNode }) =>
   isLoggedIn() ? children : <Navigate to="/login" replace />;
 
 const RequireRole = ({ roles, children }: { roles: string[]; children: React.ReactNode }) =>
   roles.includes(localStorage.getItem('userRole') ?? '') ? children : <Navigate to="/user" replace />;
 
+// Students may open only their own profile route; finer edit rules live in the form/API.
 const RequireProfileAccess = ({ children }: { children: React.ReactNode }) => {
   const { id } = useParams<{ id: string }>();
   const role = localStorage.getItem('userRole');
@@ -55,6 +57,7 @@ const managerRoles = ['ADMIN', 'STAFF'];
 const dashboardRoles = ['ADMIN', 'STAFF'];
 
 function App() {
+  // Layout contexts coordinate the page header and responsive navigation drawer.
   const [header, setHeader] = useState<Header>({
       title: "",
       actions: null,

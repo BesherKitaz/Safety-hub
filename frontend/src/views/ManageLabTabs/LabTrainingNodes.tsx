@@ -39,6 +39,7 @@ type TrainingCardProps = {
   onTrainingChanged: () => void | Promise<void>;
 };
 
+// Training cards expose relationship context and lifecycle actions for one node.
 const TrainingCard = ({ trainingNode, currentLab, onTrainingChanged }: TrainingCardProps) => {
   const permissions = currentResourcePermissions();
   const navigate = useNavigate();
@@ -210,6 +211,7 @@ const TrainingCard = ({ trainingNode, currentLab, onTrainingChanged }: TrainingC
   );
 };
 
+// Separate current training nodes from nodes available for restoration.
 const TrainingsTab = ({ lab, trainingNodes }: TrainingsTabProps) => {
   const permissions = currentResourcePermissions();
   const navigate = useNavigate();

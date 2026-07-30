@@ -5,6 +5,7 @@ export type AcademicAffiliationInput = {
   departmentId?: unknown;
 };
 
+// Normalize the client payload and reject incomplete or duplicate department choices.
 export const normalizeAcademicAffiliations = (value: unknown) => {
   if (!Array.isArray(value) || value.length === 0) {
     throw new AppError(
