@@ -17,8 +17,8 @@ services:
     container_name: safetyhub-workspace
     volumes:
       - .:/workspace
-      - /workspace/backend/node_modules
-      - /workspace/frontend/node_modules
+      - backend_node_modules:/workspace/backend/node_modules
+      - frontend_node_modules:/workspace/frontend/node_modules
     working_dir: /workspace
     ports:
       - "3000:3000"
@@ -28,8 +28,15 @@ services:
       - .env.docker
     depends_on:
       - db
-    command: sleep infinity
+    command: >
+      bash -c "
+        npm ci --prefix backend &&
+        npm ci --prefix frontend &&
+        sleep infinity
+      "
 
 
 volumes:
   safetyhub_pgdata:
+  backend_node_modules:
+  frontend_node_modules:
