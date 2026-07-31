@@ -84,12 +84,18 @@ BACKEND_PORT=3001
 FRONTEND_PORT=3000
 
 JWT_SECRET="INSERT_SECRET"  // Generate a secret for development. For deployment, this should be one, consistent secret, **and it should not be compromised**
+BYPASS_EMAIL_VERIFICATION=false
+BYPASS_PURDUE_EMAIL_REQUIREMENT=false
 
 POSTGRES_PORT=5432
 BACKEND_PORT=3001
 FRONTEND_PORT=3000
 
 ```
+
+Keep both bypass flags set to `false` in normal environments. For local testing,
+`BYPASS_EMAIL_VERIFICATION=true` skips verification for signup and email changes,
+while `BYPASS_PURDUE_EMAIL_REQUIREMENT=true` permits non-Purdue addresses.
 
 For `.env.docker`:
 ```env.docker

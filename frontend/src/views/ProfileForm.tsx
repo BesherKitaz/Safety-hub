@@ -4,6 +4,7 @@ import axios from "axios";
 import { Alert, Autocomplete, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, MenuItem, Paper, Stack, TextField, Typography } from "@mui/material";
 import GradientBox from "../components/ui/GradientBox";
 import api from "../lib/api";
+import { BYPASS_EMAIL_VERIFICATION, isPurdueEmail, requiresPurdueEmail } from "../util/emailPolicy";
 
 type Role = "ADMIN" | "STAFF" | "SUPERVISOR" | "MENTOR" | "STUDENT";
 type ProfileData = {
@@ -86,7 +87,19 @@ export default function EditProfile({ mode }: EditProfileProps) {
   const requestEmailChange = async () => {
     setSaving(true); setError(null); setSuccess(null);
     try {
-      await api.post("/api/user/email-change/request", { email: newEmail });
+      if (requiresPurdueEmail() && !isPurdueEmail(newEmail)) {
+        setError("Use a Purdue University email ending in @purdue.edu.");
+        return;
+      }
+      const response = await api.post("/api/user/email-change/request", { email: newEmail });
+      if (BYPASS_EMAIL_VERIFICATION || response.data.data.verificationRequired === false) {
+        const updatedEmail = response.data.data.email;
+        setProfile((current) => ({ ...current, email: updatedEmail }));
+        setInitial((current) => ({ ...current, email: updatedEmail }));
+        setNewEmail("");
+        setSuccess(`Your email was updated to ${updatedEmail}.`);
+        return;
+      }
       setEmailChangeSent(true);
       setSuccess(`A verification link was sent to ${newEmail}. Your email will change only after you open it.`);
     } catch (requestError) {
@@ -129,7 +142,7 @@ export default function EditProfile({ mode }: EditProfileProps) {
     <Paper component="form" onSubmit={save} elevation={0} sx={{ p: { xs: 2.5, md: 4 }, border: "1px solid #dbe4ee", borderRadius: 4 }}>
       <Stack spacing={4} divider={<Divider flexItem />}>
         {permissions.identity && <Section title="Protected legal name" description="Legal names cannot be changed by the profile owner. Access depends on the editor’s role."><Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 2 }}><TextField label="Legal first name" value={profile.firstName} onChange={change("firstName")} required /><TextField label="Legal last name" value={profile.lastName} onChange={change("lastName")} required /></Box></Section>}
-        {permissions.self && <Section title="Email address" description="Only you can change your email. Every new address must be verified before it replaces the current one."><Stack spacing={2} sx={{ maxWidth: 600 }}><TextField label="Current email address" value={profile.email} slotProps={{ input: { readOnly: true } }} /><TextField label="New email address" type="email" value={newEmail} onChange={(event) => { setNewEmail(event.target.value); setEmailChangeSent(false); }} /><Button variant="outlined" onClick={requestEmailChange} disabled={saving || emailChangeSent || !newEmail.trim()} sx={{ alignSelf: "flex-start" }}>Send verification link</Button></Stack></Section>}
+        {permissions.self && <Section title="Email address" description={BYPASS_EMAIL_VERIFICATION ? "Only you can change your email. The new address takes effect immediately in this environment." : "Only you can change your email. Every new address must be verified before it replaces the current one."}><Stack spacing={2} sx={{ maxWidth: 600 }}><TextField label="Current email address" value={profile.email} slotProps={{ input: { readOnly: true } }} /><TextField label="New email address" type="email" value={newEmail} onChange={(event) => { setNewEmail(event.target.value); setEmailChangeSent(false); }} helperText={requiresPurdueEmail() ? "Use your @purdue.edu email address." : undefined} /><Button variant="outlined" onClick={requestEmailChange} disabled={saving || emailChangeSent || !newEmail.trim()} sx={{ alignSelf: "flex-start" }}>{BYPASS_EMAIL_VERIFICATION ? "Update email" : "Send verification link"}</Button></Stack></Section>}
         {permissions.basic && <Section title="Basic profile information" description="Contact, education, and organizational details."><Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 2 }}><TextField label="Job title" value={profile.jobTitle ?? ""} onChange={change("jobTitle")} /><TextField label="Graduation year" type="number" value={profile.graduationYear ?? ""} onChange={change("graduationYear")} slotProps={{ htmlInput: { min: 1900, max: new Date().getFullYear() + 10 } }} /><Autocomplete multiple options={colleges} value={selectedColleges} getOptionLabel={(option) => option.name} isOptionEqualToValue={(option, value) => option.id === value.id} onChange={(_event, value) => { const ids = value.map((college) => college.id); setSelectedCollegeIds(ids); setProfile((current) => ({ ...current, academicAffiliations: current.academicAffiliations.filter((entry) => ids.includes(entry.collegeId)) })); }} renderInput={(params) => <TextField {...params} label="College or school" helperText="Select every college or school associated with this user." />} /><Autocomplete multiple options={departmentOptions} value={selectedDepartments} disabled={!selectedColleges.length} getOptionLabel={(option) => `${option.name} — ${colleges.find((college) => college.id === option.collegeId)?.name ?? ""}`} isOptionEqualToValue={(option, value) => option.id === value.id} onChange={(_event, value) => setProfile((current) => ({ ...current, academicAffiliations: value.map((department) => ({ collegeId: department.collegeId, departmentId: department.id })) }))} renderInput={(params) => <TextField {...params} label="Department" helperText={selectedColleges.length ? "Select departments from the chosen colleges or schools." : "Select a college or school first."} />} /><TextField label="Phone number" value={profile.phoneNumber ?? ""} onChange={change("phoneNumber")} /><TextField label="Address" value={profile.address ?? ""} onChange={change("address")} multiline minRows={2} sx={{ gridColumn: { md: "1 / -1" } }} /></Box></Section>}
         {permissions.role && <Section title="Administrative settings" description="Role controls allowed for this account."><Stack spacing={2}><TextField select label="Role" value={profile.role} onChange={change("role")} disabled={!profile.isUserAgreementComplete} helperText={profile.isUserAgreementComplete ? "The selected role takes effect when changes are saved." : "This user must complete the user agreement before their role can be changed."} sx={{ maxWidth: 420 }}>{permissions.roleOptions.map((role) => <MenuItem key={role} value={role}>{role.charAt(0) + role.slice(1).toLowerCase()}</MenuItem>)}</TextField></Stack></Section>}
         {permissions.active && <Section title="Account status" description="Deactivated users cannot log in. This action does not affect certification records."><Alert severity={profile.isActive ? "info" : "warning"} action={<Button color="inherit" onClick={() => profile.isActive ? setConfirmOpen(true) : void updateActiveStatus()} disabled={saving}>{profile.isActive ? "Deactivate user" : "Reactivate user"}</Button>}>This account is currently {profile.isActive ? "active" : "deactivated"}.</Alert></Section>}

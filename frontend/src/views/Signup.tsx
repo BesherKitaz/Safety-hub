@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import AuthForm, { type AuthFormData } from '../components/AuthForm.tsx';
 import api from '../lib/api';
 import axios from 'axios';
+import { BYPASS_EMAIL_VERIFICATION } from '../util/emailPolicy';
 
 type ApiErrorResponse = {
   error: {
@@ -12,7 +13,7 @@ type ApiErrorResponse = {
 };
 
 const Signup = () => {
-  // Signup requires the email credential issued by the preceding verification flow.
+  // Signup normally requires the preceding email credential unless verification is explicitly bypassed.
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const verifiedEmail = searchParams.get('email')?.trim() ?? '';
@@ -24,7 +25,7 @@ const Signup = () => {
       return;
     }
 
-    if (!verifiedEmail || !verificationToken) {
+    if (!verifiedEmail || (!BYPASS_EMAIL_VERIFICATION && !verificationToken)) {
       navigate('/email', { replace: true });
     }
   }, [navigate, verifiedEmail, verificationToken]);
