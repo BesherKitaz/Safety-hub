@@ -75,7 +75,7 @@ const ToolModalForm = ({
   onClose: () => void;
   onUpdate: () => void | Promise<void>;
   toolId?: string | null;
-  popData?: { description?: string; name: string } | null;
+  popData?: { description?: string | null; name: string } | null;
   labId?: string | null;
   mode: "create" | "edit";
 }) => {
@@ -222,7 +222,7 @@ const ToolEditModal = ({
   onClose: () => void;
   onUpdate: () => void | Promise<void>;
   toolId: string;
-  popData:{ description?: string; name: string };
+  popData:{ description?: string | null; name: string };
 }) => {
   if (!toolId) {
     return (

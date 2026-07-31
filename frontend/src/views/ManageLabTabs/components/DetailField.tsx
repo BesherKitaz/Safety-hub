@@ -1,6 +1,6 @@
 import { Box, Typography } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import { ReactNode } from 'react';
+import { type ReactNode } from 'react';
 
 
 type DetailFieldProps = {

@@ -300,7 +300,10 @@ const ViewTraining = () => {
               backgroundColor: 'rgba(255,255,255,0.96)',
             }}
           >
-            <Stack spacing={2} alignItems="center">
+            <Stack
+              spacing={2}
+              sx={{ alignItems: "center" }}
+            >
               <CircularProgress size={44} />
               <Alert severity="info" sx={{ width: '100%', alignItems: 'center' }}>
                 Loading training details from the current API response.

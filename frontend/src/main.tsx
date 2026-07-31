@@ -1,6 +1,6 @@
 ﻿import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { CssBaseline, GlobalStyles } from '@mui/material'
+import { CssBaseline } from '@mui/material'
 import App from './App.tsx'
 import './index.css'
 
