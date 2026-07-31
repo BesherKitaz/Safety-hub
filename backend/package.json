@@ -8,7 +8,8 @@
     "seed": "node prisma/seed.js",
     "dev": "ts-node-dev --respawn src/server.ts",
     "build": "prisma generate && tsc",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "bootstrap:demo": "node dist/scripts/bootstrapDemo.js"
   },
   "keywords": [],
   "author": "",
