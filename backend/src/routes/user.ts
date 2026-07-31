@@ -58,6 +58,7 @@ router.post("/send-email", async (req, res) => {
         email: result.email,
         previewUrl: result.previewUrl,
         requestToken: result.requestToken,
+        verificationRequired: result.verificationRequired,
       },
     });
   } catch (error) {
@@ -109,7 +110,10 @@ router.get('/verify-email', async (req, res) => {
 router.post('/email-change/request', authMiddleware, async (req: AuthRequest, res) => {
   try {
     const data = await sendEmailChangeVerification(req.user!.userId, req.body?.email);
-    return res.json({ message: 'Verification email sent successfully', data });
+    return res.json({
+      message: data.verificationRequired ? 'Verification email sent successfully' : 'Email address updated successfully',
+      data,
+    });
   } catch (error) {
     return sendError(res, error, { statusCode: 400, code: 'EMAIL_CHANGE_REQUEST_FAILED', message: 'Unable to start email change' });
   }

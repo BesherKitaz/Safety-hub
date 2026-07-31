@@ -4,6 +4,7 @@ import { Alert, Autocomplete, Box, Button, Chip, IconButton, InputAdornment, Lin
 import { Visibility, VisibilityOff, VerifiedUserOutlined } from "@mui/icons-material";
 import { Link } from "react-router-dom";
 import api from "../lib/api";
+import { isPurdueEmail, requiresPurdueEmail } from "../util/emailPolicy";
 // Provide immediate password guidance; the backend remains the security authority.
 const passwordScore = (password: string) => [password.length >= 12, /[a-z]/.test(password) && /[A-Z]/.test(password), /\d/.test(password), /[^A-Za-z0-9]/.test(password)].filter(Boolean).length;
 
@@ -68,6 +69,10 @@ export default function AuthForm({ mode, onSubmit, signupEmail }: AuthFormProps)
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError(null);
+    if ((mode === "email" || mode === "signup") && requiresPurdueEmail() && !isPurdueEmail(mode === "signup" ? (signupEmail ?? "") : data.email)) {
+      setError("Use a Purdue University email ending in @purdue.edu.");
+      return;
+    }
     if (needsConfirmation && data.password !== data.confirmPassword) { setError("Passwords must match."); return; }
     if (needsConfirmation && (data.password.length < 12 || strength < 3)) { setError("Choose a stronger password with at least 12 characters."); return; }
     if (mode === "signup" && (selectedColleges.length === 0 || selectedDepartments.length === 0)) {

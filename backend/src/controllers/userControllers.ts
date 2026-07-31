@@ -16,6 +16,7 @@ import { canChangeRole } from '../util/agreementEligibility';
 import { directoryTargetRoles } from '../middleware/resourceAuthorization';
 import { UserRole } from '@prisma/client';
 import { normalizeAcademicAffiliations, type AcademicAffiliationInput } from '../util/academicAffiliations';
+import { isEmailVerificationBypassed, isPurdueEmail, isPurdueEmailRequirementBypassed } from '../util/emailPolicy';
 
 type User = {
     firstName: string;
@@ -59,6 +60,15 @@ const getFrontendBaseUrl = () => {
 
 const normalizeEmail = (email: string) => email.trim().toLowerCase();
 
+const requireAllowedNewEmail = (email: string) => {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        throw new AppError(400, 'INVALID_EMAIL', 'Enter a valid email address');
+    }
+    if (!isPurdueEmailRequirementBypassed() && !isPurdueEmail(email)) {
+        throw new AppError(400, 'PURDUE_EMAIL_REQUIRED', 'Email must be a Purdue University email ending in @purdue.edu');
+    }
+};
+
 const hashToken = (token: string) =>
     crypto.createHash('sha256').update(token).digest('hex');
 
@@ -72,6 +82,7 @@ const getVerifiedEmailRecord = async (email: string) => {
 };
 
 const requireVerifiedEmail = async (email: string, requestToken: string) => {
+    if (isEmailVerificationBypassed()) return null;
     const credentialHash = requestToken ? hashToken(requestToken) : '';
     const verifiedEmail = requestToken ? await prisma.emailVerificationToken.findFirst({
         where: { email: normalizeEmail(email), purpose: 'SIGNUP', OR: [{ requestTokenHash: credentialHash }, { tokenHash: credentialHash }], verifiedAt: { not: null }, expiresAt: { gt: new Date() } },
@@ -87,6 +98,7 @@ const requireVerifiedEmail = async (email: string, requestToken: string) => {
 // Start the verified-email signup flow and invalidate any older request for the address.
 const sendVerificationEmail = async (email: string) => {
     const normalizedEmail = normalizeEmail(email);
+    requireAllowedNewEmail(normalizedEmail);
 
     const existingUser = await prisma.user.findUnique({
         where: { email: normalizedEmail },
@@ -94,6 +106,16 @@ const sendVerificationEmail = async (email: string) => {
 
     if (existingUser) {
         throw new AppError(409, 'USER_EXISTS', 'A user with this email already exists');
+    }
+
+    if (isEmailVerificationBypassed()) {
+        return {
+            email: normalizedEmail,
+            message: 'Email accepted; verification is bypassed',
+            previewUrl: null,
+            requestToken: null,
+            verificationRequired: false,
+        };
     }
 
     const rawToken = crypto.randomBytes(32).toString('hex');
@@ -142,6 +164,7 @@ const sendVerificationEmail = async (email: string) => {
         message: 'Verification email sent successfully',
         previewUrl: result.previewUrl,
         requestToken,
+        verificationRequired: true,
     };
 };
 
@@ -567,9 +590,7 @@ const updateUserProfile = async (actorId: string, targetId: string, input: Profi
 // Only the authenticated account owner can initiate a change to a new unique email.
 const sendEmailChangeVerification = async (userId: string, emailValue: unknown) => {
     const email = typeof emailValue === 'string' ? normalizeEmail(emailValue) : '';
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        throw new AppError(400, 'INVALID_EMAIL', 'Enter a valid email address');
-    }
+    requireAllowedNewEmail(email);
     const [user, duplicate] = await Promise.all([
         prisma.user.findUnique({ where: { id: userId }, select: { id: true, email: true } }),
         prisma.user.findUnique({ where: { email }, select: { id: true } }),
@@ -577,6 +598,15 @@ const sendEmailChangeVerification = async (userId: string, emailValue: unknown) 
     if (!user) throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
     if (email === user.email) throw new AppError(400, 'EMAIL_UNCHANGED', 'Enter a different email address');
     if (duplicate) throw new AppError(409, 'EMAIL_IN_USE', 'A user with this email already exists');
+
+    if (isEmailVerificationBypassed()) {
+        const updated = await prisma.user.update({
+            where: { id: userId },
+            data: { email },
+            select: { id: true, email: true },
+        });
+        return { ...updated, verificationRequired: false, previewUrl: null };
+    }
 
     const rawToken = crypto.randomBytes(32).toString('hex');
     const tokenHash = hashToken(rawToken);
@@ -593,7 +623,7 @@ const sendEmailChangeVerification = async (userId: string, emailValue: unknown) 
         text: `Confirm your new email address by opening this link: ${verificationUrl}`,
         html: `<h2>SafetyHub</h2><p>Confirm this email address for your account.</p><p><a href="${verificationUrl}">Verify new email</a></p>`,
     });
-    return { email, previewUrl: result.previewUrl };
+    return { email, previewUrl: result.previewUrl, verificationRequired: true };
 };
 
 // The emailed bearer token identifies the requesting account and finalizes the change once.
@@ -721,10 +751,11 @@ function checkPasswordStrength(
   };
 }
 
-// Create an account only after email verification and academic-affiliation validation.
+// Create an account after applying the configured email and academic-affiliation policies.
 const createUser = async (userData: User) => {
   try {
     const normalizedEmail = normalizeEmail(userData.email);
+    requireAllowedNewEmail(normalizedEmail);
     await requireVerifiedEmail(normalizedEmail, userData.verificationToken);
 
     const existingUser = await prisma.user.findUnique({
@@ -892,16 +923,8 @@ const validateSignupData = async (userData: { email?: string; password?: string;
       "Missing required user data"
     );
   }
+  requireAllowedNewEmail(normalizeEmail(userData.email));
   normalizeAcademicAffiliations(userData.academicAffiliations);
-    // Check if the email is a Purdue University email
-  /*   const emailPattern = /^[a-zA-Z0-9._%+-]+@purdue\.edu$/;
-    if (!emailPattern.test(userData.email)) {
-        throw new AppError(
-            400,
-            "INVALID_EMAIL",
-            "Email must be a Purdue University email"
-        );
-    } */
 
     // Check if password is acceptable (e.g., meets minimum length requirements)
     const passwordStrength = checkPasswordStrength(userData.password, [

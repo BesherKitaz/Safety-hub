@@ -5,6 +5,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import AuthForm, { type AuthFormData } from "../components/AuthForm";
 import api from "../lib/api";
+import { BYPASS_EMAIL_VERIFICATION } from "../util/emailPolicy";
 
 const errorMessage = (error: unknown) => axios.isAxiosError(error) ? error.response?.data?.error?.message ?? "Unable to send the verification email." : "Unable to send the verification email.";
 
@@ -33,6 +34,10 @@ export default function EmailForm() {
   const submit = async (data: AuthFormData) => {
     try {
       const response = await api.post("/api/user/send-email", { email: data.email });
+      if (BYPASS_EMAIL_VERIFICATION || response.data.data.verificationRequired === false) {
+        navigate(`/signup?email=${encodeURIComponent(response.data.data.email)}`, { replace: true });
+        return;
+      }
       setParams({ requestToken: response.data.data.requestToken, email: data.email });
     } catch (error) { throw new Error(errorMessage(error), { cause: error }); }
   };
