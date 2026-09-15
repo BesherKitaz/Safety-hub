@@ -1,9 +1,8 @@
 import { useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import AuthForm, { type AuthFormData } from '../components/AuthForm.tsx';
 import api from '../lib/api';
 import axios from 'axios';
-import { BYPASS_EMAIL_VERIFICATION } from '../util/emailPolicy';
 
 type ApiErrorResponse = {
   error: {
@@ -13,11 +12,7 @@ type ApiErrorResponse = {
 };
 
 const Signup = () => {
-  // Signup normally requires the preceding email credential unless verification is explicitly bypassed.
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const verifiedEmail = searchParams.get('email')?.trim() ?? '';
-  const verificationToken = searchParams.get('requestToken')?.trim() || searchParams.get('linkToken')?.trim() || '';
 
   useEffect(() => {
     if (localStorage.getItem('token')) {
@@ -25,19 +20,16 @@ const Signup = () => {
       return;
     }
 
-    if (!verifiedEmail || (!BYPASS_EMAIL_VERIFICATION && !verificationToken)) {
-      navigate('/email', { replace: true });
-    }
-  }, [navigate, verifiedEmail, verificationToken]);
+  }, [navigate]);
 
   const handleSignup = async (data: AuthFormData) => {
     try {
-      await api.post('/api/user/signup', {
-        ...data,
-        email: verifiedEmail,
-        verificationToken,
-      });
-      navigate('/login', { replace: true });
+      const response = await api.post('/api/user/signup', { name: data.name });
+      localStorage.setItem('token', response.data.token);
+      localStorage.setItem('userRole', response.data.role);
+      localStorage.setItem('userId', response.data.id);
+      navigate('/', { replace: true });
+      window.location.reload();
     } catch (error) {
       if (axios.isAxiosError<ApiErrorResponse>(error)) {
         const apiError = error.response?.data?.error;
@@ -52,7 +44,7 @@ const Signup = () => {
     }
   };
 
-  return <AuthForm mode='signup' onSubmit={handleSignup} signupEmail={verifiedEmail} />;
+  return <AuthForm mode='signup' onSubmit={handleSignup} />;
 };
 
 export default Signup;

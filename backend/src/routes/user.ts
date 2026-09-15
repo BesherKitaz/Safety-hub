@@ -41,6 +41,29 @@ import { parseOptionalBooleanFilter } from '../util/managementFilters';
 
 const router = Router();
 
+const EMAIL_DISABLED_MESSAGE = 'Sending emails is disabled in demo';
+
+// The demo never sends, verifies, changes, or resets anything through email.
+router.use(
+  [
+    '/send-email',
+    '/email-verification/status',
+    '/verify-email',
+    '/email-change/request',
+    '/email-change/confirm',
+    '/password-reset/request',
+    '/password-reset/confirm',
+    '/password-reset/status',
+    '/password-reset/complete',
+    '/test-email',
+    '/profile/:id/agreement/reminder',
+  ],
+  (_req, res) => sendError(
+    res,
+    new AppError(503, 'EMAIL_DISABLED_IN_DEMO', EMAIL_DISABLED_MESSAGE),
+  ),
+);
+
 /* Email-related routes */
 router.post("/send-email", async (req, res) => {
   try {
@@ -415,10 +438,12 @@ router.post("/signup", async (req, res) => {
   try {
     await validateSignupData(userData);
     const user = await createUser(userData);
-    res.json({
+    res.status(201).json({
       message: "User created successfully",
+      token: user.token,
+      role: user.role,
+      id: user.id,
       data: user,
-      status: 201,
     });
   } catch (error) {
     console.error("Error creating user:", error);
@@ -432,21 +457,18 @@ router.post("/signup", async (req, res) => {
 
 
 // Login Route
-router.post("/login", async (req, res, next) => {
-
-  const { email, password } = req.body;
-  if (!email || !password) {
-    return sendError(res, new AppError(400, 'CREDENTIALS_REQUIRED', 'Email and password are required'));
+router.post("/login", async (req, res) => {
+  const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+  if (!name) {
+    return sendError(res, new AppError(400, 'NAME_REQUIRED', 'Please enter your name'));
   }
   try {
-    const token = await login(email, password);
-    const userId = await getUserIdByEmail(email);
-    const userRole = await getUserRoleById(userId);
+    const { token, user } = await login(name);
     res.json({
       message: "User logged in successfully",
-      token: token,
-      role: userRole,
-      id: userId,
+      token,
+      role: user.role,
+      id: user.id,
       status: 200,
     });
     

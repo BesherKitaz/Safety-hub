@@ -503,7 +503,6 @@ const Profile = () => {
   const [agreementLinks, setAgreementLinks] = useState<AgreementLink[]>([]);
   const [acknowledgedLinkIds, setAcknowledgedLinkIds] = useState<string[]>([]);
   const [agreementLinksLoading, setAgreementLinksLoading] = useState(false);
-  const [reminderSubmitting, setReminderSubmitting] = useState(false);
   const [reminderMessage, setReminderMessage] = useState("");
   const { id } = useParams<{ id?: string }>();
   const profileId = id?.trim();
@@ -608,18 +607,8 @@ const Profile = () => {
       setAgreementLinksLoading(false);
     }
   };
-  const sendAgreementReminder = async () => {
-    setReminderSubmitting(true);
-    setReminderMessage("");
-    try {
-      await api.post(`/api/user/profile/${userData.id}/agreement/reminder`);
-      setReminderMessage(`Agreement reminder sent to ${userData.email}.`);
-    } catch (requestError) {
-      console.error("Error sending agreement reminder:", requestError);
-      setReminderMessage("The agreement reminder could not be sent.");
-    } finally {
-      setReminderSubmitting(false);
-    }
+  const sendAgreementReminder = () => {
+    setReminderMessage("Sending emails is disabled in demo");
   };
   const highestLevel = allCertifications.reduce(
     (maxLevel, certification) => Math.max(maxLevel, certification.level),
@@ -834,10 +823,9 @@ const Profile = () => {
                     variant="outlined"
                     size="large"
                     sx={{ px: 3 }}
-                    onClick={isOwnProfile ? () => void openAgreementDialog() : () => void sendAgreementReminder()}
-                    disabled={reminderSubmitting}
+                    onClick={isOwnProfile ? () => void openAgreementDialog() : sendAgreementReminder}
                   >
-                    {isOwnProfile ? 'Complete User Agreement' : reminderSubmitting ? 'Sending…' : 'Send agreement reminder'}
+                    {isOwnProfile ? 'Complete User Agreement' : 'Send agreement reminder'}
                   </Button>
                 )}
               </Stack>

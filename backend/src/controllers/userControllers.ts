@@ -18,14 +18,7 @@ import { UserRole } from '@prisma/client';
 import { normalizeAcademicAffiliations, type AcademicAffiliationInput } from '../util/academicAffiliations';
 import { isEmailVerificationBypassed, isPurdueEmail, isPurdueEmailRequirementBypassed } from '../util/emailPolicy';
 
-type User = {
-    firstName: string;
-    lastName: string;
-    email: string;
-    password: string;
-    verificationToken: string;
-    academicAffiliations: AcademicAffiliationInput[];
-}
+type User = { name: string; }
 
 type CertificationsByLab = {
     labId: string;
@@ -751,75 +744,46 @@ function checkPasswordStrength(
   };
 }
 
-// Create an account after applying the configured email and academic-affiliation policies.
+const splitDemoName = (value: string) => {
+  const parts = value.trim().replace(/\s+/g, ' ').split(' ');
+  return {
+    firstName: parts[0]!,
+    lastName: parts.slice(1).join(' '),
+  };
+};
+
+const createSessionToken = (user: { id: string; email: string; role: UserRole }) => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) throw new AppError(500, 'JWT_SECRET_MISSING', 'JWT secret is not configured');
+  return jwt.sign({ userId: user.id, email: user.email, role: user.role }, secret, { expiresIn: '7d' });
+};
+
+// Demo signup deliberately creates a complete administrator account from only a name.
 const createUser = async (userData: User) => {
   try {
-    const normalizedEmail = normalizeEmail(userData.email);
-    requireAllowedNewEmail(normalizedEmail);
-    await requireVerifiedEmail(normalizedEmail, userData.verificationToken);
-
-    const existingUser = await prisma.user.findUnique({
-      where: {
-        email: normalizedEmail,
-      },
-    });
-
-    if (existingUser) {
-      throw new AppError(
-        409,
-        "USER_EXISTS",
-        "A user with this email already exists"
-      );
-    }
-
-    const affiliations = normalizeAcademicAffiliations(userData.academicAffiliations);
-    const departments = await prisma.department.findMany({
-      where: {
-        id: { in: affiliations.map((entry) => entry.departmentId) },
-                isActive: true,
-        college: { isActive: true },
-      },
-      select: { id: true, collegeId: true },
-    });
-    const departmentById = new Map(departments.map((department) => [department.id, department]));
-    const invalidAffiliation = affiliations.find(
-      (entry) => departmentById.get(entry.departmentId)?.collegeId !== entry.collegeId,
-    );
-    if (invalidAffiliation || departments.length !== affiliations.length) {
-      throw new AppError(
-        400,
-        'INVALID_ACADEMIC_AFFILIATION',
-        'One or more selected departments do not belong to the selected active colleges.',
-      );
-    }
-
-    const hashedPassword = await bcrypt.hash(userData.password, 10);
-    const createdUser = await prisma.$transaction(async (tx) => {
-      const user = await tx.user.create({
+    const { firstName, lastName } = splitDemoName(userData.name);
+    const slug = userData.name.toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/^\.|\.$/g, '') || 'demo.user';
+    const email = `${slug}.${crypto.randomBytes(6).toString('hex')}@demo.safetyhub.local`;
+    const passwordHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10);
+    const completedAt = new Date();
+    const createdUser = await prisma.user.create({
         data: {
-          firstName: userData.firstName,
-          lastName: userData.lastName,
-          email: normalizedEmail,
-          passwordHash: hashedPassword,
-          academicAffiliations: {
-            create: affiliations.map((entry) => ({
-              collegeId: entry.collegeId,
-              departmentId: entry.departmentId,
-            })),
-          },
+          firstName, lastName, email, passwordHash,
+          role: UserRole.ADMIN,
+          jobTitle: 'Demo Administrator',
+          department: 'Demo',
+          phoneNumber: 'Demo',
+          address: 'Demo',
+          isProfileComplete: true,
+          isUserAgreementComplete: true,
+          userAgreementSource: 'DEMO_AUTO_COMPLETE',
+          userAgreementCompletedAt: completedAt,
+          userAgreementSignature: userData.name.trim(),
+          userAgreementAcknowledgements: [],
         },
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          email: true,
-        },
-      });
-      await tx.emailVerificationToken.deleteMany({ where: { email: normalizedEmail } });
-      return user;
+        select: { id: true, firstName: true, lastName: true, email: true, role: true },
     });
-
-    return createdUser;
+    return { ...createdUser, token: createSessionToken(createdUser) };
   } catch (error) {
     if (error instanceof AppError) {
       throw error;
@@ -833,45 +797,18 @@ const createUser = async (userData: User) => {
   }
 };
 
-const login = async (email: string, password: string) => {
-    const normalizedEmail = normalizeEmail(email);
-    const user = await prisma.user.findUnique({
-        where: {
-            email: normalizedEmail
-        }
+const login = async (name: string) => {
+    const normalizedName = name.trim().replace(/\s+/g, ' ');
+    const found = await prisma.user.findFirst({
+        where: { fullName: { equals: normalizedName, mode: 'insensitive' } },
+        orderBy: { createdAt: 'desc' },
     });
-    if (!user) {
-        throw new AppError(401, 'INVALID_CREDENTIALS', 'Invalid email or password');
-    }
-    if (!user.isActive) throw new AppError(403, 'ACCOUNT_DEACTIVATED', 'This account has been deactivated. Contact an administrator for help.');
-    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
-    if (!isPasswordValid) {
-        throw new AppError(401, 'INVALID_CREDENTIALS', 'Invalid email or password');    
-    }   
-
-    const JWT_SECRET = process.env.JWT_SECRET;
-    if (!JWT_SECRET) {
-        throw new AppError(500, 'JWT_SECRET_MISSING', 'JWT secret is not configured');
-    }
-
-        let token: string;
-        try {
-            //Creating jwt token
-            token = jwt.sign(
-                {
-                    userId: user.id,
-                    email: user.email,
-                    role: user.role
-                },
-                JWT_SECRET,
-                { expiresIn: "7d" }
-            );
-        } catch (err) {
-            console.log(err);
-            throw new AppError(500, 'TOKEN_CREATION_FAILED', 'Error! Something went wrong.');
-        }
-
-    return token;
+    if (!found) throw new AppError(401, 'USER_NOT_FOUND', 'No user with that name was found');
+    const user = await prisma.user.update({
+      where: { id: found.id },
+      data: { role: UserRole.ADMIN, isActive: true, isUserAgreementComplete: true },
+    });
+    return { token: createSessionToken(user), user };
 };
 
 
@@ -909,41 +846,13 @@ const getUserRoleById = async (id: string) => {
 }
 
 
-const validateSignupData = async (userData: { email?: string; password?: string; firstName?: string; lastName?: string; academicAffiliations?: unknown; }) => {
-    // Check if a user with the given email already exists
-    if (
-        !userData.email ||
-        !userData.password ||
-        !userData.firstName ||
-        !userData.lastName
-    ) {
-    throw new AppError(
-      400,
-      "INVALID_INPUT",
-      "Missing required user data"
-    );
+const validateSignupData = async (userData: { name?: string }) => {
+  if (typeof userData.name !== 'string' || userData.name.trim().length < 2) {
+    throw new AppError(400, 'INVALID_NAME', 'Please enter your name');
   }
-  requireAllowedNewEmail(normalizeEmail(userData.email));
-  normalizeAcademicAffiliations(userData.academicAffiliations);
-
-    // Check if password is acceptable (e.g., meets minimum length requirements)
-    const passwordStrength = checkPasswordStrength(userData.password, [
-      userData.firstName,
-      userData.lastName,
-      userData.email,
-    ]);
-    
-    if (
-      !passwordStrength.valid ||
-      passwordStrength.score < 3 ||
-      userData.password.length < 12
-    ) {
-      throw new AppError(
-        400,
-        "WEAK_PASSWORD",
-        "Password does not meet strength requirements"
-      );
-    }
+  if (userData.name.trim().length > 100) {
+    throw new AppError(400, 'INVALID_NAME', 'Name must be 100 characters or fewer');
+  }
 }
 
 

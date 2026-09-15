@@ -16,7 +16,7 @@ export default function Login() {
   }, [navigate]);
   const login = async (data: AuthFormData) => {
     try {
-      const response = await api.post<LoginResponse>("/api/user/login", { email: data.email, password: data.password });
+      const response = await api.post<LoginResponse>("/api/user/login", { name: data.name });
       localStorage.setItem("token", response.data.token);
       localStorage.setItem("userRole", response.data.role);
       localStorage.setItem("userId", response.data.id);

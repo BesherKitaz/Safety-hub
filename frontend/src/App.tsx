@@ -17,10 +17,6 @@ import Lab from  './views/Labs.tsx';
 import DeactivatedLabs from './views/DeactivatedLabs.tsx';
 import LabManagement from './views/LabManagement.tsx'
 import ViewTraining from './views/ManageLabTabs/ViewTraining.tsx'
-import EmailForm from './views/EmailForm'
-import VerifyEmail from './views/VerifyEmail'
-import ForgotPassword from './views/ForgotPassword'
-import ResetPassword from './views/ResetPassword'
 import AcademicAffiliations from './views/AcademicAffiliations'
 import HeaderContext from './contexts/HeaderContext.tsx';
 import Layout from './Layout';
@@ -96,12 +92,12 @@ function App() {
               <Route path="/lab-management/lab/:labId/training/:trainingId" element={<RequireRole roles={operationalRoles}><ViewTraining /></RequireRole>} />
             </Route>
 
-            <Route path="/email" element={<EmailForm />} /> 
-            <Route path="/verify-email" element={<VerifyEmail />} />
+            <Route path="/email" element={<Navigate to="/signup" replace />} />
+            <Route path="/verify-email" element={<Navigate to="/signup" replace />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/forgot-password" element={<Navigate to="/login" replace />} />
+            <Route path="/reset-password" element={<Navigate to="/login" replace />} />
             <Route path="*" element={<Navigate to={isLoggedIn() ? "/" : "/login"} replace />} />
           </Routes>
         </BrowserRouter>
